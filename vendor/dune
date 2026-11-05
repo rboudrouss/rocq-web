@@ -1,0 +1,3 @@
+; coq-lsp's directories which the worker does not need, and which do not
+; build for wasm (modes native)
+(subdir coq-lsp/lsp-server (data_only_dirs wasm jsoo native))
