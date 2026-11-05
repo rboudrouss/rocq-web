@@ -16,8 +16,9 @@
   c_of_ocaml: v1 would need to be boxed
   ```
 
-  (`--word-size 32` too; c_of_ocaml 872d24b1.) A program without
-  `--dynlink` gets through only when global dead code removes it.
+  (`--word-size 32` too, and in a program with or without `--dynlink`;
+  c_of_ocaml 872d24b1.) The whole Rocq program happens to compile without
+  `--dynlink`, not with it.
 
 ## Compat build (wasm32 + CPS stack)
 
