@@ -1,0 +1,3 @@
+(library
+ (name rocq_web_plugins)
+ (libraries rocq-runtime.vernac findlib ocaml-emcc.dynlink))

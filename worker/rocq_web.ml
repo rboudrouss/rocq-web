@@ -11,7 +11,7 @@ let () =
     | Some d -> d
     | None -> Filename.concat (Filename.dirname Sys.executable_name) "plugins"
   in
-  Plugins.install ~dir;
+  Rocq_web_plugins.Plugins.install ~dir;
   match List.tl (Array.to_list Sys.argv) with
   | "compile" :: args -> Coqc.main args
   | "repl" :: args -> Coqtop.(start_coq coqtop_toplevel args)

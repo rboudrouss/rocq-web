@@ -1,7 +1,15 @@
-; Rocq with its plugins loaded as wasm side modules (wasm64 + JSPI).
+; Rocq (rocq compile/repl) with its plugins loaded as wasm side modules
 (executable
  (name rocq_web)
- (modules rocq_web plugins)
+ (modules rocq_web)
  (modes byte)
  (link_flags (-linkall))
- (libraries rocq-runtime.toplevel findlib ocaml-emcc.dynlink))
+ (libraries rocq-runtime.toplevel rocq_web_plugins))
+
+; coq-lsp's server, for a Web Worker
+(executable
+ (name lsp_worker)
+ (modules lsp_worker)
+ (modes byte)
+ (link_flags (-linkall))
+ (libraries coq-lsp.controller js_of_ocaml unix rocq_web_plugins lsp_io))

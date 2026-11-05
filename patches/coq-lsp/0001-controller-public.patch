@@ -1,0 +1,15 @@
+The controller library public (coq-lsp.controller), for the LSP worker
+of rocq-web, outside of coq-lsp's dune project.
+
+diff --git a/controller/dune b/controller/dune
+index ace3af68..5aff6380 100644
+--- a/controller/dune
++++ b/controller/dune
+@@ -9,6 +9,7 @@
+ 
+ (library
+  (name controller)
++ (public_name coq-lsp.controller)
+  (modules :standard \ request)
+  (libraries
+   ppx_deriving_yojson.runtime

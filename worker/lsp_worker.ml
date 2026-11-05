@@ -1,0 +1,119 @@
+(* coq-lsp's server in a Web Worker, after coq-lsp's lsp-server/jsoo, with
+   its loop in [main] rather than in callbacks: with JSPI, the deep
+   recursions of Rocq go on new stacks only from the program's main code.
+   It waits for messages by suspending (lsp_io.c). *)
+
+module Lsp = Fleche_lsp
+open Js_of_ocaml
+open Controller
+
+let wait = Lsp_io.wait
+
+let js = Js.Unsafe.get Js.Unsafe.global "rocqWeb"
+
+(* The next queued message, if any *)
+let pop () : string option =
+  Js.Opt.to_option (Js.Unsafe.meth_call js "pop" [||]) |> Stdlib.Option.map Js.to_string
+
+let post_message (msg : Lsp.Base.Message.t) =
+  let s = Yojson.Safe.to_string (Lsp.Base.Message.to_yojson msg) in
+  ignore (Js.Unsafe.meth_call js "post" [| Js.Unsafe.inject (Js.string s) |])
+
+let parse s =
+  match Yojson.Safe.from_string s with
+  | json -> Lsp.Base.Message.of_yojson json
+  | exception Yojson.Json_error e -> Error e
+
+module CB = Lsp_core.CB (struct
+  let ofn n = Lsp.Base.Message.notification n |> post_message
+end)
+
+let io = CB.cb
+
+let error message = Fleche.Io.(Report.message_ ~io ~lvl:Level.Error ~message)
+
+(* The messages queued meanwhile, to the controller's queue *)
+let rec drain () =
+  match pop () with
+  | None -> ()
+  | Some s ->
+    (match parse s with
+     | Ok msg -> Lsp_core.enqueue_message msg
+     | Error e -> error ("Error in JSON RPC Message Parsing: " ^ e));
+    drain ()
+
+(* The JavaScript event loop gets to run (and queue messages) at least
+   every [slice] seconds of work *)
+let slice = 0.05
+
+let rec process_queue ~last ~state =
+  drain ();
+  match Lsp_core.dispatch_or_resume_check ~io ~ofn:post_message ~state with
+  | None -> ()
+  | Some (Yield state) ->
+    ignore (wait 100.);
+    process_queue ~last:(Unix.gettimeofday ()) ~state
+  | Some (Cont state) ->
+    let now = Unix.gettimeofday () in
+    if now -. last > slice then (
+      ignore (wait 0.);
+      process_queue ~last:(Unix.gettimeofday ()) ~state)
+    else process_queue ~last ~state
+
+let rec init_loop ~root_state ~cmdline ~debug =
+  let rec next () =
+    match pop () with
+    | Some s -> s
+    | None -> ignore (wait 1000.); next ()
+  in
+  match parse (next ()) with
+  | Error e ->
+    error ("Error in JSON RPC Message Parsing: " ^ e);
+    init_loop ~root_state ~cmdline ~debug
+  | Ok msg -> (
+    match Lsp_core.lsp_init_process ~ofn:post_message ~io ~cmdline ~debug msg with
+    | Lsp_core.Init_effect.Exit -> ()
+    | Lsp_core.Init_effect.Loop -> init_loop ~root_state ~cmdline ~debug
+    | Lsp_core.Init_effect.Success workspaces ->
+      let default_workspace = Coq.Workspace.default ~debug ~cmdline in
+      let state =
+        { Lsp_core.State.root_state; cmdline; workspaces; default_workspace }
+      in
+      process_queue ~last:(Unix.gettimeofday ()) ~state)
+
+let getenv v d = Stdlib.Option.value (Sys.getenv_opt v) ~default:d
+
+let main () =
+  Sys.interactive := false;
+  Coq.Limits.(select Coq);
+  Coq.Limits.start ();
+  Fleche.Io.CallBack.set io;
+  let plugins = getenv "ROCQ_WEB_PLUGINS" "/plugins" in
+  let coqlib = getenv "ROCQLIB" "/coqlib" in
+  let debug = Sys.getenv_opt "ROCQ_WEB_DEBUG" <> None in
+  let root_state =
+    let load_plugin = Coq.Loader.plugin_handler (Some (Rocq_web_plugins.Plugins.load_packages ~dir:plugins)) in
+    let load_module file = CErrors.user_err Pp.(str "Cannot load " ++ str file) in
+    Coq.Init.(
+      coq_init
+        { debug; record_comments = false; load_module; load_plugin; vm = true; warnings = None })
+  in
+  let loadpath unix_path coq_path implicit =
+    Loadpath.{ unix_path; coq_path; installed = true; implicit; recursive = true }
+  in
+  let cmdline =
+    Coq.Workspace.CmdLine.
+      { coqlib
+      ; findlib_config = Sys.getenv_opt "OCAMLFIND_CONF"
+      ; ocamlpath = []
+      ; vo_load_path =
+          [ loadpath (Filename.concat coqlib "theories")
+              Names.(DirPath.make [ Id.of_string "Corelib" ]) true
+          ; loadpath (Filename.concat coqlib "user-contrib") Names.DirPath.empty false ]
+      ; require_libraries = [ (None, "Corelib.Init.Prelude") ]
+      ; args = [ "-noinit" ]
+      }
+  in
+  init_loop ~root_state ~cmdline ~debug
+
+let () = main ()
