@@ -27,9 +27,10 @@ mkdir -p "$out/plugins"
 "$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
 
 # Rocq's own plugins: each findlib package rocq-runtime.plugins.* whose
-# archive is a real library (the parent packages only hold fake.cma).
+# archive is a real library (the parent packages hold fake.cma, tutorial
+# none).
 for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^rocq-runtime\.plugins\./ {print $1}'); do
   cma=$(ocamlfind query -predicates byte -format '%d/%a' "$pkg")
-  case $cma in */|*/fake.cma) continue ;; esac
+  case $cma in */fake.cma) continue ;; *.cma) ;; *) continue ;; esac
   "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/rocq_web.js"
 done
