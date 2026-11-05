@@ -3,3 +3,8 @@ _src/
 logs/
 out/
 *.install
+*.vo
+*.vos
+*.vok
+*.glob
+.*.aux
