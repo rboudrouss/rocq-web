@@ -11,7 +11,7 @@ when a document needs them.
 |-|------|--------|
 | target | wasm64 (63-bit OCaml integers) | wasm32 (31-bit) |
 | deep recursion | `--jspi` | `--cps-stack` |
-| plugins | wasm side modules, fetched on `Declare ML Module` (`--dynlink`) | linked in the program (`--cps-stack` does not support `--dynlink`) |
+| plugins | wasm side modules, fetched on `Declare ML Module` (`--dynlink`) | the same, built for wasm32 (waits for ocaml-emcc to support `--cps-stack` with `--dynlink`) |
 | browsers | memory64 and JSPI: Chrome/Edge 137+ (Firefox once it ships JSPI) | all |
 | `.vo` files | a 63-bit set | a 31-bit set |
 
@@ -29,10 +29,10 @@ the same Rocq version and the same plugins.
 
 ### Compat build and plugins
 
-Without dynamic loading, compat links a fixed set of plugins (Rocq's own,
-and those of the libraries offered: rocq-elpi for Hierarchy-Builder and
-mathcomp 2, Equations...). Packages needing another plugin are offered by
-the full build only.
+ocaml-emcc does not support `--cps-stack` with `--dynlink` yet; this is
+being worked on there. Until then compat is prepared
+(`scripts/build.sh compat`) but not built. Once it works, compat loads
+plugins as full does, from its own plugin set.
 
 ## Plugins
 
