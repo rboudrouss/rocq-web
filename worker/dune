@@ -1,0 +1,7 @@
+; Rocq with its plugins loaded as wasm side modules (wasm64 + JSPI).
+(executable
+ (name rocq_web)
+ (modules rocq_web plugins)
+ (modes byte)
+ (link_flags (-linkall))
+ (libraries rocq-runtime.toplevel findlib ocaml-emcc.dynlink))
