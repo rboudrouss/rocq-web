@@ -19,16 +19,17 @@ case $build in
   *) echo "usage: $0 full|compat" >&2; exit 2 ;;
 esac
 
+OCAML_EMCC=${OCAML_EMCC:-ocaml-emcc}
 out=out/$build
 mkdir -p "$out/plugins"
 # --node-fs: run under node with the host files (Rocq's, findlib's), until
 # the browser worker has its own file system.
-ocaml-emcc "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
+"$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
 
 # Rocq's own plugins: each findlib package rocq-runtime.plugins.* whose
 # archive is a real library (the parent packages only hold fake.cma).
 for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^rocq-runtime\.plugins\./ {print $1}'); do
   cma=$(ocamlfind query -predicates byte -format '%d/%a' "$pkg")
   case $cma in */|*/fake.cma) continue ;; esac
-  ocaml-emcc "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/rocq_web.js"
+  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/rocq_web.js"
 done
