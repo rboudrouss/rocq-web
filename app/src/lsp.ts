@@ -188,8 +188,9 @@ export class LspClient {
     this.pending.clear();
   }
 
+  // (its requests never answered: their callers are gone with it)
   terminate() {
     this.worker.terminate();
-    this.failPending(new Error("Rocq restarted"));
+    this.pending.clear();
   }
 }
