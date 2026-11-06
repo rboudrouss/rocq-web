@@ -25,7 +25,7 @@ for (const run of ["cold", "warm"]) {
   await page.addInitScript((text) => localStorage.setItem("rocq-web:scratch.v", text), doc);
   const requests = new Map();
   page.on("requestfinished", async (r) => {
-    const m = /\/rocq\/[^/]+(\/(coqlib|plugins|findlib)\/[^?]*)/.exec(r.url());
+    const m = /\/rocq\/[^/]+(\/(coqlib|plugins)\/[^?]*)/.exec(r.url());
     if (m && run === "cold") fetched.add(decodeURIComponent(m[1]));
     const kind = r.url().replace(/.*\/rocq\/[^/]+\//, "").split("/")[0].replace(/\?.*/, "");
     const s = await r.sizes().catch(() => ({ responseBodySize: 0 }));

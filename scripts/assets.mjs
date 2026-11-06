@@ -8,8 +8,9 @@
 // - packages.json: the opam packages of these libraries (name, version,
 //   synopsis, homepage, the packages it depends on, its modules), for the
 //   app's package browser;
-// - boot.bin: the files listed in web/boot-files.txt (those Rocq reads when
-//   it starts, written by tests/startup.mjs --record), in one request;
+// - boot.bin: findlib's files (it reads them all when it starts) and those
+//   listed in web/boot-files.txt (those Rocq reads when it starts, written
+//   by tests/startup.mjs --record), in one request;
 // - files.json: the manifest web/rocq-web-fs.js creates the file system
 //   from (directories, files with their sizes, environment).
 // Run with the switch's environment (scripts/env.sh): ocamlfind.
@@ -109,7 +110,7 @@ const bootFiles = new Set(existsSync(bootList) ? readFileSync(bootList, "utf8").
 const chunks = [];
 let offset = 0;
 for (const f of files)
-  if (bootFiles.has(f[0])) {
+  if (bootFiles.has(f[0]) || f[0].startsWith("/findlib/")) {
     chunks.push(readFileSync(join(out, f[0].slice(1))));
     f.push(offset);
     offset += f[1];
