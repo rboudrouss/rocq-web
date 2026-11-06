@@ -46,4 +46,16 @@ for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^rocq-runtime\.plugins\./ {
   "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
 done
 
+# coq-lsp's serialization of the plugins' syntax (incremental checking of
+# their commands): coq-lsp.serlib.<plugin>, loaded instead of the plugin
+# (which it requires); findlib finds them in the install tree of the build
+ctx=default.${flags[1]}
+"$OCAML_EMCC" "${flags[@]}" dune @vendor/coq-lsp/serlib/plugins/all "_build/install/$ctx/lib/coq-lsp/META"
+export OCAMLPATH=$PWD/_build/install/$ctx/lib
+for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^coq-lsp\.serlib\./ {print $1}'); do
+  a=$(ocamlfind query -predicates byte -format '%a' "$pkg")
+  cma=$(find "_build/$ctx/vendor/coq-lsp/serlib/plugins" -name "$a" | head -1)
+  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
+done
+
 node scripts/assets.mjs "$build" "$out/web"
