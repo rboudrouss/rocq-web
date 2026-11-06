@@ -1,0 +1,4 @@
+node_modules/
+dist/
+public/rocq/full
+public/rocq/compat
