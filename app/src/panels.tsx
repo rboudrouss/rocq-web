@@ -45,8 +45,8 @@ export function Files({ files, active, open, create, rename, remove, opened }: F
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const n = name.endsWith(".v") ? name : name + ".v";
-    if (!validName(n)) return setError("a module name: letters, digits, _ and '");
-    if (n !== editing && files.includes(n)) return setError(`${n} exists`);
+    if (!validName(n)) return setError("Use letters, digits, _ and ' (a Rocq module name)");
+    if (n !== editing && files.includes(n)) return setError(`${n} already exists`);
     if (editing === "") create(n);
     else if (editing && n !== editing) rename(editing, n);
     setEditing(null);
@@ -106,7 +106,8 @@ export function Files({ files, active, open, create, rename, remove, opened }: F
         )}
       </div>
       <p className="muted">
-        A file is the module <code>Workspace.NAME</code>: <code>Require Import NAME.</code> compiles it first.
+        Each file is the module <code>Workspace.NAME</code>. Another file loads it with <code>Require Import NAME.</code>,
+        which compiles it first.
       </p>
     </div>
   );
@@ -173,8 +174,8 @@ export function Packages({ packages, insert }: { packages: Package[] | null; ins
     <div className="packages">
       <input placeholder="Search packages and modules" value={filter} onChange={(e) => setFilter(e.target.value)} />
       <p className="muted">
-        {packages.length} packages. Click a module to insert its <code>Require</code>: its files are downloaded when
-        Rocq loads it.
+        {packages.length} packages. Click a module to insert its <code>Require</code>. Its files are downloaded when Rocq
+        loads it.
       </p>
       {shown.map(({ p, modules, open }) => (
         <details key={p.name} open={open || undefined}>

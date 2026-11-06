@@ -178,9 +178,9 @@ export class LspClient {
   }
 
   private stopped(why: string) {
-    this.handlers.log?.(`Rocq stopped: ${why}`);
+    this.handlers.log?.(`Rocq stopped (${why})`);
     this.handlers.status?.("crashed");
-    this.failPending(new Error(`Rocq stopped: ${why}`));
+    this.failPending(new Error(`Rocq stopped (${why})`));
   }
 
   private failPending(e: Error) {

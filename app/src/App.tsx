@@ -56,7 +56,7 @@ export function App() {
   const flush = useCallback(() => {
     for (const [name, text] of texts.current) {
       writeFile(name, text);
-      saveToDisk(name, text).catch((e: Error) => log(`${name}: not saved to disk: ${e.message}`));
+      saveToDisk(name, text).catch((e: Error) => log(`${name} was not saved to disk (${e.message})`));
     }
     texts.current.clear();
   }, [log]);
@@ -249,7 +249,7 @@ export function App() {
       }
       const path = target.path!;
       const res = await fetch(assets + path);
-      if (!res.ok) return log(`${path}: ${res.status}`);
+      if (!res.ok) return log(`cannot download ${path} (HTTP ${res.status})`);
       const text = await res.text();
       setLibrary({
         uri: target.uri ?? `file:///${path}`,
@@ -386,7 +386,7 @@ export function App() {
       </header>
       {shared && (
         <div className="shared">
-          Link copied: <input readOnly value={shared} onFocus={(e) => e.target.select()} />
+          Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
           <button onClick={() => setShared(null)}>×</button>
         </div>
       )}

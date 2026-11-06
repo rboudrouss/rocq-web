@@ -83,7 +83,7 @@ export class Project {
 
   // The time [name] was compiled at, after its dependencies
   private async build(name: string, visiting: Set<string>): Promise<number> {
-    if (visiting.has(name)) throw new Error(`${name}: circular Require`);
+    if (visiting.has(name)) throw new Error(`${name} requires itself through other files`);
     visiting.add(name);
     const text = this.read(name);
     let newest = 0;
@@ -99,7 +99,7 @@ export class Project {
       await this.client.saveVo(uri, version);
     } catch (e) {
       this.built.delete(name);
-      throw new Error(`${name} does not compile: ${(e as Error).message}`);
+      throw new Error(`${name} does not compile (${(e as Error).message})`);
     } finally {
       this.client.close(uri);
     }
