@@ -12,14 +12,23 @@ import { rocq } from "./rocq-syntax";
 export type EditorHandle = {
   setDiagnostics: (d: Diagnostic[]) => void;
   setProcessing: (r: Range[]) => void;
+  // Selects a range (its start when [r] is a position) and shows it
+  goTo: (r: Range | Position) => void;
+  // Inserts a line before the cursor's
+  insertLine: (text: string) => void;
 };
 
 type Props = {
   initial: string;
-  onChange: (text: string) => void;
-  onCursor: (p: Position) => void;
-  hover: (p: Position) => Promise<Hover | null>;
-  complete: (p: Position) => Promise<CompletionItem[]>;
+  // the range selected and shown when the editor is created
+  at?: Range;
+  readOnly?: boolean;
+  onChange?: (text: string) => void;
+  onCursor?: (p: Position) => void;
+  hover?: (p: Position) => Promise<Hover | null>;
+  complete?: (p: Position) => Promise<CompletionItem[]>;
+  // F12 or Ctrl+click
+  definition?: (p: Position) => void;
 };
 
 const offset = (doc: Text, p: Position) => {
@@ -69,7 +78,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
     if (!word || (word.from === word.to && !ctx.explicit)) return null;
     // coq-lsp gives unicode symbols at the position following the backslash
     const at = ctx.state.doc.sliceString(word.from, word.from + 1) === "\\" ? word.from + 1 : ctx.pos;
-    const items = await callbacks.current.complete(position(ctx.state.doc, at));
+    const items = (await callbacks.current.complete?.(position(ctx.state.doc, at))) ?? [];
     if (items.length === 0) return null;
     return {
       from: word.from,
@@ -90,14 +99,35 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
           lineNumbers(),
           history(),
           highlightActiveLine(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          keymap.of([
+            {
+              key: "F12",
+              run: (v) => {
+                callbacks.current.definition?.(position(v.state.doc, v.state.selection.main.head));
+                return true;
+              },
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
+          EditorView.domEventHandlers({
+            mousedown: (e, v) => {
+              if (!(e.ctrlKey || e.metaKey) || !callbacks.current.definition) return false;
+              const pos = v.posAtCoords({ x: e.clientX, y: e.clientY });
+              if (pos == null) return false;
+              callbacks.current.definition(position(v.state.doc, pos));
+              e.preventDefault();
+              return true;
+            },
+          }),
+          EditorState.readOnly.of(!!callbacks.current.readOnly),
           syntaxHighlighting(defaultHighlightStyle),
           rocq,
           lintGutter(),
           processing,
           autocompletion({ override: [complete] }),
           hoverTooltip(async (v, pos) => {
-            const h = await callbacks.current.hover(position(v.state.doc, pos));
+            const h = await callbacks.current.hover?.(position(v.state.doc, pos));
             if (!h) return null;
             const text = typeof h.contents === "string" ? h.contents : h.contents.value;
             if (!text.trim()) return null;
@@ -112,16 +142,25 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
             };
           }),
           EditorView.updateListener.of((u) => {
-            if (u.docChanged) callbacks.current.onChange(u.state.doc.toString());
+            if (u.docChanged) callbacks.current.onChange?.(u.state.doc.toString());
             if (u.docChanged || u.selectionSet) {
-              callbacks.current.onCursor(position(u.state.doc, u.state.selection.main.head));
+              callbacks.current.onCursor?.(position(u.state.doc, u.state.selection.main.head));
             }
           }),
         ],
       }),
     });
     view.current = v;
-    if (import.meta.env.DEV) (window as unknown as { rocqView: EditorView }).rocqView = v;
+    const at = callbacks.current.at;
+    if (at) {
+      const from = offset(v.state.doc, at.start);
+      v.dispatch({
+        selection: { anchor: from, head: offset(v.state.doc, at.end) },
+        effects: EditorView.scrollIntoView(from, { y: "center" }),
+      });
+    }
+    // for tests (tests/*.mjs)
+    if (!callbacks.current.readOnly) (window as unknown as { rocqView: EditorView }).rocqView = v;
     return () => v.destroy();
     // the initial text only
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,6 +181,22 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
     },
     setProcessing(rs) {
       view.current?.dispatch({ effects: setProcessingEffect.of(rs) });
+    },
+    goTo(r) {
+      const v = view.current;
+      if (!v) return;
+      const range = "start" in r ? r : { start: r, end: r };
+      const from = offset(v.state.doc, range.start);
+      const to = offset(v.state.doc, range.end);
+      v.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+      v.focus();
+    },
+    insertLine(text) {
+      const v = view.current;
+      if (!v) return;
+      const line = v.state.doc.lineAt(v.state.selection.main.head);
+      v.dispatch({ changes: { from: line.from, insert: text + "\n" } });
+      v.focus();
     },
   }));
 

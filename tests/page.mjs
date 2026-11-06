@@ -1,5 +1,5 @@
 // Checks FILE.v in the app (headless Chromium, as tests/browser.mjs): the
-// time until Rocq is idle, and the diagnostics.
+// time until Rocq is idle, and its errors and warnings (the Problems panel).
 //   node tests/page.mjs FILE.v [URL]
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -19,13 +19,5 @@ await page.goto(url);
 await page.waitForSelector('.status[data-status="Busy"]', { timeout: 60000 });
 await page.waitForSelector('.status[data-status="Idle"]', { timeout: 600000 });
 console.log(`${file}: checked in ${Date.now() - t0} ms`);
-for (const d of await page.locator(".cm-lintRange").all()) {
-  const severity = (await d.getAttribute("class")).match(/cm-lintRange-(\w+)/)?.[1];
-  await d.hover();
-  const tip = page.locator(".cm-tooltip-lint");
-  const message = await tip.textContent({ timeout: 3000 }).catch(() => "?");
-  console.log(`  ${severity} on ${JSON.stringify(await d.textContent())}: ${message.slice(0, 200)}`);
-  await page.mouse.move(0, 0);
-  await tip.waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
-}
+for (const p of await page.locator(".problems li").allTextContents()) console.log(`  ${p.slice(0, 240)}`);
 await browser.close();

@@ -9,6 +9,9 @@
 // - The others are downloaded when first read (a synchronous request,
 //   which a Web Worker may make), so that a document only fetches the
 //   libraries and plugins it loads.
+// - /workspace is the directory of the user's files (coq-lsp's workspace),
+//   the library Workspace (its _RocqProject), where coq/saveVo writes their
+//   .vo files.
 //
 // The assets are at Module.rocqWebAssets (a URL ending in /), by default
 // the directory of the worker's script.
@@ -60,6 +63,8 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
             if (pack && f.length > 2) FS.writeFile(f[0], new Uint8Array(pack, f[2], f[1]));
             else lazyFile(f[0], base + f[0].slice(1), f[1]);
           });
+          FS.mkdirTree("/workspace");
+          FS.writeFile("/workspace/_RocqProject", "-R /workspace Workspace\n");
           Object.assign(ENV, m.env);
           removeRunDependency("rocq-web-files");
         })

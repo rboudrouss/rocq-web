@@ -20,6 +20,17 @@ export type CompletionItem = {
   textEdit?: { range: Range; newText: string };
 };
 export type Hover = { contents: { kind: string; value: string } | string; range?: Range };
+export type Location = { uri: string; range: Range };
+export type DocumentSymbol = {
+  name: string;
+  detail?: string;
+  kind: number;
+  range: Range;
+  selectionRange?: Range;
+  children?: DocumentSymbol[];
+};
+// petanque/run_at_point: the messages of a command run at a point
+export type RunResult = { feedback: [number, string][] };
 
 type Handlers = {
   diagnostics?: (uri: string, version: number, diagnostics: Diagnostic[]) => void;
@@ -114,6 +125,34 @@ export class LspClient {
   change(uri: string, text: string, version: number) {
     this.interrupt();
     this.notify("textDocument/didChange", { textDocument: { uri, version }, contentChanges: [{ text }] });
+  }
+
+  close(uri: string) {
+    this.notify("textDocument/didClose", { textDocument: { uri } });
+  }
+
+  // Writes the .vo of a document once it is checked (an error if it fails)
+  saveVo(uri: string, version: number) {
+    return this.request<null>("coq/saveVo", { textDocument: { uri, version } });
+  }
+
+  // Rechecks the documents with the .vo files written since
+  workspaceUpdate() {
+    this.notify("coq/workspace_update", {});
+  }
+
+  symbols(uri: string) {
+    return this.request<DocumentSymbol[] | null>("textDocument/documentSymbol", { textDocument: { uri } });
+  }
+
+  definition(uri: string, position: Position) {
+    return this.request<Location | Location[] | null>("textDocument/definition", { textDocument: { uri }, position });
+  }
+
+  // A command (Search, About...) run after the sentence at a point, without
+  // changing the document
+  run(uri: string, version: number, position: Position, command: string) {
+    return this.request<RunResult>("petanque/run_at_point", { textDocument: { uri, version }, position, command });
   }
 
   goals(uri: string, version: number, position: Position) {
