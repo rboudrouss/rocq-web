@@ -9,7 +9,8 @@ import { defineConfig, type Plugin } from "vite";
 const headers = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 
 // In development, rocq/BUILD/ is the build of scripts/build.sh,
-// out/BUILD/web (scripts/dist.mjs copies it into the site)
+// out/BUILD/web (scripts/dist.mjs copies it into the site), or
+// $ROCQ_WEB_BUILDS/BUILD (dist/rocq: the site's, while a build runs)
 const types: Record<string, string> = { ".wasm": "application/wasm", ".js": "text/javascript", ".json": "application/json" };
 const root = fileURLToPath(new URL("..", import.meta.url));
 function rocqBuilds(): Plugin {
@@ -19,7 +20,8 @@ function rocqBuilds(): Plugin {
       server.middlewares.use((req, res, next) => {
         const m = /^\/rocq\/(full|compat)\/([^?]*)/.exec(req.url ?? "");
         if (!m) return next();
-        const file = join(root, "out", m[1], "web", normalize(decodeURIComponent(m[2])));
+        const dir = process.env.ROCQ_WEB_BUILDS ? join(root, process.env.ROCQ_WEB_BUILDS, m[1]) : join(root, "out", m[1], "web");
+        const file = join(dir, normalize(decodeURIComponent(m[2])));
         let size: number;
         try {
           const s = statSync(file);
