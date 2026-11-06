@@ -11,7 +11,8 @@
 //   libraries and plugins it loads.
 // - /workspace is the directory of the user's files (coq-lsp's workspace),
 //   the library Workspace (its _RocqProject), where coq/saveVo writes their
-//   .vo files.
+//   .vo files, the current directory; the page writes and reads files there
+//   (globalThis.rocqWebFs).
 //
 // The assets are at Module.rocqWebAssets (a URL ending in /), by default
 // the directory of the worker's script.
@@ -59,6 +60,56 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
       });
       node.stream_ops = ops;
     };
+    // The page's requests on the files of the worker, { id, op, path,
+    // data }, answered by { rocqWebFsReply: { id, result } } or { id,
+    // error }, in their order once the files are set up:
+    // - write: path's contents (a string or bytes), its directories made;
+    // - remove: a file;
+    // - list: the files under path, [path, size, mtime (ms)] of each;
+    // - read: a file's bytes.
+    var queued = [];
+    var ready = false;
+    var files = function (dir, out) {
+      FS.readdir(dir).forEach(function (n) {
+        if (n === "." || n === "..") return;
+        var p = (dir === "/" ? "" : dir) + "/" + n;
+        var st = FS.stat(p);
+        if (FS.isDir(st.mode)) files(p, out);
+        else out.push([p, st.size, st.mtime.getTime()]);
+      });
+      return out;
+    };
+    var run = function (rq) {
+      var result = null;
+      switch (rq.op) {
+        case "write":
+          FS.mkdirTree(PATH.dirname(rq.path));
+          FS.writeFile(rq.path, rq.data);
+          break;
+        case "remove":
+          if (FS.analyzePath(rq.path).exists) FS.unlink(rq.path);
+          break;
+        case "list":
+          result = FS.analyzePath(rq.path).exists ? files(rq.path, []) : [];
+          break;
+        case "read":
+          result = FS.readFile(rq.path);
+          break;
+        default:
+          throw new Error("unknown operation " + rq.op);
+      }
+      return result;
+    };
+    globalThis.rocqWebFs = function (rq) {
+      if (!ready) return queued.push(rq);
+      var reply = { id: rq.id };
+      try {
+        reply.result = run(rq);
+      } catch (e) {
+        reply.error = String(e && e.message || e);
+      }
+      if (rq.id !== undefined) self.postMessage({ rocqWebFsReply: reply });
+    };
     Module["preRun"] = [].concat(Module["preRun"] || [], function () {
       addRunDependency("rocq-web-files");
       Promise.all([manifest, boot])
@@ -72,7 +123,12 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
           });
           FS.mkdirTree("/workspace");
           FS.writeFile("/workspace/_RocqProject", "-R /workspace Workspace\n");
+          // (Load, Extraction... write and read relative to the workspace)
+          FS.chdir("/workspace");
           Object.assign(ENV, m.env);
+          // the page's files first (its _RocqProject)
+          ready = true;
+          queued.splice(0).forEach(globalThis.rocqWebFs);
           removeRunDependency("rocq-web-files");
         })
         .catch(function (e) {

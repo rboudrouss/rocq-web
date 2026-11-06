@@ -58,6 +58,13 @@ export class LspClient {
       if (typeof e.data === "string") this.receive(JSON.parse(e.data));
       else if (e.data?.rocqWebFetch) handlers.fetch?.(e.data.rocqWebFetch, e.data.size);
       else if (e.data?.rocqWebAbort) this.stopped(e.data.rocqWebAbort);
+      else if (e.data?.rocqWebFsReply) {
+        const { id, result, error } = e.data.rocqWebFsReply;
+        const p = this.pending.get(id);
+        this.pending.delete(id);
+        if (error !== undefined) p?.fail(new Error(error));
+        else p?.ok(result);
+      }
     };
     // the worker stopped (an abort of the WebAssembly, out of memory...)
     this.worker.onerror = (e) => this.stopped(e.message);
@@ -113,6 +120,33 @@ export class LspClient {
       this.pending.set(id, { ok: ok as (r: unknown) => void, fail });
       this.send(params === undefined ? { id, method } : { id, method, params });
     });
+  }
+
+  // The worker's files (web/rocq-web-fs.js): its operations are done in
+  // their order, before the messages to Rocq sent after them
+  private fs<T>(op: string, path: string, data?: string | Uint8Array): Promise<T> {
+    const id = this.nextId++;
+    return new Promise<T>((ok, fail) => {
+      this.pending.set(id, { ok: ok as (r: unknown) => void, fail });
+      this.worker.postMessage({ rocqWebFs: { id, op, path, data } });
+    });
+  }
+
+  writeFile(path: string, data: string | Uint8Array) {
+    return this.fs<null>("write", path, data);
+  }
+
+  removeFile(path: string) {
+    return this.fs<null>("remove", path);
+  }
+
+  // The files under a directory: [path, size, modification time (ms)]
+  listFiles(dir: string) {
+    return this.fs<[string, number, number][]>("list", dir);
+  }
+
+  readFile(path: string) {
+    return this.fs<Uint8Array>("read", path);
   }
 
   notify(method: string, params: object) {

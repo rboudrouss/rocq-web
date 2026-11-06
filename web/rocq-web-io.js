@@ -59,6 +59,8 @@
       // The flag the page sets to interrupt Rocq: { interrupt: Int32Array }
       // on a SharedArrayBuffer
       if (e.data && e.data.interrupt instanceof Int32Array) interruptFlag = e.data.interrupt;
+      // the files of the page in the worker's (web/rocq-web-fs.js)
+      else if (e.data && e.data.rocqWebFs) globalThis.rocqWebFs(e.data.rocqWebFs);
       else push(typeof e.data == "string" ? e.data : JSON.stringify(e.data));
     };
     post = function (s) {
