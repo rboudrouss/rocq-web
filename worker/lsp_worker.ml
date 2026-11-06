@@ -85,6 +85,7 @@ let getenv v d = Stdlib.Option.value (Sys.getenv_opt v) ~default:d
 
 let main () =
   Sys.interactive := false;
+  Rocq_web_plugins.Plugins.interrupts ();
   Coq.Limits.(select Coq);
   Coq.Limits.start ();
   Fleche.Io.CallBack.set io;

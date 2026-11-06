@@ -8,3 +8,7 @@ val load_packages : dir:string -> string list -> unit
 
 val install : dir:string -> unit
 (** [install ~dir] makes [Declare ML Module] load plugins from [dir]. *)
+
+val interrupts : unit -> unit
+(** Commands can be interrupted from the page: the flag of
+    web/rocq-web-io.js is read at each minor collection (interrupt.c). *)

@@ -1,3 +1,4 @@
 (library
  (name rocq_web_plugins)
+ (foreign_stubs (language c) (names interrupt))
  (libraries rocq-runtime.vernac findlib ocaml-emcc.dynlink))

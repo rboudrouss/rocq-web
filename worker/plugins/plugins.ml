@@ -24,3 +24,10 @@ let install ~dir =
       load_module;
       add_dir = (fun _ -> ());
       ml_loop = (fun ?init_file:_ () -> ()) }
+
+
+external install_interrupts : unit -> unit = "rocq_web_install_interrupts"
+
+let interrupts () =
+  Callback.register "rocq-web interrupt" Control.interrupt;
+  install_interrupts ()

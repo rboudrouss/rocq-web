@@ -8,6 +8,7 @@
 //   descriptor; the main thread only waits.
 (function () {
   var queue = [];
+  var interruptFlag = null;
   var waiter = null;
   var post;
   function push(s) {
@@ -55,7 +56,10 @@
     }
   } else if (typeof self == "object" && typeof self.postMessage == "function") {
     self.onmessage = function (e) {
-      push(typeof e.data == "string" ? e.data : JSON.stringify(e.data));
+      // The flag the page sets to interrupt Rocq: { interrupt: Int32Array }
+      // on a SharedArrayBuffer
+      if (e.data && e.data.interrupt instanceof Int32Array) interruptFlag = e.data.interrupt;
+      else push(typeof e.data == "string" ? e.data : JSON.stringify(e.data));
     };
     post = function (s) {
       self.postMessage(s);
@@ -63,10 +67,18 @@
   }
   globalThis.rocqWeb = {
     pop: function () {
-      return queue.length ? queue.shift() : null;
+      if (!queue.length) return null;
+      // the edit which set the flag is being handled
+      if (interruptFlag) Atomics.store(interruptFlag, 0, 0);
+      return queue.shift();
     },
     post: function (s) {
       post(s);
+    },
+    // 1 if the page asked to interrupt Rocq since the last call
+    // (worker/plugins/interrupt.c)
+    interrupted: function () {
+      return interruptFlag && Atomics.exchange(interruptFlag, 0, 0) ? 1 : 0;
     },
     // 1 once a message is queued, 0 after [ms] milliseconds without
     wait: function (ms) {

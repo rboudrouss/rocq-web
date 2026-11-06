@@ -39,6 +39,7 @@ export class LspClient {
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = (e) => this.receive(JSON.parse(e.data as string));
     this.worker.onerror = (e) => handlers.log?.(`worker error: ${e.message}`);
+    if (this.interruptFlag) this.worker.postMessage({ interrupt: this.interruptFlag });
   }
 
   private receive(msg: { id?: number; method?: string; params?: any; result?: unknown; error?: { message: string } }) {
@@ -64,6 +65,20 @@ export class LspClient {
         h.log?.(msg.params.message);
         break;
     }
+  }
+
+  // The flag Rocq reads to stop the command it checks, in memory shared
+  // with the worker (only in a cross-origin isolated page)
+  private interruptFlag = typeof SharedArrayBuffer === "function" && crossOriginIsolated
+    ? new Int32Array(new SharedArrayBuffer(4))
+    : null;
+
+  get canInterrupt() {
+    return this.interruptFlag !== null;
+  }
+
+  interrupt() {
+    if (this.interruptFlag) Atomics.store(this.interruptFlag, 0, 1);
   }
 
   private send(msg: object) {
@@ -97,6 +112,7 @@ export class LspClient {
   }
 
   change(uri: string, text: string, version: number) {
+    this.interrupt();
     this.notify("textDocument/didChange", { textDocument: { uri, version }, contentChanges: [{ text }] });
   }
 
