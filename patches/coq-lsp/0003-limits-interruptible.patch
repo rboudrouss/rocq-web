@@ -1,0 +1,50 @@
+diff --git a/coq/limits.ml b/coq/limits.ml
+index 4d021a15..1b300c24 100644
+--- a/coq/limits.ml
++++ b/coq/limits.ml
+@@ -24,6 +24,10 @@ module type Intf = sig
+   val available : bool
+ end
+ 
++(* True while Coq.limit runs its function, which may then be interrupted
++   at any point (rocq-web raises Sys.Break from a Memprof callback) *)
++let interruptible = ref false
++
+ module Coq : Intf = struct
+   module Token : sig
+     type t
+@@ -49,7 +53,18 @@ module Coq : Intf = struct
+     if Token.is_set token then Error Sys.Break
+     else
+       let () = Control.interrupt := false in
+-      try Ok (f x) with Sys.Break -> Error Sys.Break
++      let outer = !interruptible in
++      interruptible := true;
++      match f x with
++      | r ->
++        interruptible := outer;
++        Ok r
++      | exception Sys.Break ->
++        interruptible := outer;
++        Error Sys.Break
++      | exception e ->
++        interruptible := outer;
++        raise e
+ 
+   let name () = "Control.interrupt"
+   let available = true
+diff --git a/coq/limits.mli b/coq/limits.mli
+index fab6631b..c4d71e99 100644
+--- a/coq/limits.mli
++++ b/coq/limits.mli
+@@ -25,6 +25,10 @@ module type Intf = sig
+ end
+ 
+ module Coq : Intf
++
++(** True while [Coq.limit] runs its function: it may then be interrupted
++    by an exception raised from anywhere, as a Memprof callback *)
++val interruptible : bool ref
+ module Mp : Intf
+ include Intf
+ 

@@ -83,9 +83,34 @@ let rec init_loop ~root_state ~cmdline ~debug =
 
 let getenv v d = Stdlib.Option.value (Sys.getenv_opt v) ~default:d
 
+(* Rocq's reductions (cbv, compute, unification) never check for
+   interrupts: one still pending half a second after the page asked for it
+   (Control.interrupt, worker/plugins/interrupt.c) is raised by a Memprof
+   callback, at an allocation, if coq-lsp runs a command then (an
+   exception from anywhere in Rocq, which coq-lsp's interrupts of native
+   Rocq through memprof-limits also are) *)
+let interrupt_reductions () =
+  let pending = ref None in
+  let check _ =
+    (if !Control.interrupt && !Coq.Limits.interruptible then
+       let now = Unix.gettimeofday () in
+       match !pending with
+       | None -> pending := Some now
+       | Some t when now -. t > 0.5 ->
+         pending := None;
+         Control.interrupt := false;
+         raise Sys.Break
+       | Some _ -> ()
+     else pending := None);
+    None
+  in
+  let tracker = { Gc.Memprof.null_tracker with alloc_minor = check; alloc_major = check } in
+  ignore (Gc.Memprof.start ~callstack_size:0 ~sampling_rate:1e-5 tracker)
+
 let main () =
   Sys.interactive := false;
   Rocq_web_plugins.Plugins.interrupts ();
+  interrupt_reductions ();
   Coq.Limits.(select Coq);
   Coq.Limits.start ();
   Fleche.Io.CallBack.set io;
