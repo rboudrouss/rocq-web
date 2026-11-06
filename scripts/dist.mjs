@@ -44,7 +44,7 @@ function walk(d, f) {
 }
 const files = [];
 walk(dir, (p) => {
-  if (/\.(wasm|js|mjs|json|vo|glob|v|elpi|bin|html|css|svg|txt)$|\/META$/.test(p) && statSync(p).size > 1024) files.push(p);
+  if (/\.(wasm|js|mjs|json|vo|glob|v|elpi|bin|html|css|svg|txt|tsv)$|\/META$/.test(p) && statSync(p).size > 1024) files.push(p);
 });
 let raw = 0;
 let packed = 0;
