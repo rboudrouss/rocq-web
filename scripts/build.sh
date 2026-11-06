@@ -37,24 +37,27 @@ scripts/vendor.sh
 "$OCAML_EMCC" "${flags[@]}" build "$out/web/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" \
   -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1
 
-# Rocq's own plugins: each findlib package rocq-runtime.plugins.* whose
-# archive is a real library (the parent packages hold fake.cma, tutorial
-# none).
-for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^rocq-runtime\.plugins\./ {print $1}'); do
-  cma=$(ocamlfind query -predicates byte -format '%d/%a' "$pkg")
-  case $cma in */fake.cma) continue ;; *.cma) ;; *) continue ;; esac
-  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
-done
-
-# coq-lsp's serialization of the plugins' syntax (incremental checking of
-# their commands): coq-lsp.serlib.<plugin>, loaded instead of the plugin
-# (which it requires); findlib finds them in the install tree of the build
+# The plugins, side modules named after their findlib package: those the
+# libraries of the switch declare (Declare ML Module in Corelib and
+# user-contrib), coq-lsp's serlib plugins (coq-lsp.serlib.<plugin>, its
+# serialization of their syntax, loaded instead of the plugin, which it
+# requires), and the packages they need which the worker does not link
+# (elpi for rocq-elpi...). coq-lsp's packages are in the install tree of
+# the build, where findlib finds them, their archives in _build.
 ctx=default.${flags[1]}
 "$OCAML_EMCC" "${flags[@]}" dune @vendor/coq-lsp/serlib/plugins/all "_build/install/$ctx/lib/coq-lsp/META"
 export OCAMLPATH=$PWD/_build/install/$ctx/lib
-for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^coq-lsp\.serlib\./ {print $1}'); do
-  a=$(ocamlfind query -predicates byte -format '%a' "$pkg")
-  cma=$(find "_build/$ctx/vendor/coq-lsp/serlib/plugins" -name "$a" | head -1)
+roots=$( (grep -rhoE 'Declare ML Module "[^"]+"' "$OPAM_SWITCH_PREFIX/lib/coq" | sed 's/.*"\(.*\)"/\1/'
+  ocamlfind list 2>/dev/null | awk '$1 ~ /^coq-lsp\.serlib\./ {print $1}') | sort -u)
+linked=$(ocamlfind query -r -format '%p' coq-lsp.controller js_of_ocaml unix findlib ocaml-emcc.dynlink | sort -u)
+for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
+  if grep -qx "$pkg" <<< "$linked"; then continue; fi
+  case $pkg in
+    coq-lsp.*) cma=$(find "_build/$ctx/vendor/coq-lsp" -name "$(ocamlfind query -predicates byte -format '%a' "$pkg")" | head -1) ;;
+    *) cma=$(ocamlfind query -predicates byte -format '%d/%a' "$pkg") ;;
+  esac
+  case $cma in */fake.cma | */ | "") continue ;; esac
+  [ -f "$out/plugins/$pkg.wasm" ] && [ "$out/plugins/$pkg.wasm" -nt "$cma" ] && [ "$out/plugins/$pkg.wasm" -nt "$out/lsp_worker.wasm" ] && continue
   "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
 done
 
