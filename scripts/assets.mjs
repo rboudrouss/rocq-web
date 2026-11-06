@@ -1,0 +1,81 @@
+// The files of the web worker, into OUT (default out/full/web):
+//   node scripts/assets.mjs [BUILD] [OUT]
+// - coqlib/: Corelib's and Ltac2's .vo (and .glob, for go to definition)
+//   from the switch's Rocq (lib/coq);
+// - plugins/: the build's plugins (out/BUILD/plugins/*.wasm);
+// - findlib/: findlib.conf and the META files of the packages the plugins
+//   need, as findlib resolves plugins' dependencies;
+// - files.json: the manifest web/rocq-web-fs.js creates the file system
+//   from (directories, files with their sizes, environment).
+// Run with the switch's environment (scripts/env.sh): ocamlfind.
+import { execFileSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+
+const build = process.argv[2] ?? "full";
+const out = process.argv[3] ?? `out/${build}/web`;
+const prefix = process.env.OPAM_SWITCH_PREFIX;
+if (!prefix) throw new Error("OPAM_SWITCH_PREFIX: source scripts/env.sh");
+
+const ocamlfind = (...args) => execFileSync("ocamlfind", args, { encoding: "utf8" }).trim();
+
+const files = [];
+const dirs = new Set();
+// copies SRC to OUT/DEST, recorded as /DEST
+function add(src, dest) {
+  const to = join(out, dest);
+  mkdirSync(dirname(to), { recursive: true });
+  cpSync(src, to);
+  files.push(["/" + dest, statSync(src).size]);
+  dirs.add("/" + dirname(dest));
+}
+function walk(dir, f) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walk(p, f);
+    else f(p);
+  }
+}
+
+// (the worker itself, lsp_worker.js and .wasm, is built in OUT too)
+for (const d of ["coqlib", "plugins", "findlib", "files.json"]) rmSync(join(out, d), { recursive: true, force: true });
+
+// Rocq's libraries
+const coqlib = join(prefix, "lib/coq");
+for (const sub of ["theories", "user-contrib/Ltac2"])
+  walk(join(coqlib, sub), (p) => {
+    if (/\.(vo|glob)$/.test(p)) add(p, join("coqlib", relative(coqlib, p)));
+  });
+dirs.add("/coqlib/user-contrib");
+
+// The plugins
+const plugins = readdirSync(`out/${build}/plugins`).filter((f) => f.endsWith(".wasm"));
+for (const f of plugins) add(join(`out/${build}/plugins`, f), join("plugins", f));
+
+// findlib: the packages of the plugins and those they require
+const pkgs = plugins.map((f) => f.replace(/\.wasm$/, ""));
+const needed = new Set(ocamlfind("query", "-r", "-format", "%p", ...pkgs).split("\n"));
+const tops = new Set([...needed].map((p) => p.split(".")[0]));
+for (const top of tops) {
+  const dir = ocamlfind("query", "-format", "%d", top);
+  const meta = [join(dir, "META"), join(prefix, "lib", top, "META"), join(prefix, "lib/ocaml", top, "META")].find(
+    existsSync,
+  );
+  if (!meta) throw new Error(`no META for ${top}`);
+  add(meta, join("findlib", top, "META"));
+}
+const conf = join(out, "findlib/findlib.conf");
+writeFileSync(conf, 'destdir="/findlib"\npath="/findlib"\n');
+files.push(["/findlib/findlib.conf", statSync(conf).size]);
+
+const sorted = [...dirs].sort();
+writeFileSync(
+  join(out, "files.json"),
+  JSON.stringify({
+    dirs: sorted,
+    files,
+    env: { ROCQLIB: "/coqlib", ROCQ_WEB_PLUGINS: "/plugins", OCAMLFIND_CONF: "/findlib/findlib.conf" },
+  }),
+);
+const total = files.reduce((n, f) => n + f[1], 0);
+console.log(`${out}: ${files.length} files, ${(total / 1e6).toFixed(1)} MB (${[...tops].join(" ")})`);

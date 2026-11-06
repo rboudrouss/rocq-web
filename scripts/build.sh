@@ -4,7 +4,8 @@
 #   scripts/build.sh compat   wasm32 + CPS stack (waits for ocaml-emcc to
 #                             support --cps-stack with --dynlink)
 # into out/<build>/: rocq_web.js (rocq compile/repl), lsp_worker.js (coq-lsp),
-# their .wasm, plugins/<findlib name>.wasm
+# their .wasm, plugins/<findlib name>.wasm, and web/ for a Web Worker
+# (lsp_worker.js and the files it reads)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -31,6 +32,11 @@ scripts/vendor.sh
 "$OCAML_EMCC" "${flags[@]}" build "$out/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" --node-fs \
   -- --pre-js web/rocq-web-io.js
 
+# The same for a Web Worker: Rocq's files in emscripten's file system
+# (web/rocq-web-fs.js, scripts/assets.mjs)
+"$OCAML_EMCC" "${flags[@]}" build "$out/web/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" \
+  -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1
+
 # Rocq's own plugins: each findlib package rocq-runtime.plugins.* whose
 # archive is a real library (the parent packages hold fake.cma, tutorial
 # none).
@@ -39,3 +45,5 @@ for pkg in $(ocamlfind list 2>/dev/null | awk '$1 ~ /^rocq-runtime\.plugins\./ {
   case $cma in */fake.cma) continue ;; *.cma) ;; *) continue ;; esac
   "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
 done
+
+node scripts/assets.mjs "$build" "$out/web"
