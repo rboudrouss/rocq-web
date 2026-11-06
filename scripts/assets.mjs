@@ -123,7 +123,15 @@ writeFileSync(
     dirs: sorted,
     files,
     boot: "boot.bin",
-    env: { ROCQLIB: "/coqlib", ROCQ_WEB_PLUGINS: "/plugins", OCAMLFIND_CONF: "/findlib/findlib.conf" },
+    // OCAMLRUNPARAM: a minor heap of 32 MB (Rocq sets 256 MB unless it is
+    // given, which takes 130 ms to clear when it starts, for no faster
+    // proofs)
+    env: {
+      ROCQLIB: "/coqlib",
+      ROCQ_WEB_PLUGINS: "/plugins",
+      OCAMLFIND_CONF: "/findlib/findlib.conf",
+      OCAMLRUNPARAM: "s=4M,o=120",
+    },
   }),
 );
 const total = files.reduce((n, f) => n + f[1], 0);
