@@ -19,8 +19,12 @@ await page.addInitScript(() => {
   localStorage.clear();
   localStorage.setItem("rocq-web:scratch.v", "Check nat.\n");
 });
-await page.goto(url);
-await page.waitForSelector('.status[data-status="Idle"]', { timeout: 120000 });
+// a new worker for each package: coq-lsp keeps what it loaded
+const start = async () => {
+  await page.goto(url);
+  await page.waitForSelector('.status[data-status="Idle"]', { timeout: 120000 });
+};
+await start();
 const packages = await page.evaluate(async () => (await fetch("rocq/full/packages.json")).json());
 let failed = 0;
 let n = 0;
@@ -28,6 +32,7 @@ let n = 0;
 packages.unshift({ name: "(check)", modules: ["No.Such.Module"] });
 for (const p of packages) {
   if (only.length && !only.includes(p.name) && p.name !== "(check)") continue;
+  if (p.name !== "(check)") await start();
   const m = p.modules;
   for (const mod of new Set([m[0], m[m.length >> 1], m[m.length - 1]])) {
     const t0 = Date.now();
@@ -37,7 +42,9 @@ for (const p of packages) {
         c.open(uri, `Require ${mod}.\n`, 1);
         try {
           // (answers once the document is checked)
-          await c.saveVo(uri, 1).catch(() => {});
+          const timeout = new Promise((ok) => setTimeout(() => ok("timeout"), 300000));
+          if ((await Promise.race([c.saveVo(uri, 1).catch(() => {}), timeout])) === "timeout")
+            return "not checked after 300 s";
           const g = await c.goals(uri, 1, { line: 0, character: 2 });
           return g?.error ?? null;
         } catch (e) {
