@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
 import { Goals } from "./goals";
+import { type Example, examples, loadExample } from "./examples";
 import {
   activeFile,
+  embedded,
   isRocq,
   listFiles,
   projectFile,
@@ -75,6 +77,7 @@ export function App() {
   // of it as it changes
   const [toCursor, setToCursor] = useState(() => localStorage.getItem("rocq-web:check") === "cursor");
   const [help, setHelp] = useState(false);
+  const [exampleList, setExampleList] = useState<Example[] | null>(null);
 
   const client = useRef<LspClient | null>(null);
   const project = useRef<Project | null>(null);
@@ -546,6 +549,27 @@ export function App() {
     log(`link to ${active} copied (${url.length} characters)`);
     setShared(url);
   };
+  const showExamples = () =>
+    examples().then(setExampleList, (e: Error) => log(`examples: ${e.message}`));
+  const openExample = async (e: Example) => {
+    setExampleList(null);
+    flush();
+    try {
+      const paths = await loadExample(e);
+      for (const p of paths) toWorker(p, readFile(p));
+      setFiles(listFiles());
+      switchTo(paths[0]);
+    } catch (err) {
+      log((err as Error).message);
+    }
+  };
+  // The page with this file, not embedded
+  const openFull = async () => {
+    const url = new URL(await shareUrl(active, read(active)));
+    url.search = "";
+    window.open(url.href, "_blank", "noopener");
+  };
+
   const download = () => saveBlob(new Blob([read(active)], { type: "text/plain" }), active.split("/").pop()!);
 
   const exportZip = async () => {
@@ -603,7 +627,7 @@ export function App() {
   goToRef.current = goTo;
 
   return (
-    <div className="app">
+    <div className={embedded ? "app embed" : "app"}>
       <header>
         <h1>rocq-web</h1>
         <span className="status" data-status={status}>
@@ -624,26 +648,59 @@ export function App() {
           <option value="all">Check as you type</option>
           <option value="cursor">Check up to the cursor (Alt+Enter)</option>
         </select>
-        <button
-          onClick={() => {
-            flush();
-            setGeneration((g) => g + 1);
-          }}
-          title="Start Rocq again (a computation that does not stop)"
-        >
-          Restart
-        </button>
-        <button onClick={share} title="Copy a link to this file">
-          Share
-        </button>
-        <button onClick={download} title="Download the file">
-          Download
-        </button>
+        {embedded ? (
+          <button onClick={openFull} title="This file in rocq-web, in a new tab">
+            Open in rocq-web ↗
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => {
+                flush();
+                setGeneration((g) => g + 1);
+              }}
+              title="Start Rocq again (a computation that does not stop)"
+            >
+              Restart
+            </button>
+            <button onClick={showExamples} title="Examples and tutorials">
+              Examples
+            </button>
+            <button onClick={share} title="Copy a link to this file">
+              Share
+            </button>
+            <button onClick={download} title="Download the file">
+              Download
+            </button>
+          </>
+        )}
         <button onClick={() => setHelp(!help)} title="Keyboard shortcuts">
           ?
         </button>
-        <span className="muted">build: {build}</span>
+        {!embedded && <span className="muted">build: {build}</span>}
       </header>
+      {exampleList && (
+        <div className="modal" onClick={() => setExampleList(null)}>
+          <div className="examples" onClick={(e) => e.stopPropagation()}>
+            <h2>Examples</h2>
+            <p className="muted">
+              An example's files are copied into a folder of your workspace. A link with <code>?example=Basics</code> opens
+              one directly, and <code>?embed</code> shows it in another page (an iframe).
+            </p>
+            <ul>
+              {exampleList.map((e) => (
+                <li key={e.id}>
+                  <button onClick={() => openExample(e)}>
+                    <b>{e.title}</b> <span className="muted">{e.files.join(", ")}</span>
+                    <div>{e.description}</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button onClick={() => setExampleList(null)}>Close</button>
+          </div>
+        </div>
+      )}
       {help && (
         <div className="help" onClick={() => setHelp(false)}>
           <table>
@@ -687,7 +744,7 @@ export function App() {
         </div>
       )}
       <main>
-        <aside className="left">
+        <aside className="left" hidden={embedded}>
           <Tabs
             tabs={[
               [

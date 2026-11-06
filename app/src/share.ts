@@ -1,3 +1,5 @@
+import { embedded, validName } from "./files";
+
 // A file in the page's URL (#share=NAME:TEXT, the text deflated and in
 // base64url), to share it as a link
 function toBase64Url(bytes: Uint8Array) {
@@ -37,11 +39,11 @@ export async function openShared(
   files: { list: () => string[]; read: (n: string) => string; write: (n: string, t: string) => void; activate: (n: string) => void },
 ) {
   const f = await sharedFile();
-  if (!f || !/^[A-Za-z_][A-Za-z0-9_']*\.v$/.test(f.name)) return;
+  if (!f || !validName(f.name) || !f.name.endsWith(".v")) return;
   const names = files.list();
   let name = f.name;
   for (let i = 1; names.includes(name) && files.read(name) !== f.text; i++) name = f.name.replace(/\.v$/, `_${i}.v`);
   files.write(name, f.text);
   files.activate(name);
-  history.replaceState(null, "", location.pathname + location.search);
+  if (!embedded) history.replaceState(null, "", location.pathname + location.search);
 }

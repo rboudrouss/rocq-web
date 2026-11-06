@@ -1,0 +1,9 @@
+[
+  { "id": "Basics", "title": "First proofs", "description": "A recursive function, a proof by induction, Search and lia.", "files": ["Basics.v"] },
+  { "id": "Lists", "title": "Lists", "description": "Polymorphic functions on lists and proofs about them.", "files": ["Lists.v"] },
+  { "id": "Modules", "title": "Several files", "description": "Definitions in one file, proofs in another which requires it.", "files": ["Defs.v", "Proofs.v"] },
+  { "id": "Ltac2", "title": "Ltac2", "description": "A tactic written in Rocq's typed tactic language.", "files": ["Ltac2.v"] },
+  { "id": "Ssreflect", "title": "Mathematical Components", "description": "SSReflect proofs with big operators.", "files": ["Ssreflect.v"] },
+  { "id": "Equations", "title": "Equations", "description": "Well-founded recursion and its elimination principle.", "files": ["Equations.v"] },
+  { "id": "Extraction", "title": "Extraction", "description": "An OCaml file from a Rocq function, to read or download.", "files": ["Extraction.v"] }
+]

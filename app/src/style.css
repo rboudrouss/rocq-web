@@ -149,3 +149,36 @@ pre.message, pre.error { font-size: 12px; }
 }
 .disk { color: #3b6fd8; font-size: 0.8em; }
 .problems li.dep-error { font-size: 0.85rem; padding: 0.15rem 0.25rem; }
+
+/* Examples */
+.modal { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; }
+.examples { background: #fff; border-radius: 8px; padding: 1rem 1.25rem; max-width: 34rem; max-height: 80vh; overflow: auto; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); }
+.examples h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.examples ul { list-style: none; padding: 0; margin: 0.5rem 0 1rem; }
+.examples li button { width: 100%; text-align: left; border: 0; background: none; padding: 0.4rem 0.5rem; border-radius: 4px; font-size: 0.9rem; color: inherit; }
+.examples li button:hover { background: #eef1f6; }
+.examples li button div { font-size: 0.8rem; color: #666; }
+
+/* Embedded in another page (?embed): the editor and the goals */
+.app.embed main { grid-template-columns: minmax(0, 1fr) minmax(14rem, 40%); }
+.app.embed header { gap: 0.6rem; padding: 0.3rem 0.6rem; }
+.app.embed header h1 { font-size: 0.95rem; }
+
+/* Narrow windows: the files' panel on top of the editor's column */
+@media (max-width: 1000px) {
+  main { grid-template-columns: 12rem minmax(0, 1fr) minmax(14rem, 22rem); }
+  header { flex-wrap: wrap; gap: 0.5rem; }
+}
+@media (max-width: 760px) {
+  .app { height: auto; min-height: 100vh; }
+  main { grid-template-columns: minmax(0, 1fr); }
+  aside.left { max-height: 30vh; border-right: 0; border-bottom: 1px solid #ddd; }
+  .center { height: 60vh; }
+  aside.right { border-left: 0; min-height: 50vh; }
+  .app.embed main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-color-scheme: dark) {
+  .examples { background: #282c34; }
+  .examples li button:hover { background: #2f3542; }
+  .examples li button div { color: #9198a5; }
+}

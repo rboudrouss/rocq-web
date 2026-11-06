@@ -1,7 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { listFiles, readFile, setActiveFile, writeFile } from "./files";
+import { examples, loadExample } from "./examples";
+import { embedded, listFiles, readFile, setActiveFile, writeFile } from "./files";
 import { openShared } from "./share";
 import "./style.css";
 
@@ -17,8 +18,28 @@ if (import.meta.env.PROD && !crossOriginIsolated && "serviceWorker" in navigator
   });
 }
 
+// An example of a link (?example=ID, its file ?file=NAME active)
+async function openExample() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get("example");
+  if (!id) return;
+  const e = (await examples()).find((e) => e.id === id);
+  if (!e) return;
+  const paths = await loadExample(e);
+  const file = params.get("file");
+  setActiveFile(paths.find((p) => p.endsWith(`/${file}`)) ?? paths[0]);
+  if (!embedded) {
+    params.delete("example");
+    params.delete("file");
+    history.replaceState(null, "", location.pathname + (params.size ? `?${params}` : "") + location.hash);
+  }
+}
+
 // a file shared by a link (#share=...) first
-openShared({ list: listFiles, read: readFile, write: writeFile, activate: setActiveFile }).finally(() =>
+Promise.all([
+  openExample().catch(() => {}),
+  openShared({ list: listFiles, read: readFile, write: writeFile, activate: setActiveFile }),
+]).finally(() =>
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App />

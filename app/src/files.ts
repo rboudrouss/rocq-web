@@ -2,6 +2,29 @@
 // each file (NAME.v, DIR/NAME.v, _RocqProject), "rocq-web:active" for the
 // one open in the editor.
 const prefix = "rocq-web:";
+
+// Embedded in another page (?embed): its files in memory only, for the
+// page's lifetime, not those of the user's workspace
+export const embedded = new URLSearchParams(location.search).has("embed");
+class Memory {
+  private m = new Map<string, string>();
+  get length() {
+    return this.m.size;
+  }
+  key(i: number) {
+    return [...this.m.keys()][i] ?? null;
+  }
+  getItem(k: string) {
+    return this.m.get(k) ?? null;
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, v);
+  }
+  removeItem(k: string) {
+    this.m.delete(k);
+  }
+}
+const storage = embedded ? new Memory() : localStorage;
 const activeKey = "rocq-web:active";
 
 export const example = `(* Rocq in the browser *)
@@ -30,8 +53,8 @@ export const isRocq = (name: string) => name.endsWith(".v");
 
 export function listFiles(): string[] {
   const names: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)!;
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i)!;
     if (k.startsWith(prefix) && validName(k.slice(prefix.length))) names.push(k.slice(prefix.length));
   }
   if (!names.some(isRocq)) {
@@ -41,15 +64,15 @@ export function listFiles(): string[] {
   return names.sort();
 }
 
-export const readFile = (name: string) => localStorage.getItem(prefix + name) ?? "";
-export const writeFile = (name: string, text: string) => localStorage.setItem(prefix + name, text);
-export const removeFile = (name: string) => localStorage.removeItem(prefix + name);
+export const readFile = (name: string) => storage.getItem(prefix + name) ?? "";
+export const writeFile = (name: string, text: string) => storage.setItem(prefix + name, text);
+export const removeFile = (name: string) => storage.removeItem(prefix + name);
 
 export function activeFile(files: string[]) {
-  const a = localStorage.getItem(activeKey);
+  const a = storage.getItem(activeKey);
   return a && files.includes(a) ? a : files[0];
 }
-export const setActiveFile = (name: string) => localStorage.setItem(activeKey, name);
+export const setActiveFile = (name: string) => storage.setItem(activeKey, name);
 
 // Files of a folder on disk (Chrome's File System Access API), for this
 // session: their edits are written back
