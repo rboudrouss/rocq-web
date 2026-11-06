@@ -15,7 +15,7 @@ progress: see [docs/design.md](docs/design.md).
 | `scripts/dist.mjs`, `scripts/serve.mjs` | the static site (`dist/`, brotli), a server for it (COOP/COEP) |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror): files, outline, packages, goals, queries, coq-lsp client |
-| `tests/` | native comparison (`compare.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`) |
+| `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`), on another machine (`remote.sh`) |
 | `docs/status.md` | where each build stands, blockers |
 | `docs/design.md` | the two builds (wasm64 + JSPI, wasm32 + CPS stack), plugins, packages |
 
