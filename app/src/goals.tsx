@@ -11,21 +11,16 @@ function useColumns() {
   const [columns, setColumns] = useState(60);
   useLayoutEffect(() => {
     const el = ref.current!;
-    const probe = document.createElement("span");
-    probe.textContent = "0".repeat(100);
-    probe.style.cssText = "position:absolute;visibility:hidden;white-space:pre";
-    el.appendChild(probe);
     const measure = () => {
-      const ch = probe.getBoundingClientRect().width / 100 || 8;
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (ctx) ctx.font = getComputedStyle(el).font;
+      const ch = (ctx?.measureText("0".repeat(100)).width ?? 800) / 100 || 8;
       setColumns(Math.max(20, Math.floor(el.clientWidth / ch) - 2));
     };
     measure();
     const o = new ResizeObserver(measure);
     o.observe(el);
-    return () => {
-      o.disconnect();
-      probe.remove();
-    };
+    return () => o.disconnect();
   }, []);
   return [ref, columns] as const;
 }
@@ -114,7 +109,8 @@ function beforeOf(b: Goal[], n: number, i: number): Goal | undefined {
 const text = (m: Text | { level: number; text: Text }) => (typeof m === "object" && !Array.isArray(m) ? m.text : m);
 
 // [result]: the goals after the sentence at the cursor, [before]: before it
-export function Goals({ result, before }: { result: GoalsResult | null; before: GoalsResult | null }) {
+// (hint: shown without goals)
+export function Goals({ result, before, hint }: { result: GoalsResult | null; before: GoalsResult | null; hint?: string }) {
   const [ref, width] = useColumns();
   const [diffs, setDiffs] = useState(() => stored("rocq-web:diffs", true));
   const [folded, setFolded] = useState(new Set<string>());
@@ -136,7 +132,7 @@ export function Goals({ result, before }: { result: GoalsResult | null; before: 
         </label>
       )}
       {!result ? (
-        <p className="muted">Move the cursor into a proof.</p>
+        <p className="muted">{hint ?? "Move the cursor into a proof."}</p>
       ) : g ? (
         g.goals.length > 0 ? (
           g.goals.map((goal, i) => (
