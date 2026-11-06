@@ -29,15 +29,19 @@ mkdir -p "$out/plugins"
 # --node-fs: run under node with the host files (Rocq's, findlib's), until
 # the browser worker has its own file system.
 scripts/vendor.sh
-"$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
-# coq-lsp's server, its messages from web/rocq-web-io.js
-"$OCAML_EMCC" "${flags[@]}" build "$out/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" --node-fs \
-  -- --pre-js web/rocq-web-io.js
+# ROCQ_WEB_PLUGINS_ONLY: the plugins of the worker already built (new
+# packages in the switch)
+if [ -z "${ROCQ_WEB_PLUGINS_ONLY:-}" ]; then
+  "$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
+  # coq-lsp's server, its messages from web/rocq-web-io.js
+  "$OCAML_EMCC" "${flags[@]}" build "$out/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" --node-fs \
+    -- --pre-js web/rocq-web-io.js
 
-# The same for a Web Worker: Rocq's files in emscripten's file system
-# (web/rocq-web-fs.js, scripts/assets.mjs)
-"$OCAML_EMCC" "${flags[@]}" build "$out/web/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" \
-  -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1
+  # The same for a Web Worker: Rocq's files in emscripten's file system
+  # (web/rocq-web-fs.js, scripts/assets.mjs)
+  "$OCAML_EMCC" "${flags[@]}" build "$out/web/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" \
+    -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1
+fi
 
 # The plugins, side modules named after their findlib package: those the
 # libraries of the switch declare (Declare ML Module in Corelib and
