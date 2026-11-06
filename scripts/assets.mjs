@@ -12,10 +12,12 @@
 //   listed in web/boot-files.txt (those Rocq reads when it starts, written
 //   by tests/startup.mjs --record), in one request;
 // - files.json: the manifest web/rocq-web-fs.js creates the file system
-//   from (directories, files with their sizes, environment).
+//   from (directories, files with their sizes, environment, the version of
+//   the files).
 // Run with the switch's environment (scripts/env.sh): ocamlfind.
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, relative } from "node:path";
 
 const build = process.argv[2] ?? "full";
@@ -117,6 +119,13 @@ for (const f of files)
   }
 writeFileSync(join(out, "boot.bin"), Buffer.concat(chunks));
 
+// The version of these files, a hash of their contents: in the URLs the
+// worker fetches them at (?v=), which a server may then cache for good
+const hash = createHash("sha256");
+for (const [path] of files) hash.update(path).update(readFileSync(join(out, path.slice(1))));
+hash.update(readFileSync(join(out, "boot.bin")));
+const version = hash.digest("hex").slice(0, 16);
+
 const sorted = [...dirs].sort();
 writeFileSync(
   join(out, "files.json"),
@@ -124,6 +133,7 @@ writeFileSync(
     dirs: sorted,
     files,
     boot: "boot.bin",
+    version,
     // OCAMLRUNPARAM: a minor heap of 32 MB (Rocq sets 256 MB unless it is
     // given, which takes 130 ms to clear when it starts, for no faster
     // proofs)

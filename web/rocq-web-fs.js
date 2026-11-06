@@ -25,8 +25,13 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
       });
     };
     var manifest = get(base + "files.json", "json");
+    // the version of the files (a hash of their contents) in their URLs,
+    // which servers may then cache for good (scripts/serve.mjs)
+    var version = function (m) {
+      return m.version ? "?v=" + m.version : "";
+    };
     var boot = manifest.then(function (m) {
-      return m.boot ? get(base + m.boot, "arrayBuffer") : null;
+      return m.boot ? get(base + m.boot + version(m), "arrayBuffer") : null;
     });
     // A file node of MEMFS whose contents are fetched on its first read
     var lazyFile = function (path, url, size) {
@@ -63,7 +68,7 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
           // [path, size] or, in boot.bin, [path, size, offset]
           m.files.forEach(function (f) {
             if (pack && f.length > 2) FS.writeFile(f[0], new Uint8Array(pack, f[2], f[1]));
-            else lazyFile(f[0], base + f[0].slice(1), f[1]);
+            else lazyFile(f[0], base + f[0].slice(1) + version(m), f[1]);
           });
           FS.mkdirTree("/workspace");
           FS.writeFile("/workspace/_RocqProject", "-R /workspace Workspace\n");

@@ -2,8 +2,9 @@
 // - cross-origin isolated (COOP and COEP), for the memory the page shares
 //   with the worker to interrupt Rocq;
 // - the brotli compression of a file (FILE.br) when the browser takes it;
-// - the files of vite (assets/, named by their hash) cached for good, the
-//   others revalidated (ETag).
+// - the files of vite (assets/, named by their hash) and those of Rocq
+//   fetched with their version (?v=, web/rocq-web-fs.js) cached for good,
+//   the others revalidated (ETag).
 //   node scripts/serve.mjs [DIR] [PORT]   (default dist, 8080)
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -47,7 +48,9 @@ createServer((req, res) => {
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Embedder-Policy": "require-corp",
     "Cross-Origin-Resource-Policy": "same-origin",
-    "Cache-Control": path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache",
+    // vite's files are named by their hash, Rocq's fetched with theirs (?v=)
+    "Cache-Control":
+      path.startsWith("/assets/") || url.searchParams.has("v") ? "public, max-age=31536000, immutable" : "no-cache",
     Vary: "Accept-Encoding",
   };
   const br = /\bbr\b/.test(req.headers["accept-encoding"] ?? "") && stat(file + ".br");
