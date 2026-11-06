@@ -1,15 +1,35 @@
-; Rocq (rocq compile/repl) with its plugins loaded as wasm side modules
-(executable
- (name rocq_web)
- (modules rocq_web)
- (modes byte)
- (link_flags (-linkall))
- (libraries rocq-runtime.toplevel rocq_web_plugins))
-
-; coq-lsp's server, for a Web Worker
+; coq-lsp's server, for a Web Worker. Its libraries are linked in, the
+; other plugins are side modules (scripts/build.sh reads this list): the
+; plugins Corelib's prelude loads, with their serlib, start faster linked.
 (executable
  (name lsp_worker)
  (modules lsp_worker)
  (modes byte)
  (link_flags (-linkall))
- (libraries coq-lsp.controller js_of_ocaml unix rocq_web_plugins lsp_io))
+ (libraries
+  coq-lsp.controller js_of_ocaml unix rocq_web_plugins lsp_io
+  rocq-runtime.plugins.ltac coq-lsp.serlib.ltac
+  rocq-runtime.plugins.number_string_notation coq-lsp.serlib.number_string_notation
+  rocq-runtime.plugins.tauto coq-lsp.serlib.tauto
+  rocq-runtime.plugins.cc_core coq-lsp.serlib.cc_core
+  rocq-runtime.plugins.cc coq-lsp.serlib.cc
+  rocq-runtime.plugins.firstorder_core coq-lsp.serlib.firstorder_core
+  rocq-runtime.plugins.firstorder coq-lsp.serlib.firstorder))
+
+; Rocq (rocq compile/repl) with its plugins loaded as wasm side modules:
+; the libraries of lsp_worker, the plugins being built against it
+(executable
+ (name rocq_web)
+ (modules rocq_web)
+ (modes byte)
+ (link_flags (-linkall))
+ (libraries
+  rocq-runtime.toplevel coq-lsp.controller js_of_ocaml unix rocq_web_plugins
+  rocq-runtime.plugins.ltac coq-lsp.serlib.ltac
+  rocq-runtime.plugins.number_string_notation coq-lsp.serlib.number_string_notation
+  rocq-runtime.plugins.tauto coq-lsp.serlib.tauto
+  rocq-runtime.plugins.cc_core coq-lsp.serlib.cc_core
+  rocq-runtime.plugins.cc coq-lsp.serlib.cc
+  rocq-runtime.plugins.firstorder_core coq-lsp.serlib.firstorder_core
+  rocq-runtime.plugins.firstorder coq-lsp.serlib.firstorder))
+

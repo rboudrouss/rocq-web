@@ -51,7 +51,13 @@ ctx=default.${flags[1]}
 export OCAMLPATH=$PWD/_build/install/$ctx/lib
 roots=$( (grep -rhoE 'Declare ML Module "[^"]+"' "$OPAM_SWITCH_PREFIX/lib/coq" | sed 's/.*"\(.*\)"/\1/'
   ocamlfind list 2>/dev/null | awk '$1 ~ /^coq-lsp\.serlib\./ {print $1}') | sort -u)
-linked=$(ocamlfind query -r -format '%p' coq-lsp.controller js_of_ocaml unix findlib ocaml-emcc.dynlink | sort -u)
+# the packages linked in the worker: the libraries of lsp_worker (worker/dune)
+libs=$(sed -n '/(name lsp_worker)/,/^$/p' worker/dune | sed -n '/(libraries/,$p' | tr -d '()' |
+  tr -s ' ' '\n' | grep -vxE 'libraries|rocq_web_plugins|lsp_io' | grep .)
+linked=$(ocamlfind query -r -format '%p' $libs findlib ocaml-emcc.dynlink | sort -u)
+for f in "$out"/plugins/*.wasm; do
+  if grep -qx "$(basename "$f" .wasm)" <<< "$linked"; then rm "$f"; fi
+done
 failed=()
 for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
   if grep -qx "$pkg" <<< "$linked"; then continue; fi
