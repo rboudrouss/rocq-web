@@ -96,6 +96,8 @@ export class Project {
     const t0 = performance.now();
     this.client.open(uri, text, version);
     try {
+      // (checked to its end first, when Rocq checks only on request)
+      await this.client.goals(uri, version, { line: text.split("\n").length + 1, character: 0 }, "After", "Str").catch(() => {});
       await this.client.saveVo(uri, version);
     } catch (e) {
       this.built.delete(name);

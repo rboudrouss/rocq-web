@@ -119,14 +119,24 @@ export class LspClient {
     this.send({ method, params });
   }
 
-  async initialize() {
+  // checkOnRequest: Rocq checks a document only up to the points of
+  // requests (goals...), not all of it after each change
+  async initialize(checkOnRequest = false) {
     await this.request("initialize", {
       processId: null,
       rootUri: "file:///workspace",
       capabilities: {},
-      initializationOptions: { check_only_on_request: false, pp_type: 0 },
+      initializationOptions: this.settings(checkOnRequest),
     });
     this.notify("initialized", {});
+  }
+
+  private settings(checkOnRequest: boolean) {
+    return { check_only_on_request: checkOnRequest, pp_type: 0 };
+  }
+
+  configure(checkOnRequest: boolean) {
+    this.notify("workspace/didChangeConfiguration", { settings: this.settings(checkOnRequest) });
   }
 
   open(uri: string, text: string, version: number) {

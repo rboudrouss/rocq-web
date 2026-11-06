@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
 import { Goals } from "./goals";
@@ -41,6 +41,10 @@ export function App() {
   // a new worker when it changes (Restart)
   const [generation, setGeneration] = useState(0);
   const [fetching, setFetching] = useState<{ path: string; files: number; bytes: number } | null>(null);
+  // Rocq checks the file up to the cursor on request (Alt+Enter), not all
+  // of it as it changes
+  const [toCursor, setToCursor] = useState(() => localStorage.getItem("rocq-web:check") === "cursor");
+  const [help, setHelp] = useState(false);
 
   const client = useRef<LspClient | null>(null);
   const project = useRef<Project | null>(null);
@@ -53,6 +57,10 @@ export function App() {
   // the texts not saved yet
   const texts = useRef(new Map<string, string>());
   const pendingGoTo = useRef<Range | null>(null);
+  const toCursorRef = useRef(toCursor);
+  // (checking up to the cursor) the offset Rocq checked the file up to
+  const checkedTo = useRef(0);
+  const diagnosticsRef = useRef<Diagnostic[]>([]);
 
   const log = useCallback((m: string) => setLogs((l) => [...l.slice(-200), m]), []);
   const read = useCallback((name: string) => texts.current.get(name) ?? readFile(name), []);
@@ -70,8 +78,10 @@ export function App() {
     const v = version.current;
     const name = activeRef.current;
     const uri = workspaceUri(name);
-    const current = () => v === version.current && name === activeRef.current;
     const at = cursor.current;
+    // (the answer for the cursor where it still is)
+    const current = () => v === version.current && name === activeRef.current && at === cursor.current;
+    if (toCursorRef.current && offsetAt(read(name), at) > checkedTo.current) return setGoals(null);
     c.goals(uri, v, at).then(
       async (now) => {
         if (!current()) return;
@@ -113,6 +123,7 @@ export function App() {
       diagnostics: (u, _v, ds) => {
         if (u !== workspaceUri(activeRef.current)) return;
         editor.current?.setDiagnostics(ds);
+        diagnosticsRef.current = ds;
         setDiagnostics(ds);
       },
       fetch: (path, size) =>
@@ -134,9 +145,12 @@ export function App() {
     project.current = new Project(c, () => listFiles(), read, log);
     (window as unknown as { rocq: LspClient }).rocq = c;
     const t0 = performance.now();
-    c.initialize().then(() => {
+    checkedTo.current = 0;
+    c.initialize(toCursorRef.current).then(() => {
       log(`server ready in ${Math.round(performance.now() - t0)} ms`);
       ready.current = true;
+      // (busy once it checks a file)
+      setStatus("Idle");
       openActive();
     });
     fetch(`${assets}packages.json`)
@@ -160,8 +174,10 @@ export function App() {
       setActiveFile(name);
       setGoals(null);
       setDiagnostics([]);
+      diagnosticsRef.current = [];
       setSymbols([]);
       cursor.current = { line: 0, character: 0 };
+      checkedTo.current = 0;
       if (ready.current) openActive();
     },
     [flush, openActive],
@@ -178,6 +194,16 @@ export function App() {
   const onChange = useCallback(
     (t: string) => {
       const name = activeRef.current;
+      if (toCursorRef.current) {
+        // checked up to the sentence before the change
+        const old = read(name);
+        let d = 0;
+        while (d < t.length && d < old.length && t[d] === old[d]) d++;
+        if (d < checkedTo.current) {
+          checkedTo.current = sentences(t).reduce((e, s) => (s.end <= d ? s.end : e), 0);
+          editor.current?.setUnchecked(positionAt(t, checkedTo.current));
+        }
+      }
       texts.current.set(name, t);
       version.current++;
       window.clearTimeout(save.current);
@@ -191,7 +217,7 @@ export function App() {
         if (!p.upToDate(name)) p.prepare(name).catch((e: Error) => log(e.message));
       }, 800);
     },
-    [flush, log],
+    [flush, log, read],
   );
 
   const goalsTimer = useRef<number | undefined>(undefined);
@@ -203,6 +229,80 @@ export function App() {
     },
     [askGoals],
   );
+
+  // Checks up to a point (when checking up to the cursor), shows its goals
+  const checkTo = useCallback(
+    (p: Position) => {
+      if (toCursorRef.current) {
+        const text = read(activeRef.current);
+        // (to the end of the sentence there)
+        const s = sentenceAt(sentences(text), offsetAt(text, p));
+        checkedTo.current = Math.max(offsetAt(text, p), s?.end ?? 0);
+        editor.current?.setUnchecked(positionAt(text, checkedTo.current));
+      }
+      cursor.current = p;
+      askGoals();
+    },
+    [askGoals, read],
+  );
+
+  // The cursor after the next sentence, or the previous one, checked
+  const step = useCallback(
+    (p: Position, forward: boolean) => {
+      const text = read(activeRef.current);
+      const o = offsetAt(text, p);
+      const list = sentences(text);
+      const s = forward ? list.find((s) => s.end > o) : list.filter((s) => s.end < o).pop();
+      const to = positionAt(text, s ? s.end : forward ? text.length : 0);
+      editor.current?.goTo(to, false);
+      checkTo(to);
+    },
+    [checkTo, read],
+  );
+
+  // The cursor on the next problem, or the previous one
+  const problem = useCallback((p: Position, forward: boolean) => {
+    const ds = diagnosticsRef.current.filter((d) => d.severity <= 2);
+    if (ds.length === 0) return;
+    const key = (q: Position) => q.line * 1e6 + q.character;
+    const sorted = [...ds].sort((a, b) => key(a.range.start) - key(b.range.start));
+    const k = key(p);
+    const d = forward
+      ? (sorted.find((d) => key(d.range.start) > k) ?? sorted[0])
+      : (sorted.filter((d) => key(d.range.start) < k).pop() ?? sorted[sorted.length - 1]);
+    editor.current?.goTo(d.range);
+  }, []);
+
+  const keys = useMemo(
+    () => ({
+      "Alt-Enter": checkTo,
+      "Ctrl-Enter": checkTo,
+      "Alt-n": (p: Position) => step(p, true),
+      "Alt-p": (p: Position) => step(p, false),
+      F8: (p: Position) => problem(p, true),
+      "Shift-F8": (p: Position) => problem(p, false),
+    }),
+    [checkTo, step, problem],
+  );
+
+  const changeMode = (cursorMode: boolean) => {
+    setToCursor(cursorMode);
+    toCursorRef.current = cursorMode;
+    localStorage.setItem("rocq-web:check", cursorMode ? "cursor" : "all");
+    const c = client.current;
+    if (!c || !ready.current) return;
+    c.configure(cursorMode);
+    const name = activeRef.current;
+    const text = read(name);
+    if (cursorMode) {
+      // (all of it was checked)
+      checkedTo.current = text.length;
+    } else {
+      editor.current?.setUnchecked(null);
+      // checks it all again
+      c.change(workspaceUri(name), text, ++version.current);
+    }
+  };
 
   const hover = useCallback(
     (p: Position) =>
@@ -380,6 +480,14 @@ export function App() {
           </span>
         )}
         <span className="file">{active}</span>
+        <select
+          value={toCursor ? "cursor" : "all"}
+          onChange={(e) => changeMode(e.target.value === "cursor")}
+          title="When Rocq checks the file"
+        >
+          <option value="all">Check as you type</option>
+          <option value="cursor">Check up to the cursor (Alt+Enter)</option>
+        </select>
         <button
           onClick={() => {
             flush();
@@ -395,8 +503,33 @@ export function App() {
         <button onClick={download} title="Download the file">
           Download
         </button>
+        <button onClick={() => setHelp(!help)} title="Keyboard shortcuts">
+          ?
+        </button>
         <span className="muted">build: {build}</span>
       </header>
+      {help && (
+        <div className="help" onClick={() => setHelp(false)}>
+          <table>
+            <tbody>
+              {[
+                ["Alt+Enter, Ctrl+Enter", "Check up to the cursor"],
+                ["Alt+N, Alt+P", "Next or previous sentence (checked)"],
+                ["F8, Shift+F8", "Next or previous error or warning"],
+                ["F12, Ctrl+click", "Go to the definition"],
+                ["Ctrl+Space", "Complete a name, or a symbol after a backslash (\\forall)"],
+              ].map(([k, what]) => (
+                <tr key={k}>
+                  <td>
+                    <kbd>{k}</kbd>
+                  </td>
+                  <td>{what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {shared && (
         <div className="shared">
           Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
@@ -440,6 +573,7 @@ export function App() {
               hover={hover}
               complete={complete}
               definition={definition}
+              keys={keys}
             />
           </div>
           {library && (
@@ -457,7 +591,11 @@ export function App() {
         <aside className="right">
           <h2>Goals</h2>
           <div className="goals" data-testid="goals">
-            <Goals result={goals?.now ?? null} before={goals?.before ?? null} />
+            <Goals
+              result={goals?.now ?? null}
+              before={goals?.before ?? null}
+              hint={toCursor ? "Not checked yet. Alt+Enter checks up to the cursor." : undefined}
+            />
           </div>
           <Tabs
             tabs={[

@@ -16,8 +16,11 @@ const dark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 export type EditorHandle = {
   setDiagnostics: (d: Diagnostic[]) => void;
   setProcessing: (r: Range[]) => void;
-  // Selects a range (its start when [r] is a position) and shows it
-  goTo: (r: Range | Position) => void;
+  // The text not checked from [p] on (null: none)
+  setUnchecked: (p: Position | null) => void;
+  // Selects a range (its start when [r] is a position) and shows it (in
+  // the middle of the editor, or scrolled just enough: center false)
+  goTo: (r: Range | Position, center?: boolean) => void;
   // Inserts a line before the cursor's
   insertLine: (text: string) => void;
 };
@@ -33,6 +36,9 @@ type Props = {
   complete?: (p: Position) => Promise<CompletionItem[]>;
   // F12 or Ctrl+click
   definition?: (p: Position) => void;
+  // commands of keys (CodeMirror's names: "Alt-Enter"), the cursor's
+  // position given
+  keys?: Record<string, (p: Position) => void>;
 };
 
 const offset = (doc: Text, p: Position) => {
@@ -56,6 +62,23 @@ const processing = StateField.define({
             .map(([a, b]) => Decoration.mark({ class: "cm-processing" }).range(a, b)),
           true,
         );
+      }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+// The text not checked yet when Rocq checks up to the cursor
+const setUncheckedEffect = StateEffect.define<Position | null>();
+const unchecked = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects)
+      if (e.is(setUncheckedEffect)) {
+        const doc = tr.state.doc;
+        const from = e.value ? offset(doc, e.value) : doc.length;
+        deco = from < doc.length ? Decoration.set([Decoration.mark({ class: "cm-unchecked" }).range(from, doc.length)]) : Decoration.none;
       }
     return deco;
   },
@@ -104,6 +127,14 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
           history(),
           highlightActiveLine(),
           keymap.of([
+            ...Object.keys(callbacks.current.keys ?? {}).map((key) => ({
+              key,
+              preventDefault: true,
+              run: (v: EditorView) => {
+                callbacks.current.keys?.[key]?.(position(v.state.doc, v.state.selection.main.head));
+                return true;
+              },
+            })),
             {
               key: "F12",
               run: (v) => {
@@ -129,6 +160,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
           rocq,
           lintGutter(),
           processing,
+          unchecked,
           autocompletion({ override: [complete] }),
           hoverTooltip(async (v, pos) => {
             const h = await callbacks.current.hover?.(position(v.state.doc, pos));
@@ -186,13 +218,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
     setProcessing(rs) {
       view.current?.dispatch({ effects: setProcessingEffect.of(rs) });
     },
-    goTo(r) {
+    setUnchecked(p) {
+      view.current?.dispatch({ effects: setUncheckedEffect.of(p) });
+    },
+    goTo(r, center = true) {
       const v = view.current;
       if (!v) return;
       const range = "start" in r ? r : { start: r, end: r };
       const from = offset(v.state.doc, range.start);
       const to = offset(v.state.doc, range.end);
-      v.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+      v.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: center ? "center" : "nearest" }) });
       v.focus();
     },
     insertLine(text) {
