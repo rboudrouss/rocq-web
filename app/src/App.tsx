@@ -164,10 +164,10 @@ export function App() {
       const name = activeRef.current;
       texts.current.set(name, t);
       version.current++;
-      if (!ready.current) return;
-      client.current?.change(workspaceUri(name), t, version.current);
       window.clearTimeout(save.current);
       save.current = window.setTimeout(flush, 500);
+      if (!ready.current) return;
+      client.current?.change(workspaceUri(name), t, version.current);
       // a new Require of a file of the workspace
       window.clearTimeout(depsTimer.current);
       depsTimer.current = window.setTimeout(() => {
