@@ -60,15 +60,6 @@ Chromium, local server, a loaded machine).
   forced then raises it again later. Only once the command has not
   checked for interrupts for half a second.
 
-Fixed on the way: ocaml-emcc 476f822 (x86 flags from Rocq's configure),
-d7584a2 (`Sys.chdir` under `--node-fs`); c_of_ocaml fd6db6e0 (numbers
-given to `Obj.size`), 5f602e6c (`Gc.ramp_up` ran without new segments);
-its session's 6e147c7e (tail calls of different signatures), a60e2e2f
-(over-applications used emscripten's C stack and were not tail calls:
-Ltac loops, 256 MB of C stack no longer needed), c36b6187 (Gc alarms),
-bd0845e8 (Memprof callbacks run, and raise, at allocations); coq-lsp:
-documents opened after `coq/workspace_update` (patch 0002).
-
 ## Compat build (wasm32 + CPS stack)
 
 Not built yet: ocaml-emcc supports `--cps-stack` with `--dynlink`
