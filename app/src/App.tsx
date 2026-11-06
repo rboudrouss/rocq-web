@@ -2,7 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
 import { Goals } from "./goals";
-import { activeFile, listFiles, readFile, removeFile, saveToDisk, setActiveFile, writeFile } from "./files";
+import {
+  activeFile,
+  isRocq,
+  listFiles,
+  projectFile,
+  readFile,
+  removeFile,
+  saveToDisk,
+  setActiveFile,
+  validName,
+  writeFile,
+} from "./files";
 import {
   type CompletionItem,
   type Diagnostic,
@@ -13,14 +24,27 @@ import {
   type Range,
 } from "./lsp";
 import { Files, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
-import { Project, workspaceUri } from "./project";
+import { loadPath, moduleName, Project, workspaceUri } from "./project";
 import { offsetAt, positionAt, sentenceAt, sentences } from "./sentences";
 import { shareUrl } from "./share";
+import { unzip, zip } from "./zip";
 
 const base = import.meta.env.BASE_URL;
 
-// A library file shown read only (go to definition)
-type Library = { uri: string; path: string; text: string; range: Range };
+// The _RocqProject of a workspace without one
+const defaultProject = "-R /workspace Workspace\n-arg -w -arg -extraction-default-directory\n";
+
+function saveBlob(blob: Blob, name: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// A file shown read only: a library's (go to definition), or one Rocq
+// wrote (Extraction...)
+type Library = { uri: string; path: string; text: string; range: Range; note?: string };
 
 export function App() {
   const [build] = useState(pickBuild);
@@ -37,6 +61,12 @@ export function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [library, setLibrary] = useState<Library | null>(null);
   const [shared, setShared] = useState<string | null>(null);
+  // the files Rocq wrote in the workspace (Extraction...): [path, size]
+  const [produced, setProduced] = useState<[string, number][]>([]);
+  // _RocqProject changed since Rocq started
+  const [projectChanged, setProjectChanged] = useState(false);
+  // why the files the active one requires were not compiled
+  const [depError, setDepError] = useState<string | null>(null);
   // the libraries' files downloaded while Rocq is busy
   // a new worker when it changes (Restart)
   const [generation, setGeneration] = useState(0);
@@ -63,11 +93,25 @@ export function App() {
   const diagnosticsRef = useRef<Diagnostic[]>([]);
 
   const log = useCallback((m: string) => setLogs((l) => [...l.slice(-200), m]), []);
+  // A file of the workspace to the worker's (for Load, _RocqProject)
+  const toWorker = (name: string, text: string | null) => {
+    const c = client.current;
+    if (!c) return;
+    const done =
+      text !== null
+        ? c.writeFile(`/workspace/${name}`, text)
+        : name === projectFile
+          ? c.writeFile(`/workspace/${name}`, defaultProject)
+          : c.removeFile(`/workspace/${name}`);
+    done.catch((e: Error) => log(`${name}: ${e.message}`));
+    if (name === projectFile) setProjectChanged(true);
+  };
   const read = useCallback((name: string) => texts.current.get(name) ?? readFile(name), []);
   const flush = useCallback(() => {
     for (const [name, text] of texts.current) {
       writeFile(name, text);
       saveToDisk(name, text).catch((e: Error) => log(`${name} was not saved to disk (${e.message})`));
+      toWorker(name, text);
     }
     texts.current.clear();
   }, [log]);
@@ -95,9 +139,27 @@ export function App() {
     );
   }, [log, read]);
 
+  // (not those of Rocq's, nor the user's)
+  const listProduced = useCallback(() => {
+    const c = client.current;
+    if (!c) return;
+    c.listFiles("/workspace").then(
+      (fs) => {
+        const mine = new Set(listFiles());
+        setProduced(
+          fs
+            .map(([p, size]) => [p.replace(/^\/workspace\//, ""), size] as [string, number])
+            .filter(([p]) => !mine.has(p) && !/\.(vo|vos|vok|glob|aux|v)$|(^|\/)\.[^/]*$/.test(p) && p !== projectFile)
+            .sort(),
+        );
+      },
+      () => {},
+    );
+  }, []);
+
   const askSymbols = useCallback(() => {
     const c = client.current;
-    if (!c || !ready.current) return;
+    if (!c || !ready.current || !isRocq(activeRef.current)) return;
     const name = activeRef.current;
     c.symbols(workspaceUri(name)).then(
       (s) => name === activeRef.current && setSymbols(s ?? []),
@@ -109,10 +171,13 @@ export function App() {
   const openActive = useCallback(async () => {
     const c = client.current!;
     const name = activeRef.current;
+    if (!isRocq(name)) return;
     try {
       await project.current!.prepare(name);
+      setDepError(null);
     } catch (e) {
       log((e as Error).message);
+      setDepError((e as Error).message);
     }
     if (name !== activeRef.current) return;
     c.open(workspaceUri(name), read(name), ++version.current);
@@ -134,6 +199,7 @@ export function App() {
         if (s === "Idle") {
           askGoals();
           askSymbols();
+          listProduced();
         }
       },
       progress: (u, rs) => u === workspaceUri(activeRef.current) && editor.current?.setProcessing(rs),
@@ -143,6 +209,13 @@ export function App() {
     ready.current = false;
     setStatus("starting");
     project.current = new Project(c, () => listFiles(), read, log);
+    // the files of the workspace, before Rocq starts
+    const all = listFiles();
+    for (const f of all) c.writeFile(`/workspace/${f}`, read(f)).catch(() => {});
+    // (without the user's, the worker's, Extraction's files in the
+    // workspace without a warning)
+    if (!all.includes(projectFile)) c.writeFile(`/workspace/${projectFile}`, defaultProject).catch(() => {});
+    setProjectChanged(false);
     (window as unknown as { rocq: LspClient }).rocq = c;
     const t0 = performance.now();
     checkedTo.current = 0;
@@ -161,18 +234,23 @@ export function App() {
       window.removeEventListener("beforeunload", flush);
       c.terminate();
     };
-  }, [build, assets, askGoals, askSymbols, log, read, flush, openActive, generation]);
+  }, [build, assets, askGoals, askSymbols, listProduced, log, read, flush, openActive, generation]);
 
   const switchTo = useCallback(
     (name: string) => {
       setLibrary(null);
       if (name === activeRef.current) return;
       flush();
-      if (ready.current) client.current?.close(workspaceUri(activeRef.current));
+      if (ready.current && isRocq(activeRef.current)) {
+        client.current?.close(workspaceUri(activeRef.current));
+        // (what coq-lsp keeps of the file and of the states it went through)
+        client.current?.notify("coq/trimCaches", {});
+      }
       activeRef.current = name;
       setActive(name);
       setActiveFile(name);
       setGoals(null);
+      setDepError(null);
       setDiagnostics([]);
       diagnosticsRef.current = [];
       setSymbols([]);
@@ -208,13 +286,17 @@ export function App() {
       version.current++;
       window.clearTimeout(save.current);
       save.current = window.setTimeout(flush, 500);
-      if (!ready.current) return;
+      if (!ready.current || !isRocq(name)) return;
       client.current?.change(workspaceUri(name), t, version.current);
       // a new Require of a file of the workspace
       window.clearTimeout(depsTimer.current);
       depsTimer.current = window.setTimeout(() => {
         const p = project.current!;
-        if (!p.upToDate(name)) p.prepare(name).catch((e: Error) => log(e.message));
+        if (!p.upToDate(name))
+          p.prepare(name).then(
+            () => setDepError(null),
+            (e: Error) => (log(e.message), setDepError(e.message)),
+          );
       }, 800);
     },
     [flush, log, read],
@@ -306,11 +388,13 @@ export function App() {
 
   const hover = useCallback(
     (p: Position) =>
-      ready.current && client.current ? client.current.hover(workspaceUri(activeRef.current), p) : Promise.resolve(null),
+      ready.current && client.current && isRocq(activeRef.current)
+        ? client.current.hover(workspaceUri(activeRef.current), p)
+        : Promise.resolve(null),
     [],
   );
   const complete = useCallback(async (p: Position): Promise<CompletionItem[]> => {
-    if (!ready.current || !client.current) return [];
+    if (!ready.current || !client.current || !isRocq(activeRef.current)) return [];
     const r = await client.current.completion(workspaceUri(activeRef.current), p);
     return Array.isArray(r) ? r : (r?.items ?? []);
   }, []);
@@ -320,7 +404,14 @@ export function App() {
   const moduleFile = useCallback(
     (full: string): { file?: string; path?: string } | null => {
       const parts = full.split(".");
-      if (parts[0] === "Workspace" && parts.length > 1) return { file: `${parts[1]}.v` };
+      // (the longest module of the workspace the name starts with)
+      const files = listFiles();
+      const lp = loadPath(files, read);
+      const mine = files
+        .map((f) => [moduleName(f, lp), f] as const)
+        .filter(([m]) => m && (full === m || full.startsWith(m + ".")))
+        .sort((a, b) => b[0]!.length - a[0]!.length);
+      if (mine.length) return { file: mine[0][1] };
       const modules = new Set((packages ?? []).flatMap((p) => p.modules));
       for (let n = parts.length; n > 0; n--) {
         const m = parts.slice(0, n).join(".");
@@ -333,7 +424,7 @@ export function App() {
       }
       return null;
     },
-    [packages],
+    [packages, read],
   );
 
   const showLocation = useCallback(
@@ -377,7 +468,7 @@ export function App() {
   const definition = useCallback(
     async (p: Position) => {
       const c = client.current;
-      if (!ready.current || !c) return;
+      if (!ready.current || !c || !isRocq(activeRef.current)) return;
       const uri = workspaceUri(activeRef.current);
       const line = read(activeRef.current).split("\n")[p.line] ?? "";
       let a = p.character;
@@ -388,7 +479,7 @@ export function App() {
       const short = qualid.split(".").pop();
       const r = await c.definition(uri, p).catch(() => null);
       const loc = Array.isArray(r) ? r[0] : r;
-      const ws = loc && /^file:\/\/\/workspace\/([^/]+\.v)$/.exec(loc.uri);
+      const ws = loc && /^file:\/\/\/workspace\/(.+\.v)$/.exec(loc.uri);
       if (ws) return showLocation({ file: ws[1] }, loc.range, short);
       if (loc) return showLocation({ uri: loc.uri, path: loc.uri.replace(/^file:\/\/\//, "") }, loc.range, short);
       // coq-lsp finds neither the definitions of the workspace's files (no
@@ -420,6 +511,7 @@ export function App() {
   const create = useCallback(
     (name: string, text = "") => {
       writeFile(name, text);
+      toWorker(name, text);
       setFiles(listFiles());
       switchTo(name);
     },
@@ -430,6 +522,8 @@ export function App() {
       flush();
       writeFile(to, readFile(from));
       removeFile(from);
+      toWorker(from, null);
+      toWorker(to, readFile(to));
       setFiles(listFiles());
       if (activeRef.current === from) switchTo(to);
     },
@@ -439,6 +533,7 @@ export function App() {
     (name: string) => {
       texts.current.delete(name);
       removeFile(name);
+      toWorker(name, null);
       const rest = listFiles();
       setFiles(rest);
       if (activeRef.current === name) switchTo(rest[0]);
@@ -451,12 +546,53 @@ export function App() {
     log(`link to ${active} copied (${url.length} characters)`);
     setShared(url);
   };
-  const download = () => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([read(active)], { type: "text/plain" }));
-    a.download = active;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const download = () => saveBlob(new Blob([read(active)], { type: "text/plain" }), active.split("/").pop()!);
+
+  const exportZip = async () => {
+    flush();
+    const enc = new TextEncoder();
+    saveBlob(await zip(listFiles().map((f) => ({ name: f, data: enc.encode(readFile(f)) }))), "rocq-workspace.zip");
+  };
+  const importZip = async (file: File) => {
+    try {
+      const entries = await unzip(await file.arrayBuffer());
+      // (an archive of a folder: its files)
+      const top = entries[0]?.name.split("/")[0];
+      const strip = entries.length > 0 && entries.every((e) => e.name.startsWith(top + "/")) ? top.length + 1 : 0;
+      const dec = new TextDecoder();
+      const found = entries.map((e) => [e.name.slice(strip), dec.decode(e.data)] as const).filter(([n]) => validName(n));
+      if (found.length === 0) return log(`${file.name} has no .v files`);
+      const mine = listFiles();
+      const replaced = found.filter(([n, t]) => mine.includes(n) && readFile(n) !== t).map(([n]) => n);
+      if (replaced.length && !confirm(`Replace ${replaced.join(", ")}?`)) return;
+      flush();
+      for (const [n, t] of found) {
+        writeFile(n, t);
+        toWorker(n, t);
+      }
+      setFiles(listFiles());
+      log(`${found.length} files from ${file.name}`);
+      const first = found.find(([n]) => isRocq(n));
+      if (first) switchTo(first[0]);
+    } catch (e) {
+      log(`${file.name}: ${(e as Error).message}`);
+    }
+  };
+  const viewProduced = async (path: string) => {
+    const data = await client.current?.readFile(`/workspace/${path}`).catch(() => null);
+    if (!data) return log(`cannot read ${path}`);
+    const zero = { line: 0, character: 0 };
+    setLibrary({
+      uri: `produced:${path}:${data.length}`,
+      path,
+      text: new TextDecoder().decode(data),
+      range: { start: zero, end: zero },
+      note: "written by Rocq, read only",
+    });
+  };
+  const downloadProduced = async (path: string) => {
+    const data = await client.current?.readFile(`/workspace/${path}`).catch(() => null);
+    if (data) saveBlob(new Blob([data as Uint8Array<ArrayBuffer>]), path.split("/").pop()!);
   };
 
   const goTo = (r: Range) => {
@@ -530,6 +666,20 @@ export function App() {
           </table>
         </div>
       )}
+      {projectChanged && (
+        <div className="shared">
+          Rocq reads <code>_RocqProject</code> when it starts.
+          <button
+            onClick={() => {
+              flush();
+              setGeneration((g) => g + 1);
+            }}
+          >
+            Restart Rocq
+          </button>
+          <button onClick={() => setProjectChanged(false)}>×</button>
+        </div>
+      )}
       {shared && (
         <div className="shared">
           Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
@@ -550,10 +700,17 @@ export function App() {
                   rename={rename}
                   remove={remove}
                   opened={(names) => {
+                    for (const n of names) toWorker(n, readFile(n));
                     setFiles(listFiles());
-                    if (names.length) switchTo(names[0]);
+                    const first = names.find(isRocq);
+                    if (first) switchTo(first);
                     log(`opened ${names.length} files from disk`);
                   }}
+                  exportZip={exportZip}
+                  importZip={importZip}
+                  produced={produced}
+                  view={viewProduced}
+                  download={downloadProduced}
                 />,
               ],
               ["Outline", <Outline symbols={symbols} goTo={goTo} />],
@@ -580,7 +737,7 @@ export function App() {
             <div className="editor-wrap library">
               <div className="library-bar">
                 <span>
-                  {library.path} <span className="muted">(library, read only)</span>
+                  {library.path} <span className="muted">({library.note ?? "library, read only"})</span>
                 </span>
                 <button onClick={() => setLibrary(null)}>Back to {active}</button>
               </div>
@@ -601,10 +758,10 @@ export function App() {
             tabs={[
               [
                 "Problems",
-                <Problems diagnostics={diagnostics} goTo={goTo} />,
+                <Problems diagnostics={diagnostics} goTo={goTo} depError={depError} />,
                 <>
                   Problems
-                  {diagnostics.some((d) => d.severity === 1) && <span className="badge"> •</span>}
+                  {(depError || diagnostics.some((d) => d.severity === 1)) && <span className="badge"> •</span>}
                 </>,
               ],
               ["Query", <Query results={queries} run={runQuery} />],

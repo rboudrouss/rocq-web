@@ -56,6 +56,13 @@ kbd { font-family: ui-monospace, monospace; font-size: 0.8rem; }
 .files li button.name { flex: 1; text-align: left; color: #1d1d1f; font-family: ui-monospace, monospace; font-size: 0.85rem; }
 .files .actions { display: flex; gap: 0.5rem; margin: 0.5rem 0; }
 .file-form { width: 100%; }
+.files li.dir { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #777; padding: 0.2rem 0.3rem 0; }
+.files .actions { flex-wrap: wrap; }
+.files h3 { font-size: 0.75rem; text-transform: uppercase; color: #777; margin: 0.75rem 0 0.25rem; }
+.produced { list-style: none; margin: 0; padding: 0; }
+.produced li { display: flex; align-items: center; gap: 0.3rem; }
+.produced li button { border: 0; background: none; padding: 0.2rem 0.3rem; color: inherit; }
+.produced li button.name { flex: 1; text-align: left; font-family: ui-monospace, monospace; font-size: 0.85rem; }
 
 .outline input, .packages input, .query input { margin-bottom: 0.4rem; }
 .outline li button, .modules li button, .problems li button {
@@ -141,3 +148,4 @@ pre.message, pre.error { font-size: 12px; }
   a { color: #7fb0ff; }
 }
 .disk { color: #3b6fd8; font-size: 0.8em; }
+.problems li.dep-error { font-size: 0.85rem; padding: 0.15rem 0.25rem; }

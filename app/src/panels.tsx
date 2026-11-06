@@ -1,7 +1,7 @@
 // The panels around the editor: files, outline, packages (left),
 // problems, queries and the log (right; the goals: src/goals.tsx).
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { canOpenFolder, isOnDisk, openFolder, validName } from "./files";
+import { canOpenFolder, isOnDisk, isRocq, openFolder, projectFile, validName } from "./files";
 import type { Diagnostic, DocumentSymbol, Range } from "./lsp";
 
 // [name, content, label (default: the name)]
@@ -36,24 +36,50 @@ type FilesProps = {
   remove: (name: string) => void;
   // files read from a folder on disk
   opened: (names: string[]) => void;
+  // the workspace as a zip archive, and one read into it
+  exportZip: () => void;
+  importZip: (file: File) => void;
+  // the files Rocq wrote: [path, size], shown and downloaded
+  produced: [string, number][];
+  view: (path: string) => void;
+  download: (path: string) => void;
 };
 
-export function Files({ files, active, open, create, rename, remove, opened }: FilesProps) {
+// The directories of a path, then its name: "A/B/C.v" -> ["A", "B"], "C.v"
+const split = (path: string): [string[], string] => {
+  const parts = path.split("/");
+  return [parts.slice(0, -1), parts[parts.length - 1]];
+};
+
+// Files sorted by directory: those of a directory after its subdirectories'
+const byDirectory = (a: string, b: string) => {
+  const [da, na] = split(a);
+  const [db, nb] = split(b);
+  for (let i = 0; i < Math.min(da.length, db.length); i++) if (da[i] !== db[i]) return da[i] < db[i] ? -1 : 1;
+  if (da.length !== db.length) return db.length - da.length;
+  return na < nb ? -1 : na > nb ? 1 : 0;
+};
+
+export function Files(props: FilesProps) {
+  const { files, active, open, create, rename, remove, opened } = props;
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const n = name.endsWith(".v") ? name : name + ".v";
-    if (!validName(n)) return setError("Use letters, digits, _ and ' (a Rocq module name)");
+    const n = name === projectFile || name.endsWith(".v") ? name : name + ".v";
+    if (!validName(n)) return setError("Use letters, digits, _ and ' (Rocq module names), and / between folders");
     if (n !== editing && files.includes(n)) return setError(`${n} already exists`);
-    if (editing === "") create(n);
+    if (editing === "") create(n, n === projectFile ? "-R . Workspace\n" : "");
     else if (editing && n !== editing) rename(editing, n);
     setEditing(null);
     setError("");
   };
   const upload = async (list: FileList | null) => {
-    for (const f of Array.from(list ?? [])) if (validName(f.name)) create(f.name, await f.text());
+    for (const f of Array.from(list ?? []))
+      // (a zip archive: by its signature, PK)
+      if (new TextDecoder().decode(await f.slice(0, 2).arrayBuffer()) === "PK") props.importZip(f);
+      else if (validName(f.name)) create(f.name, await f.text());
   };
   const form = (
     <form onSubmit={submit} className="file-form">
@@ -61,54 +87,108 @@ export function Files({ files, active, open, create, rename, remove, opened }: F
       {error && <div className="error">{error}</div>}
     </form>
   );
+  // (a directory's name before its first file)
+  let shownDirs: string[] = [];
+  const rows = [...files].sort(byDirectory).flatMap((f) => {
+    const [dirs, base] = split(f);
+    const out = [];
+    let i = 0;
+    while (i < dirs.length && shownDirs[i] === dirs[i]) i++;
+    for (; i < dirs.length; i++)
+      out.push(
+        <li key={`dir:${dirs.slice(0, i + 1).join("/")}`} className="dir" style={{ paddingLeft: `${i}rem` }}>
+          {dirs[i]}/
+        </li>,
+      );
+    shownDirs = dirs;
+    out.push(
+      editing === f ? (
+        <li key={f}>{form}</li>
+      ) : (
+        <li key={f} className={f === active ? "on" : ""} style={{ paddingLeft: `${dirs.length}rem` }}>
+          <button className="name" title={f} onClick={() => open(f)} onDoubleClick={() => (setEditing(f), setName(f))}>
+            {base}
+            {isOnDisk(f) && (
+              <span className="disk" title="saved to its folder on disk">
+                {" "}
+                ⇄
+              </span>
+            )}
+          </button>
+          <button title="Rename or move" onClick={() => (setEditing(f), setName(f))}>
+            ✎
+          </button>
+          <button
+            title="Delete"
+            disabled={files.filter(isRocq).length === 1 && isRocq(f)}
+            onClick={() => confirm(`Delete ${f}?`) && remove(f)}
+          >
+            ×
+          </button>
+        </li>
+      ),
+    );
+    return out;
+  });
   return (
     <div className="files">
       <ul>
-        {files.map((f) =>
-          editing === f ? (
-            <li key={f}>{form}</li>
-          ) : (
-            <li key={f} className={f === active ? "on" : ""}>
-              <button className="name" onClick={() => open(f)} onDoubleClick={() => (setEditing(f), setName(f))}>
-                {f}
-                {isOnDisk(f) && (
-                  <span className="disk" title="saved to its folder on disk">
-                    {" "}
-                    ⇄
-                  </span>
-                )}
-              </button>
-              <button title="Rename" onClick={() => (setEditing(f), setName(f))}>
-                ✎
-              </button>
-              <button
-                title="Delete"
-                disabled={files.length === 1}
-                onClick={() => confirm(`Delete ${f}?`) && remove(f)}
-              >
-                ×
-              </button>
-            </li>
-          ),
-        )}
+        {rows}
         {editing === "" && <li>{form}</li>}
       </ul>
       <div className="actions">
-        <button onClick={() => (setEditing(""), setName(""))}>New file</button>
-        <label className="button">
+        <button onClick={() => (setEditing(""), setName(""))} title="A file, in a folder with a path (Sub/Name)">
+          New file
+        </button>
+        <label className="button" title=".v files, or a zip archive of a workspace">
           Open…
-          <input type="file" accept=".v" multiple hidden onChange={(e) => upload(e.target.files)} />
+          <input type="file" accept=".v,.zip" multiple hidden onChange={(e) => upload(e.target.files)} />
         </label>
         {canOpenFolder() && (
-          <button title="The .v files of a folder, saved back to it" onClick={() => openFolder().then(opened, () => {})}>
+          <button title="The .v files of a folder and its subfolders, saved back to it" onClick={() => openFolder().then(opened, () => {})}>
             Open folder…
+          </button>
+        )}
+        <button title="All the files in a zip archive" onClick={props.exportZip}>
+          Export zip
+        </button>
+        {!files.includes(projectFile) && (
+          <button title="Rocq's options for the workspace: its load path (-R, -Q), -arg" onClick={() => create(projectFile, "-R . Workspace\n")}>
+            New _RocqProject
           </button>
         )}
       </div>
       <p className="muted">
-        Each file is the module <code>Workspace.NAME</code>. Another file loads it with <code>Require Import NAME.</code>,
-        which compiles it first.
+        {files.includes(projectFile) ? (
+          <>
+            <code>_RocqProject</code> names the modules of the files. Another file loads one with <code>Require Import</code>,
+            which compiles it first.
+          </>
+        ) : (
+          <>
+            Each file is the module <code>Workspace.NAME</code> (<code>Workspace.DIR.NAME</code> in a folder). Another file
+            loads it with <code>Require Import NAME.</code>, which compiles it first.
+          </>
+        )}
       </p>
+      {props.produced.length > 0 && (
+        <>
+          <h3>Written by Rocq</h3>
+          <ul className="produced">
+            {props.produced.map(([p, size]) => (
+              <li key={p}>
+                <button className="name" onClick={() => props.view(p)} title="Show it">
+                  {p}
+                </button>
+                <span className="muted">{size < 1e4 ? `${size} B` : `${Math.round(size / 1e3)} kB`}</span>
+                <button title="Download" onClick={() => props.download(p)}>
+                  ↓
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -209,11 +289,17 @@ export function Packages({ packages, insert }: { packages: Package[] | null; ins
 
 const severityNames = ["", "error", "warning", "info", "hint"];
 
-export function Problems({ diagnostics, goTo }: { diagnostics: Diagnostic[]; goTo: (r: Range) => void }) {
+// (depError: a file the file requires does not compile)
+export function Problems({ diagnostics, goTo, depError }: { diagnostics: Diagnostic[]; goTo: (r: Range) => void; depError?: string | null }) {
   const shown = diagnostics.filter((d) => d.severity <= 2);
-  if (shown.length === 0) return <p className="muted">No errors or warnings.</p>;
+  if (shown.length === 0 && !depError) return <p className="muted">No errors or warnings.</p>;
   return (
     <ul className="problems">
+      {depError && (
+        <li className="dep-error">
+          <span className="sev sev-1">error</span> {depError}
+        </li>
+      )}
       {shown.map((d, i) => (
         <li key={i}>
           <button onClick={() => goTo(d.range)}>

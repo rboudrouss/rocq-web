@@ -1,5 +1,6 @@
-// The user's files, in the browser's local storage: "rocq-web:NAME.v" for
-// each file, "rocq-web:active" for the one open in the editor.
+// The user's files, in the browser's local storage: "rocq-web:PATH" for
+// each file (NAME.v, DIR/NAME.v, _RocqProject), "rocq-web:active" for the
+// one open in the editor.
 const prefix = "rocq-web:";
 const activeKey = "rocq-web:active";
 
@@ -20,16 +21,20 @@ From Ltac2 Require Import Ltac2.
 Ltac2 Eval List.length [1; 2; 3].
 `;
 
-// A file name: a Rocq module name and .v
-export const validName = (name: string) => /^[A-Za-z_][A-Za-z0-9_']*\.v$/.test(name);
+// A file name: Rocq module names (its directories, then its own) and .v,
+// or the project's file
+export const validName = (name: string) =>
+  name === projectFile || /^([A-Za-z_][A-Za-z0-9_']*\/)*[A-Za-z_][A-Za-z0-9_']*\.v$/.test(name);
+export const projectFile = "_RocqProject";
+export const isRocq = (name: string) => name.endsWith(".v");
 
 export function listFiles(): string[] {
   const names: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i)!;
-    if (k.startsWith(prefix) && k.endsWith(".v")) names.push(k.slice(prefix.length));
+    if (k.startsWith(prefix) && validName(k.slice(prefix.length))) names.push(k.slice(prefix.length));
   }
-  if (names.length === 0) {
+  if (!names.some(isRocq)) {
     writeFile("scratch.v", example);
     names.push("scratch.v");
   }
@@ -48,26 +53,33 @@ export const setActiveFile = (name: string) => localStorage.setItem(activeKey, n
 
 // Files of a folder on disk (Chrome's File System Access API), for this
 // session: their edits are written back
-type DirectoryHandle = { values: () => AsyncIterable<{ kind: string; name: string; getFile?: () => Promise<File> }> };
+type DirectoryHandle = { kind: "directory"; name: string; values: () => AsyncIterable<DirectoryHandle | FileHandle> };
 type FileHandle = { kind: "file"; name: string; getFile: () => Promise<File>; createWritable: () => Promise<{ write: (t: string) => Promise<void>; close: () => Promise<void> }> };
 const onDisk = new Map<string, FileHandle>();
 
 export const canOpenFolder = () => "showDirectoryPicker" in window;
 export const isOnDisk = (name: string) => onDisk.has(name);
 
-// The .v files of a folder the user picks (not its subfolders): their names
+// The .v files of a folder the user picks and of its subfolders (not
+// hidden ones, nor _build), and its _RocqProject: their paths
 export async function openFolder(): Promise<string[]> {
   const dir = (await (window as unknown as { showDirectoryPicker: (o: object) => Promise<DirectoryHandle> }).showDirectoryPicker({
     mode: "readwrite",
   })) as DirectoryHandle;
   const names: string[] = [];
-  for await (const h of dir.values()) {
-    if (h.kind !== "file" || !validName(h.name)) continue;
-    const handle = h as unknown as FileHandle;
-    writeFile(h.name, await (await handle.getFile()).text());
-    onDisk.set(h.name, handle);
-    names.push(h.name);
-  }
+  const walk = async (d: DirectoryHandle, at: string) => {
+    for await (const h of d.values()) {
+      const path = at + h.name;
+      if (h.kind === "directory") {
+        if (!h.name.startsWith(".") && h.name !== "_build") await walk(h, path + "/");
+      } else if (validName(path)) {
+        writeFile(path, await (await h.getFile()).text());
+        onDisk.set(path, h);
+        names.push(path);
+      }
+    }
+  };
+  await walk(dir, "");
   return names.sort();
 }
 
