@@ -16,6 +16,7 @@ const handlers = new Map();
 const listeners = [];
 let nextId = 1;
 
+const trace = process.env.LSP_TRACE;
 child.stdout.on("data", (chunk) => {
   buffer = Buffer.concat([buffer, chunk]);
   for (;;) {
@@ -25,6 +26,7 @@ child.stdout.on("data", (chunk) => {
     if (buffer.length < end + 4 + len) return;
     const msg = JSON.parse(buffer.subarray(end + 4, end + 4 + len).toString("utf8"));
     buffer = buffer.subarray(end + 4 + len);
+    if (trace) console.error(`<- ${msg.method ?? "response " + msg.id} ${JSON.stringify(msg.params ?? msg.result ?? null).slice(0, 150)}`);
     if (msg.id !== undefined && handlers.has(msg.id)) {
       handlers.get(msg.id)(msg);
       handlers.delete(msg.id);
@@ -41,7 +43,7 @@ function request(method, params) {
   const id = nextId++;
   return new Promise((ok) => {
     handlers.set(id, ok);
-    send({ id, method, params });
+    send(params === null ? { id, method } : { id, method, params });
   });
 }
 function notification(method) {
@@ -68,7 +70,7 @@ send({ method: "initialized", params: {} });
 
 const checked = new Promise((ok) => {
   listeners.push((msg) => {
-    if (msg.method === "$/coq/fileProgress" && msg.params.processing.length === 0) ok();
+    if (msg.method === "$/coq/serverStatus" && msg.params.status === "Idle") ok();
   });
 });
 const diagnostics = [];
@@ -81,7 +83,7 @@ send({
   params: { textDocument: { uri, languageId: "rocq", version: 1, text: readFileSync(file, "utf8") } },
 });
 await Promise.race([checked, new Promise((ok) => setTimeout(ok, 120000))]);
-await new Promise((ok) => setTimeout(ok, 200));
+await new Promise((ok) => setTimeout(ok, 100));
 console.log(`checked in ${Date.now() - t1} ms, ${diagnostics.length} diagnostics`);
 for (const d of diagnostics)
   console.log(`  ${d.range.start.line}:${d.range.start.character} [${d.severity}] ${String(d.message).split("\n")[0]}`);

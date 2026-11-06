@@ -114,6 +114,8 @@ let main () =
       ; args = [ "-noinit" ]
       }
   in
-  init_loop ~root_state ~cmdline ~debug
+  init_loop ~root_state ~cmdline ~debug;
+  (* After [exit]: the JavaScript side still reads its input *)
+  exit 0
 
 let () = main ()
