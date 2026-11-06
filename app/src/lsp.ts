@@ -53,8 +53,10 @@ export class LspClient {
     this.worker.onmessage = (e) => {
       if (typeof e.data === "string") this.receive(JSON.parse(e.data));
       else if (e.data?.rocqWebFetch) handlers.fetch?.(e.data.rocqWebFetch, e.data.size);
+      else if (e.data?.rocqWebAbort) this.stopped(e.data.rocqWebAbort);
     };
-    this.worker.onerror = (e) => handlers.log?.(`worker error: ${e.message}`);
+    // the worker stopped (an abort of the WebAssembly, out of memory...)
+    this.worker.onerror = (e) => this.stopped(e.message);
     if (this.interruptFlag) this.worker.postMessage({ interrupt: this.interruptFlag });
   }
 
@@ -175,7 +177,19 @@ export class LspClient {
     });
   }
 
+  private stopped(why: string) {
+    this.handlers.log?.(`Rocq stopped: ${why}`);
+    this.handlers.status?.("crashed");
+    this.failPending(new Error(`Rocq stopped: ${why}`));
+  }
+
+  private failPending(e: Error) {
+    for (const p of this.pending.values()) p.fail(e);
+    this.pending.clear();
+  }
+
   terminate() {
     this.worker.terminate();
+    this.failPending(new Error("Rocq restarted"));
   }
 }

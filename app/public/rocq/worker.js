@@ -5,5 +5,7 @@ var base = new URL("./" + build + "/", self.location.href).href;
 self.Module = {
   rocqWebAssets: base,
   locateFile: function (path) { return base + path; },
+  // the page shows that Rocq stopped (src/lsp.ts)
+  onAbort: function (what) { self.postMessage({ rocqWebAbort: String(what) }); },
 };
 importScripts(base + "lsp_worker.js");
