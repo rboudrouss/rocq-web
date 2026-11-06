@@ -36,7 +36,10 @@ plugins as full does, from its own plugin set.
 
 ## Plugins
 
-Rocq resolves `Declare ML Module "pkg"` with findlib and `Dynlink`. The
+The plugins Corelib's prelude loads (ltac, number_string_notation, tauto,
+cc, firstorder, with coq-lsp's serlib for each) are linked in the worker:
+it starts faster than loading them. The others are side modules. Rocq
+resolves `Declare ML Module "pkg"` with findlib and `Dynlink`. The
 worker installs its own loader with `Mltop.set_top` (no patch to Rocq):
 package `pkg` is the side module `plugins/pkg.wasm`, made by
 `ocaml-emcc plugin` from the package's `.cma` against this exact build of
@@ -44,13 +47,32 @@ the program (interfaces are checked), so the plugin set is versioned with
 the program. A plugin may use the libraries of the plugins loaded before
 it (elpi, then rocq-elpi).
 
+Opam installs the plugins built by coq_makefile native only (it builds a
+`.cma` only with `make byte`): `scripts/byte-plugins.sh` compiles their
+bytecode from the package's sources.
+
 ## Packages
 
 A package (opam package, e.g. rocq-mathcomp-ssreflect) is, per build:
 `.vo`/`.glob` files, `.v` sources (go to definition), plugins, and an entry
 of a JSON manifest (logical paths, dependencies). In the worker the files
 are lazy entries of emscripten's file system, fetched with a synchronous
-request on first read (allowed in a worker), then cached.
+request on first read (allowed in a worker), then cached. The files Rocq
+reads when it starts (the prelude's `.vo`, findlib's META files) come in
+one request instead, `boot.bin`, fetched while the worker's WebAssembly
+compiles (`web/boot-files.txt`, recorded by `tests/startup.mjs --record`).
+
+The app's package browser lists the opam packages with Rocq libraries
+(`packages.json`, from the switch's metadata) and their modules.
+
+## The user's files
+
+The app keeps several files (the browser's local storage); each is the
+module `Workspace.NAME` (`/workspace` in the worker, its `_RocqProject`
+binds it). Before checking a file, the app compiles the files it requires,
+in order: opened in coq-lsp, `coq/saveVo` writes their `.vo`, closed; then
+`coq/workspace_update` makes coq-lsp check again with them (patched so that
+documents opened later do not reuse what `Require` loaded before).
 
 ## Not supported
 
@@ -67,6 +89,11 @@ isolated), set on each edit; a minor GC hook of the worker
 (worker/plugins/interrupt.c) reads it and sets `Control.interrupt`, which
 Rocq's next `Control.check_for_interrupt` turns into `Sys.Break`; coq-lsp
 then handles the edit and checks again from it.
+
+Rocq's reductions (`Eval compute`, unification) never check: an interrupt
+still pending after half a second is raised by a Memprof callback (at an
+allocation) while coq-lsp runs a command, as native coq-lsp does with
+memprof-limits (on OCaml 4.14 only).
 
 ## Open questions
 
