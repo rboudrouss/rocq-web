@@ -26,7 +26,8 @@ The app (`app/`):
   sentence changed highlighted, hypotheses folded;
 - checking as you type, or up to the cursor (Alt+Enter); the next and
   previous sentences (Alt+N, Alt+P) and problems (F8, Shift+F8);
-- `Timeout`;
+- `Timeout`; `native_compute` (Rocq falls back to its VM, `vm_compute`:
+  the same results, the VM's speed);
 - the outline of the file (documentSymbol), queries at the cursor
   (`Search`, `About`, `Check`... through petanque, the document
   unchanged);
@@ -95,4 +96,3 @@ Not built yet: ocaml-emcc supports `--cps-stack` with `--dynlink`
 ## Next
 
 - The compat build.
-- `native_compute`, Rocq compiling OCaml at run time.
