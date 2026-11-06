@@ -1,7 +1,7 @@
 // The app with several files (headless Chromium, as tests/browser.mjs):
 // B.v requires A.v, compiled first; the outline, a query, go to
 // definition (in A.v, then in Stdlib's sources), the packages, a link
-// sharing B.v; and a change of A.v that breaks B.v:
+// sharing B.v, a folder on disk; and a change of A.v that breaks B.v:
 //   node tests/files.mjs [URL]
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -134,6 +134,36 @@ const link = await page.locator(".shared input").inputValue();
   const file = await other.textContent("header .file");
   const text = await other.evaluate(() => window.rocqView.state.doc.toString());
   check("shared link", file === "B.v" && text === B, `${link.length} characters, ${file}`);
+}
+
+// a folder on disk (a fake one: headless Chromium has no picker)
+{
+  const other = await (await browser.newContext()).newPage();
+  await other.addInitScript(() => {
+    window.written = {};
+    const file = (name, text) => ({
+      kind: "file",
+      name,
+      getFile: async () => new File([text], name),
+      createWritable: async () => ({ write: async (t) => (window.written[name] = t), close: async () => {} }),
+    });
+    window.showDirectoryPicker = async () => ({
+      values: async function* () {
+        yield file("C.v", "Definition c := 3.\n");
+        yield file("not a module.v", "");
+      },
+    });
+  });
+  await other.goto(url);
+  await other.locator("button", { hasText: "Open folder" }).click();
+  await other.waitForFunction(() => document.querySelector("header .file")?.textContent === "C.v");
+  await other.evaluate(() => {
+    const v = window.rocqView;
+    v.dispatch({ changes: { from: v.state.doc.length, insert: "Check c.\n" } });
+  });
+  await other.waitForTimeout(1500);
+  const written = await other.evaluate(() => window.written["C.v"]);
+  check("folder on disk", written === "Definition c := 3.\nCheck c.\n", JSON.stringify(written));
 }
 
 await browser.close();

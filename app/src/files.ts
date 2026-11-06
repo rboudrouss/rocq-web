@@ -45,3 +45,37 @@ export function activeFile(files: string[]) {
   return a && files.includes(a) ? a : files[0];
 }
 export const setActiveFile = (name: string) => localStorage.setItem(activeKey, name);
+
+// Files of a folder on disk (Chrome's File System Access API), for this
+// session: their edits are written back
+type DirectoryHandle = { values: () => AsyncIterable<{ kind: string; name: string; getFile?: () => Promise<File> }> };
+type FileHandle = { kind: "file"; name: string; getFile: () => Promise<File>; createWritable: () => Promise<{ write: (t: string) => Promise<void>; close: () => Promise<void> }> };
+const onDisk = new Map<string, FileHandle>();
+
+export const canOpenFolder = () => "showDirectoryPicker" in window;
+export const isOnDisk = (name: string) => onDisk.has(name);
+
+// The .v files of a folder the user picks (not its subfolders): their names
+export async function openFolder(): Promise<string[]> {
+  const dir = (await (window as unknown as { showDirectoryPicker: (o: object) => Promise<DirectoryHandle> }).showDirectoryPicker({
+    mode: "readwrite",
+  })) as DirectoryHandle;
+  const names: string[] = [];
+  for await (const h of dir.values()) {
+    if (h.kind !== "file" || !validName(h.name)) continue;
+    const handle = h as unknown as FileHandle;
+    writeFile(h.name, await (await handle.getFile()).text());
+    onDisk.set(h.name, handle);
+    names.push(h.name);
+  }
+  return names.sort();
+}
+
+// Writes a file back to disk, if it came from there
+export async function saveToDisk(name: string, text: string) {
+  const h = onDisk.get(name);
+  if (!h) return;
+  const w = await h.createWritable();
+  await w.write(text);
+  await w.close();
+}

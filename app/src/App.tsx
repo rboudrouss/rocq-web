@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
-import { activeFile, listFiles, readFile, removeFile, setActiveFile, writeFile } from "./files";
+import { activeFile, listFiles, readFile, removeFile, saveToDisk, setActiveFile, writeFile } from "./files";
 import {
   type CompletionItem,
   type Diagnostic,
@@ -54,9 +54,12 @@ export function App() {
   const log = useCallback((m: string) => setLogs((l) => [...l.slice(-200), m]), []);
   const read = useCallback((name: string) => texts.current.get(name) ?? readFile(name), []);
   const flush = useCallback(() => {
-    for (const [name, text] of texts.current) writeFile(name, text);
+    for (const [name, text] of texts.current) {
+      writeFile(name, text);
+      saveToDisk(name, text).catch((e: Error) => log(`${name}: not saved to disk: ${e.message}`));
+    }
     texts.current.clear();
-  }, []);
+  }, [log]);
 
   const askGoals = useCallback(() => {
     const c = client.current;
@@ -391,7 +394,22 @@ export function App() {
         <aside className="left">
           <Tabs
             tabs={[
-              ["Files", <Files files={files} active={active} open={switchTo} create={create} rename={rename} remove={remove} />],
+              [
+                "Files",
+                <Files
+                  files={files}
+                  active={active}
+                  open={switchTo}
+                  create={create}
+                  rename={rename}
+                  remove={remove}
+                  opened={(names) => {
+                    setFiles(listFiles());
+                    if (names.length) switchTo(names[0]);
+                    log(`opened ${names.length} files from disk`);
+                  }}
+                />,
+              ],
               ["Outline", <Outline symbols={symbols} goTo={goTo} />],
               ["Packages", <Packages packages={packages} insert={(l) => (setLibrary(null), editor.current?.insertLine(l))} />],
             ]}

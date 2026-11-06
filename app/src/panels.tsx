@@ -1,7 +1,7 @@
 // The panels around the editor: files, outline, packages (left), goals,
 // problems, queries and the log (right).
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { validName } from "./files";
+import { canOpenFolder, isOnDisk, openFolder, validName } from "./files";
 import type { Diagnostic, DocumentSymbol, Goal, GoalsResult, Range } from "./lsp";
 
 // [name, content, label (default: the name)]
@@ -34,9 +34,11 @@ type FilesProps = {
   create: (name: string, text?: string) => void;
   rename: (from: string, to: string) => void;
   remove: (name: string) => void;
+  // files read from a folder on disk
+  opened: (names: string[]) => void;
 };
 
-export function Files({ files, active, open, create, rename, remove }: FilesProps) {
+export function Files({ files, active, open, create, rename, remove, opened }: FilesProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -69,6 +71,12 @@ export function Files({ files, active, open, create, rename, remove }: FilesProp
             <li key={f} className={f === active ? "on" : ""}>
               <button className="name" onClick={() => open(f)} onDoubleClick={() => (setEditing(f), setName(f))}>
                 {f}
+                {isOnDisk(f) && (
+                  <span className="disk" title="saved to its folder on disk">
+                    {" "}
+                    ⇄
+                  </span>
+                )}
               </button>
               <button title="Rename" onClick={() => (setEditing(f), setName(f))}>
                 ✎
@@ -91,6 +99,11 @@ export function Files({ files, active, open, create, rename, remove }: FilesProp
           Open…
           <input type="file" accept=".v" multiple hidden onChange={(e) => upload(e.target.files)} />
         </label>
+        {canOpenFolder() && (
+          <button title="The .v files of a folder, saved back to it" onClick={() => openFolder().then(opened, () => {})}>
+            Open folder…
+          </button>
+        )}
       </div>
       <p className="muted">
         A file is the module <code>Workspace.NAME</code>: <code>Require Import NAME.</code> compiles it first.
