@@ -14,6 +14,11 @@ Proof.
   - rewrite IH. apply plus_n_Sm.
 Qed.
 
+(* Libraries are fetched when required *)
+From Stdlib Require Import Lia.
+Lemma lia_example (x y : nat) : x + 2 * y <= 3 * y + x.
+Proof. lia. Qed.
+
 From Ltac2 Require Import Ltac2.
 Ltac2 Eval List.length [1; 2; 3].
 `;
