@@ -7,7 +7,11 @@ import { EditorState, StateEffect, StateField, type Text } from "@codemirror/sta
 import { Decoration, EditorView, highlightActiveLine, hoverTooltip, keymap, lineNumbers } from "@codemirror/view";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { CompletionItem, Diagnostic, Hover, Position, Range } from "./lsp";
+import { oneDark } from "@codemirror/theme-one-dark";
 import { rocq } from "./rocq-syntax";
+
+// the system's dark mode, when the editor is created
+const dark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 
 export type EditorHandle = {
   setDiagnostics: (d: Diagnostic[]) => void;
@@ -121,7 +125,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
             },
           }),
           EditorState.readOnly.of(!!callbacks.current.readOnly),
-          syntaxHighlighting(defaultHighlightStyle),
+          dark() ? oneDark : syntaxHighlighting(defaultHighlightStyle),
           rocq,
           lintGutter(),
           processing,

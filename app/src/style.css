@@ -2,6 +2,7 @@
   font-family: system-ui, sans-serif;
   color: #1d1d1f;
   background: #fafafa;
+  color-scheme: light dark;
 }
 body { margin: 0; }
 button { font: inherit; cursor: pointer; }
@@ -85,3 +86,30 @@ pre.message, pre.error { font-size: 12px; }
 .shared button { border: 0; background: none; }
 .fetching { font-size: 0.8rem; color: #555; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status[data-status="crashed"] { background: #fbd5d5; }
+
+/* The system's dark mode */
+@media (prefers-color-scheme: dark) {
+  :root { color: #d7dae0; background: #1f2229; }
+  header, aside.left, aside.right, .tabs nav { border-color: #353a45 !important; }
+  header button, .actions button, .button, .library-bar button, .presets button, .shared button { background: #2b303b; color: #d7dae0; border-color: #444b58; }
+  input { background: #282c34; color: #d7dae0; border-color: #444b58; }
+  .muted, .tabs nav button, aside h2, .bar { color: #9198a5; }
+  .tabs nav button.on { color: #e6e8ec; }
+  .status { background: #353a45; }
+  .status[data-status="Busy"] { background: #5a4a14; }
+  .status[data-status="Idle"] { background: #1f4a2b; }
+  .status[data-status="crashed"] { background: #5c1f1f; }
+  .files li.on { background: #2f3a52; }
+  .outline li button:hover, .modules li button:hover, .problems li button:hover { background: #2b303b; }
+  .outline li button, .modules li button, .problems li button, .files li button.name { color: #d7dae0; }
+  .packages details, .result { border-color: #353a45; }
+  .packages .synopsis, .log { color: #9198a5; }
+  .error, .sev-1, .badge { color: #ff7b7b; }
+  .sev-2 { color: #e5b567; }
+  .library-bar { background: #262b36; border-color: #353a45; }
+  .library .cm-editor { background: #21252b; }
+  .editor .cm-processing { background: #3d3720; }
+  .shared { background: #1f3326; }
+  .kind { color: #c19ae6; }
+  a { color: #7fb0ff; }
+}
