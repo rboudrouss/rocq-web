@@ -1,7 +1,7 @@
 // The files of the web worker, into OUT (default out/full/web):
 //   node scripts/assets.mjs [BUILD] [OUT]
-// - coqlib/: Corelib's and Ltac2's .vo (and .glob, for go to definition)
-//   from the switch's Rocq (lib/coq);
+// - coqlib/: Rocq's libraries from the switch (lib/coq): Corelib and those
+//   of user-contrib (.vo, .glob, .v, .elpi);
 // - plugins/: the build's plugins (out/BUILD/plugins/*.wasm);
 // - findlib/: findlib.conf and the META files of the packages the plugins
 //   need, as findlib resolves plugins' dependencies;
@@ -40,13 +40,14 @@ function walk(dir, f) {
 // (the worker itself, lsp_worker.js and .wasm, is built in OUT too)
 for (const d of ["coqlib", "plugins", "findlib", "files.json"]) rmSync(join(out, d), { recursive: true, force: true });
 
-// Rocq's libraries
+// Rocq's libraries: Corelib (theories) and every library installed in
+// user-contrib (Ltac2, Stdlib, mathcomp...), with their sources and
+// globalization files (go to definition), and elpi's programs
 const coqlib = join(prefix, "lib/coq");
-for (const sub of ["theories", "user-contrib/Ltac2"])
+for (const sub of ["theories", "user-contrib"])
   walk(join(coqlib, sub), (p) => {
-    if (/\.(vo|glob)$/.test(p)) add(p, join("coqlib", relative(coqlib, p)));
+    if (/\.(vo|glob|v|elpi)$/.test(p)) add(p, join("coqlib", relative(coqlib, p)));
   });
-dirs.add("/coqlib/user-contrib");
 
 // The plugins
 const plugins = readdirSync(`out/${build}/plugins`).filter((f) => f.endsWith(".wasm"));
