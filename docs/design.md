@@ -67,12 +67,36 @@ The app's package browser lists the opam packages with Rocq libraries
 
 ## The user's files
 
-The app keeps several files (the browser's local storage); each is the
-module `Workspace.NAME` (`/workspace` in the worker, its `_RocqProject`
-binds it). Before checking a file, the app compiles the files it requires,
-in order: opened in coq-lsp, `coq/saveVo` writes their `.vo`, closed; then
-`coq/workspace_update` makes coq-lsp check again with them (patched so that
-documents opened later do not reuse what `Require` loaded before).
+The app keeps several files (the browser's local storage), in folders;
+each is the module `Workspace.DIR.NAME` (`/workspace` in the worker, its
+`_RocqProject` binds it), or what the workspace's own `_RocqProject`
+says. The page writes the files in the worker's file system too
+(`web/rocq-web-fs.js`, messages answered between two of Rocq's steps):
+`Load` reads them, `_RocqProject` is read when Rocq starts, and the files
+Rocq writes there (`Extraction`) are listed, shown and downloaded.
+`/workspace` is the worker's current directory.
+
+Before checking a file, the app compiles the files it requires, in
+order: opened in coq-lsp, `coq/saveVo` writes their `.vo` (patched to
+refuse a document with errors), closed; then `coq/workspace_update` makes
+coq-lsp check again with them (patched so that documents opened later do
+not reuse what `Require` loaded before). Switching files closes the
+previous one and trims coq-lsp's caches (`coq/trimCaches`).
+
+Checking up to the cursor is coq-lsp's `check_only_on_request`: a
+document is checked up to the points of requests, the goals' at the
+cursor on Alt+Enter, Alt+N, Alt+P (the sentences are found by the page,
+`app/src/sentences.ts`).
+
+The goals are Rocq's documents (`pp_format` "Pp"), laid out for the
+panel's width by the page (`app/src/pp.tsx`, Format's boxes and breaks);
+the goals before the sentence (`mode` "Prev" at its start) give what it
+changed, the words of the goals' longest common subsequence not
+highlighted.
+
+The search of the libraries is an index of the declarations of their
+sources (`search.tsv`, 129,000 declarations, 2 MB with brotli), written
+with the assets and downloaded on the first search.
 
 ## Not supported
 
@@ -94,6 +118,11 @@ Rocq's reductions (`Eval compute`, unification) never check: an interrupt
 still pending after half a second is raised by a Memprof callback (at an
 allocation) while coq-lsp runs a command, as native coq-lsp does with
 memprof-limits (on OCaml 4.14 only).
+
+`Timeout` is Rocq's `Control.timeout` replaced (`Control.set_timeout`):
+Rocq's own uses `setitimer` and `SIGALRM`, which WebAssembly never
+delivers. The same Memprof callback raises `Control.Timeout` once a
+deadline passed.
 
 ## Open questions
 

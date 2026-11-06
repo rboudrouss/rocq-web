@@ -3,7 +3,9 @@
 ## Full build (wasm64 + JSPI)
 
 Works in Chromium (headless: `tests/browser.mjs`, `files.mjs`,
-`interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`; also from
+`goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`,
+`search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs` (with
+`support.v`, `packages_plugins.v`), `packages.mjs`; also from
 another machine through ssh, `tests/remote.sh`) and under node
 (`tests/compare.sh`, `packages.sh`, `lsp.mjs`), Rocq 9.2 with coq-lsp
 0.2.5 (its v9.2 branch), from the development server and from the static
@@ -11,20 +13,31 @@ site (`scripts/dist.mjs`, `scripts/serve.mjs`).
 
 The app (`app/`):
 
-- several files, kept in the browser, or the `.v` files of a folder on
-  disk (Chrome's File System Access API, edits written back); a file
-  requiring another (`Require Import A.`) is checked after it is compiled
-  (`coq/saveVo`), again when it changed; a link sharing a file (its text
-  in the URL), downloads;
-- diagnostics, the Problems panel, goals at the cursor, hover, completion
-  (identifiers, unicode input: `\forall`);
+- several files in folders, kept in the browser, or the `.v` files of a
+  folder on disk (Chrome's File System Access API, edits written back);
+  a `_RocqProject`; zip archives of the workspace, written and read; a
+  file requiring another (`Require Import A.`) is checked after it is
+  compiled (`coq/saveVo`), again when it changed, and its errors shown if
+  it does not compile; `Load`; the files Rocq writes (`Extraction`), shown
+  and downloaded; a link sharing a file (its text in the URL), downloads;
+- diagnostics, the Problems panel, hover, completion (identifiers,
+  unicode input: `\forall`);
+- the goals at the cursor laid out for the panel's width, what the
+  sentence changed highlighted, hypotheses folded;
+- checking as you type, or up to the cursor (Alt+Enter); the next and
+  previous sentences (Alt+N, Alt+P) and problems (F8, Shift+F8);
+- `Timeout`;
 - the outline of the file (documentSymbol), queries at the cursor
   (`Search`, `About`, `Check`... through petanque, the document
   unchanged);
 - go to definition (F12, Ctrl+click) in the files and in the sources of
   the libraries, shown read only;
 - the package browser: the opam packages with their modules, a click
-  inserts the `Require`;
+  inserts the `Require`; the search of the declarations of the libraries'
+  sources;
+- examples, from a menu or a link (`?example=Basics`), and the page
+  embedded in another (`?embed`: its files in memory only; without
+  cross-origin isolation in an iframe, edits do not interrupt Rocq);
 - edits interrupt the command being checked, reductions included
   (`Eval compute`: Rocq is idle again a second after the edit); Restart
   starts a new worker (a computation of the VM, which nothing interrupts);
@@ -82,5 +95,4 @@ Not built yet: ocaml-emcc supports `--cps-stack` with `--dynlink`
 ## Next
 
 - The compat build.
-- Check each package of the switch in the app.
-- Files on disk (the File System Access API), a project's `_RocqProject`.
+- `native_compute`, Rocq compiling OCaml at run time.
