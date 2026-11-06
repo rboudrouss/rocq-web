@@ -49,7 +49,7 @@ const marked = await goals().locator(".concl .diff-added").allTextContents();
 check(marked.length > 0 && marked.every((w) => w === "m"), `rewrite H highlights ${JSON.stringify(marked)}`);
 
 // narrow: the conclusion on several lines
-await page.setViewportSize({ width: 760, height: 800 });
+await page.setViewportSize({ width: 1000, height: 800 });
 await page.waitForTimeout(500);
 const lines = (await goals().locator(".concl").first().textContent()).split("\n");
 check(lines.length > 1, `narrow panel: ${lines.length} lines (${JSON.stringify(lines)})`);

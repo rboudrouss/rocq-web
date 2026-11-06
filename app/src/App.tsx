@@ -652,10 +652,10 @@ export function App() {
         <select
           value={toCursor ? "cursor" : "all"}
           onChange={(e) => changeMode(e.target.value === "cursor")}
-          title="When Rocq checks the file"
+          title="When Rocq checks the file (up to the cursor: Alt+Enter)"
         >
           <option value="all">Check as you type</option>
-          <option value="cursor">Check up to the cursor (Alt+Enter)</option>
+          <option value="cursor">Check up to the cursor</option>
         </select>
         {embedded ? (
           <button onClick={openFull} title="This file in rocq-web, in a new tab">

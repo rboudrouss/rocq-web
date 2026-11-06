@@ -43,7 +43,7 @@ kbd { font-family: ui-monospace, monospace; font-size: 0.8rem; }
 .library .cm-editor { background: #fcfcfd; }
 
 .tabs { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.tabs nav { display: flex; border-bottom: 1px solid #ddd; }
+.tabs nav { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ddd; }
 .tabs nav button { border: 0; background: none; padding: 0.4rem 0.75rem; font-size: 0.8rem; color: #666; border-bottom: 2px solid transparent; }
 .tabs nav button.on { color: #1d1d1f; border-bottom-color: #3b6fd8; }
 .tab { flex: 1; overflow: auto; padding: 0.5rem; min-height: 0; }
