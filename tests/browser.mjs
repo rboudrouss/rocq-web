@@ -2,6 +2,7 @@
 // Chromium, waits for Rocq to check the example, puts the cursor in its
 // proof and prints the goals panel:
 //   PLAYWRIGHT_DIR=~/tools/pw node tests/browser.mjs [URL]
+// SCREENSHOT=FILE.png: the page once the goals are shown; COLOR_SCHEME=dark.
 // PLAYWRIGHT_DIR is a directory with playwright in node_modules, its
 // browsers in PLAYWRIGHT_BROWSERS_PATH (default PLAYWRIGHT_DIR/browsers).
 import { createRequire } from "node:module";
@@ -13,7 +14,7 @@ const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const browser = await chromium.launch();
-const page = await browser.newPage();
+const page = await browser.newPage({ colorScheme: process.env.COLOR_SCHEME ?? "light" });
 await page.addInitScript(() => localStorage.clear());
 page.on("console", (m) => console.log(`[console] ${m.text()}`));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
