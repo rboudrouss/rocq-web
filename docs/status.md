@@ -51,7 +51,7 @@ bignums, relation-algebra, coinduction, Iris's proof mode, Interval), in
 |-|------|
 | `lsp_worker.wasm` | 36 MB (5.8 MB) |
 | `boot.bin`, the files read when Rocq starts | 1 MB (0.35 MB) |
-| libraries and plugins (`dist/rocq/full`) | 816 MB, fetched file by file |
+| libraries and plugins (`dist/rocq/full`) | 816 MB (290 MB), fetched file by file |
 
 The first load transfers about 6.6 MB; Rocq is ready about 1.5 s after
 the page loads and has checked a first sentence at about 1.9 s (headless
