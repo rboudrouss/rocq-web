@@ -25,7 +25,7 @@ import {
   type Position,
   type Range,
 } from "./lsp";
-import { Files, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
+import { Files, LibrarySearch, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
 import { loadPath, moduleName, Project, workspaceUri } from "./project";
 import { offsetAt, positionAt, sentenceAt, sentences } from "./sentences";
 import { shareUrl } from "./share";
@@ -434,6 +434,15 @@ export function App() {
     async (target: { file?: string; path?: string; uri?: string }, range: Range | null, name?: string) => {
       // (coq-lsp gives the start of the file for some names: a module's)
       const find = (text: string): Range => {
+        if (range && range.start.line > 0 && name) {
+          // (the name on the range's line)
+          const l = text.split("\n")[range.start.line] ?? "";
+          const c = l.search(new RegExp(`(^|[^\\w'.])${name.replace(/[.'\\]/g, "\\$&")}(?![\\w'])`));
+          if (c >= 0) {
+            const character = c + (l[c] === name[0] ? 0 : 1);
+            return { start: { line: range.start.line, character }, end: { line: range.start.line, character: character + name.length } };
+          }
+        }
         if (range && (range.start.line > 0 || range.start.character > 0 || !name)) return range;
         const decl = new RegExp(
           `(^|\\s)((Program\\s+)?(Definition|Lemma|Theorem|Fact|Remark|Corollary|Proposition|Example|Fixpoint|CoFixpoint|Inductive|CoInductive|Variant|Record|Structure|Class|Instance|Let|Axiom|Parameter|Conjecture|Hypothesis|Variable|Ltac2?|Notation|Module)\\s+|\\|\\s*)${name?.replace(/[.'\\]/g, "\\$&")}\\b`,
@@ -771,6 +780,16 @@ export function App() {
                 />,
               ],
               ["Outline", <Outline symbols={symbols} goTo={goTo} />],
+              [
+                "Search",
+                <LibrarySearch
+                  url={`${assets}search.tsv`}
+                  open={(d) => {
+                    const at = { line: d.line - 1, character: 0 };
+                    showLocation({ path: d.path }, { start: at, end: at }, d.name);
+                  }}
+                />,
+              ],
               ["Packages", <Packages packages={packages} insert={(l) => (setLibrary(null), editor.current?.insertLine(l))} />],
             ]}
           />

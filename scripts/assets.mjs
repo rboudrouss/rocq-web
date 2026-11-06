@@ -8,6 +8,8 @@
 // - packages.json: the opam packages of these libraries (name, version,
 //   synopsis, homepage, the packages it depends on, its modules), for the
 //   app's package browser;
+// - search.tsv: the declarations of the libraries' sources, for the app's
+//   search (scripts/search-index.mjs);
 // - boot.bin: findlib's files (it reads them all when it starts) and those
 //   listed in web/boot-files.txt (those Rocq reads when it starts, written
 //   by tests/startup.mjs --record), in one request;
@@ -19,6 +21,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, relative } from "node:path";
+import { searchIndex } from "./search-index.mjs";
 
 const build = process.argv[2] ?? "full";
 const out = process.argv[3] ?? `out/${build}/web`;
@@ -46,7 +49,7 @@ function walk(dir, f) {
 }
 
 // (the worker itself, lsp_worker.js and .wasm, is built in OUT too)
-for (const d of ["coqlib", "plugins", "findlib", "files.json", "packages.json", "boot.bin"]) rmSync(join(out, d), { recursive: true, force: true });
+for (const d of ["coqlib", "plugins", "findlib", "files.json", "packages.json", "search.tsv", "boot.bin"]) rmSync(join(out, d), { recursive: true, force: true });
 
 // Rocq's libraries: Corelib (theories) and every library installed in
 // user-contrib (Ltac2, Stdlib, mathcomp...), with their sources and
@@ -105,6 +108,7 @@ for (const dir of readdirSync(join(opamDir, "packages"))) {
 const names = new Set(packages.map((p) => p.name));
 for (const p of packages) p.depends = p.depends.filter((d) => names.has(d));
 writeFileSync(join(out, "packages.json"), JSON.stringify(packages));
+writeFileSync(join(out, "search.tsv"), searchIndex(join(out, "coqlib")));
 
 // boot.bin
 const bootList = "web/boot-files.txt";

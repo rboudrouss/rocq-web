@@ -23,6 +23,7 @@ const types = {
   ".png": "image/png",
   ".v": "text/plain; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
+  ".tsv": "text/tab-separated-values; charset=utf-8",
 };
 
 const stat = (p) => {

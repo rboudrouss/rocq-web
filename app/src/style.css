@@ -182,3 +182,12 @@ pre.message, pre.error { font-size: 12px; }
   .examples li button:hover { background: #2f3542; }
   .examples li button div { color: #9198a5; }
 }
+.library-search ul { list-style: none; margin: 0; padding: 0; }
+.library-search li button { border: 0; background: none; text-align: left; width: 100%; padding: 0.2rem 0.25rem; border-radius: 3px; font-size: 0.82rem; color: inherit; }
+.library-search li button:hover { background: #eef1f6; }
+.library-search .statement { font-family: ui-monospace, monospace; font-size: 0.75rem; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.library-search input { margin-bottom: 0.4rem; }
+@media (prefers-color-scheme: dark) {
+  .library-search li button:hover { background: #2b303b; }
+  .library-search .statement { color: #9198a5; }
+}
