@@ -52,6 +52,7 @@ export OCAMLPATH=$PWD/_build/install/$ctx/lib
 roots=$( (grep -rhoE 'Declare ML Module "[^"]+"' "$OPAM_SWITCH_PREFIX/lib/coq" | sed 's/.*"\(.*\)"/\1/'
   ocamlfind list 2>/dev/null | awk '$1 ~ /^coq-lsp\.serlib\./ {print $1}') | sort -u)
 linked=$(ocamlfind query -r -format '%p' coq-lsp.controller js_of_ocaml unix findlib ocaml-emcc.dynlink | sort -u)
+failed=()
 for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
   if grep -qx "$pkg" <<< "$linked"; then continue; fi
   case $pkg in
@@ -59,8 +60,13 @@ for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
     *) cma=$(ocamlfind query -predicates byte -format '%d/%a' "$pkg") ;;
   esac
   case $cma in */fake.cma | */ | "") continue ;; esac
+  # (packages installed without their bytecode, coq_makefile's: built by
+  # scripts/byte-plugins.sh)
+  [ -f "$cma" ] || cma=_build/byte-plugins/$(basename "$(dirname "$cma")")/$(basename "$cma")
+  if [ ! -f "$cma" ]; then failed+=("$pkg (no $(basename "$cma"): scripts/byte-plugins.sh)"); continue; fi
   [ -f "$out/plugins/$pkg.wasm" ] && [ "$out/plugins/$pkg.wasm" -nt "$cma" ] && [ "$out/plugins/$pkg.wasm" -nt "$out/lsp_worker.wasm" ] && continue
-  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js"
+  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js" || failed+=("$pkg")
 done
+for f in "${failed[@]}"; do echo "plugin not built: $f" >&2; done
 
 node scripts/assets.mjs "$build" "$out/web"
