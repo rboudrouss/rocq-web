@@ -1,0 +1,51 @@
+diff --git a/coq/files.ml b/coq/files.ml
+index 09522723..b1190b89 100644
+--- a/coq/files.ml
++++ b/coq/files.ml
+@@ -13,8 +13,17 @@ open Ppx_compare_lib.Builtin
+ 
+ type t = int [@@deriving hash, compare]
+ 
+-let make () = 0
+-let bump i = i + 1
++(* The latest version: a document opened after the files changed starts
++   from it, not from 0, whose Require results are memoized with the old
++   files *)
++let current = ref 0
++let make () = !current
++
++let bump i =
++  current := max !current i + 1;
++  !current
++
++let changed () = incr current
+ let hash = Int.hash
+ let compare = Int.compare
+ let pp = Format.pp_print_int
+diff --git a/coq/files.mli b/coq/files.mli
+index bd85edf3..f81d58c9 100644
+--- a/coq/files.mli
++++ b/coq/files.mli
+@@ -15,6 +15,10 @@ val make : unit -> t
+ (** [bump ()] Signal the files have changed *)
+ val bump : t -> t
+ 
++(** [changed ()] Signal the files have changed, for the documents opened
++    later *)
++val changed : unit -> unit
++
+ val hash : t -> int
+ val compare : t -> t -> int
+ val pp : Format.formatter -> t -> unit
+diff --git a/fleche/theory.ml b/fleche/theory.ml
+index 0395a74d..2d683a8b 100644
+--- a/fleche/theory.ml
++++ b/fleche/theory.ml
+@@ -397,6 +397,7 @@ let close ~uri =
+ 
+ let workspace_update () =
+   Check.clear_schedule ();
++  Coq.Files.changed ();
+   Handle.workspace_update ()
+ 
+ module Request = struct
