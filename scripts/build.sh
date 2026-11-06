@@ -10,10 +10,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 build=${1:-full}
+# emscripten's C stack: the applications of another arity put frames there,
+# even with new segments of the engine's stack, and overflowing it is
+# silent (Rocq's `do 200000 idtac` overflows 8 MB)
+stack=(--stack-size 256MB)
 case $build in
-  full) flags=(--target wasm64) link=(--jspi) ;;
+  full) flags=(--target wasm64) link=(--jspi "${stack[@]}") ;;
   compat)
-    flags=(--target wasm32) link=(--cps-stack)
+    flags=(--target wasm32) link=(--cps-stack "${stack[@]}")
     if [ -z "${ROCQ_WEB_COMPAT:-}" ]; then
       echo "compat: needs --cps-stack with --dynlink in ocaml-emcc (ROCQ_WEB_COMPAT=1 to try)" >&2
       exit 1
