@@ -56,7 +56,9 @@ createServer((req, res) => {
   const br = /\bbr\b/.test(req.headers["accept-encoding"] ?? "") && stat(file + ".br");
   const etag = `"${s.size.toString(36)}-${s.mtimeMs.toString(36)}${br ? "-br" : ""}"`;
   headers.ETag = etag;
-  if (req.headers["if-none-match"] === etag) return res.writeHead(304, headers).end();
+  // (a proxy recompressing the file, as Cloudflare, sends it back weak: W/)
+  const match = (req.headers["if-none-match"] ?? "").split(",").map((t) => t.trim().replace(/^W\//, ""));
+  if (match.includes(etag)) return res.writeHead(304, headers).end();
   if (br) {
     headers["Content-Encoding"] = "br";
     headers["Content-Length"] = br.size;

@@ -1,0 +1,4 @@
+# Only the site and its server (deploy/Dockerfile)
+*
+!dist
+!scripts/serve.mjs
