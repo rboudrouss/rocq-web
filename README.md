@@ -13,6 +13,7 @@ progress: see [docs/design.md](docs/design.md).
 | `scripts/build.sh` | builds the worker and Rocq's plugins for the full or compat build |
 | `scripts/byte-plugins.sh` | the bytecode of plugins opam installs native only (coq_makefile's) |
 | `scripts/dist.mjs`, `scripts/serve.mjs` | the static site (`dist/`, brotli), a server for it (COOP/COEP) |
+| `deploy/Dockerfile`, `scripts/deploy.sh` | its image, deployed to Coolify |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror): files, outline, packages, goals, queries, coq-lsp client |
 | `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`), on another machine (`remote.sh`) |
@@ -35,6 +36,13 @@ interrupts of Rocq need it), with brotli:
 ```sh
 node scripts/dist.mjs                  # dist/
 node scripts/serve.mjs dist 8080       # http://localhost:8080/
+```
+
+On a Coolify application of this machine (a Docker image, through a
+local registry):
+
+```sh
+node scripts/dist.mjs && scripts/deploy.sh APP_UUID
 ```
 
 Elsewhere, the server must send `Cross-Origin-Opener-Policy: same-origin`
