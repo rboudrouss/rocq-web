@@ -8,6 +8,8 @@
 // - packages.json: the opam packages of these libraries (name, version,
 //   synopsis, homepage, the packages it depends on, its modules), for the
 //   app's package browser;
+// - boot.bin: the files listed in web/boot-files.txt (those Rocq reads when
+//   it starts, written by tests/startup.mjs --record), in one request;
 // - files.json: the manifest web/rocq-web-fs.js creates the file system
 //   from (directories, files with their sizes, environment).
 // Run with the switch's environment (scripts/env.sh): ocamlfind.
@@ -41,7 +43,7 @@ function walk(dir, f) {
 }
 
 // (the worker itself, lsp_worker.js and .wasm, is built in OUT too)
-for (const d of ["coqlib", "plugins", "findlib", "files.json", "packages.json"]) rmSync(join(out, d), { recursive: true, force: true });
+for (const d of ["coqlib", "plugins", "findlib", "files.json", "packages.json", "boot.bin"]) rmSync(join(out, d), { recursive: true, force: true });
 
 // Rocq's libraries: Corelib (theories) and every library installed in
 // user-contrib (Ltac2, Stdlib, mathcomp...), with their sources and
@@ -101,14 +103,28 @@ const names = new Set(packages.map((p) => p.name));
 for (const p of packages) p.depends = p.depends.filter((d) => names.has(d));
 writeFileSync(join(out, "packages.json"), JSON.stringify(packages));
 
+// boot.bin
+const bootList = "web/boot-files.txt";
+const bootFiles = new Set(existsSync(bootList) ? readFileSync(bootList, "utf8").split("\n").filter(Boolean) : []);
+const chunks = [];
+let offset = 0;
+for (const f of files)
+  if (bootFiles.has(f[0])) {
+    chunks.push(readFileSync(join(out, f[0].slice(1))));
+    f.push(offset);
+    offset += f[1];
+  }
+writeFileSync(join(out, "boot.bin"), Buffer.concat(chunks));
+
 const sorted = [...dirs].sort();
 writeFileSync(
   join(out, "files.json"),
   JSON.stringify({
     dirs: sorted,
     files,
+    boot: "boot.bin",
     env: { ROCQLIB: "/coqlib", ROCQ_WEB_PLUGINS: "/plugins", OCAMLFIND_CONF: "/findlib/findlib.conf" },
   }),
 );
 const total = files.reduce((n, f) => n + f[1], 0);
-console.log(`${out}: ${packages.length} packages, ${files.length} files, ${(total / 1e6).toFixed(1)} MB (${[...tops].join(" ")})`);
+console.log(`${out}: ${packages.length} packages, ${files.length} files, ${(total / 1e6).toFixed(1)} MB, boot.bin ${chunks.length} files ${(offset / 1e6).toFixed(1)} MB (${[...tops].join(" ")})`);
