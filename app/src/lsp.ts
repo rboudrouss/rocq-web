@@ -37,6 +37,8 @@ type Handlers = {
   status?: (status: string) => void;
   progress?: (uri: string, processing: Range[]) => void;
   log?: (message: string) => void;
+  // a file of the libraries downloaded by the worker (web/rocq-web-fs.js)
+  fetch?: (path: string, size: number) => void;
 };
 
 export class LspClient {
@@ -48,7 +50,10 @@ export class LspClient {
   constructor(workerUrl: string, handlers: Handlers) {
     this.handlers = handlers;
     this.worker = new Worker(workerUrl);
-    this.worker.onmessage = (e) => this.receive(JSON.parse(e.data as string));
+    this.worker.onmessage = (e) => {
+      if (typeof e.data === "string") this.receive(JSON.parse(e.data));
+      else if (e.data?.rocqWebFetch) handlers.fetch?.(e.data.rocqWebFetch, e.data.size);
+    };
     this.worker.onerror = (e) => handlers.log?.(`worker error: ${e.message}`);
     if (this.interruptFlag) this.worker.postMessage({ interrupt: this.interruptFlag });
   }

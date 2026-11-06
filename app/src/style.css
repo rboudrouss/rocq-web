@@ -83,3 +83,4 @@ pre.message, pre.error { font-size: 12px; }
 .shared { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 1rem; background: #eef6ee; font-size: 0.85rem; }
 .shared input { flex: 1; font-family: ui-monospace, monospace; font-size: 0.75rem; }
 .shared button { border: 0; background: none; }
+.fetching { font-size: 0.8rem; color: #555; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

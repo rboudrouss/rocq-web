@@ -34,6 +34,8 @@ export function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [library, setLibrary] = useState<Library | null>(null);
   const [shared, setShared] = useState<string | null>(null);
+  // the libraries' files downloaded while Rocq is busy
+  const [fetching, setFetching] = useState<{ path: string; files: number; bytes: number } | null>(null);
 
   const client = useRef<LspClient | null>(null);
   const project = useRef<Project | null>(null);
@@ -95,8 +97,11 @@ export function App() {
         editor.current?.setDiagnostics(ds);
         setDiagnostics(ds);
       },
+      fetch: (path, size) =>
+        setFetching((f) => ({ path, files: (f?.files ?? 0) + 1, bytes: (f?.bytes ?? 0) + size })),
       status: (s) => {
         setStatus(s);
+        if (s === "Idle") setFetching(null);
         if (s === "Idle") {
           askGoals();
           askSymbols();
@@ -348,6 +353,12 @@ export function App() {
         <span className="status" data-status={status}>
           {status}
         </span>
+        {fetching && (
+          <span className="fetching" title={fetching.path}>
+            downloading {fetching.path.replace(/^\/coqlib\/(user-contrib|theories)\//, "").replace(/^\/plugins\//, "plugin ")} (
+            {fetching.files} files, {(fetching.bytes / 1e6).toFixed(1)} MB)
+          </span>
+        )}
         <span className="file">{active}</span>
         <button onClick={share} title="Copy a link to this file">
           Share

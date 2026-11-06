@@ -34,6 +34,8 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
       node.usedBytes = size;
       var load = function () {
         if (node.rocqWebLoaded) return;
+        // to the page, which shows what is downloaded
+        if (typeof self.postMessage == "function") self.postMessage({ rocqWebFetch: path, size: size });
         var xhr = new XMLHttpRequest();
         xhr.open("GET", url, false);
         xhr.responseType = "arraybuffer";
