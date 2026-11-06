@@ -2,49 +2,54 @@
 
 ## Full build (wasm64 + JSPI)
 
-Rocq 9.2 (coq-lsp's main branch targets 9.2), under node:
+Works in Chromium (headless, `tests/browser.mjs`, `tests/interrupt.mjs`,
+`tests/page.mjs`) and under node (`tests/compare.sh`, `tests/lsp.mjs`),
+Rocq 9.2 with coq-lsp 0.2.5 (its v9.2 branch):
 
-- `rocq_web compile` checks files (`tests/compare.sh full`); Corelib's
-  `.vo` built by the native 64-bit Rocq load as they are; Rocq's 27
-  plugins are side modules loaded on `Declare ML Module`.
-- `lsp_worker` is coq-lsp's server, its loop in `main` suspending (JSPI)
-  until a message arrives: `node tests/lsp.mjs out/full/lsp_worker.js
-  tests/proof.v 2:2` gives diagnostics and goals (1.3 s for proof.v).
-  Serlib's plugins are not built yet (coq-lsp warns: incremental checking
-  of the plugins' commands is degraded).
+- the app (`app/`): CodeMirror, diagnostics, goals at the cursor, hover,
+  completion (identifiers, unicode input: `\forall`), the document kept in
+  the browser;
+- libraries fetched when required: Corelib, Ltac2, Stdlib, mathcomp
+  (ssreflect, algebra), Hierarchy-Builder, rocq-elpi; the example checks
+  in about 5 s from a cold start, `tests/mathcomp.v` (HB structures) in
+  4.5 s;
+- plugins as side modules loaded on `Declare ML Module` (62: Rocq's,
+  serlib's, rocq-elpi's with elpi's libraries, micromega's);
+- edits interrupt the command being checked (shared memory, a minor GC
+  hook of the worker); coq-lsp restarts from the new text.
 
 | | size |
 |-|------|
-| `lsp_worker.wasm` | 32 MB |
-| `rocq_web.wasm` | 21 MB |
+| `lsp_worker.wasm` (web) | 33 MB |
+| plugins | 62 side modules |
+| libraries (`out/full/web/coqlib`) | 280 MB, fetched file by file |
 
-### Blocker: deep recursions through tail calls with JSPI
+### Known problems
 
-`Check 1024.` (and `vm_compute` printing 1024) overflows the stack with
-`--jspi`, not without (node's 1 GB stack). Rocq's `cbv_stack_term` and
-`cbv_stack_value` call each other in tail position, with different
-signatures: c_of_ocaml emits `musttail` only for identical signatures,
-and clang does not make the others wasm tail calls when the function also
-returns early (the exception checks). Each such call keeps its frame on the
-engine's stack while releasing its frame on the shadow stack, so the
-segmented stack never sees the depth and never switches stacks (940
-levels, 1 KB each, in the 984 KB of a JSPI stack). Fixing it is in
-c_of_ocaml: keep (part of) the frame across tail calls that are not
-`musttail`, or make them bounce.
+- Reductions (`Eval compute`, unification) do not check for interrupts
+  in Rocq: an edit stops them only once they reach a check (native
+  coq-lsp uses memprof-limits, which needs Gc.Memprof: c_of_ocaml's
+  allocations do not sample).
+- c_of_ocaml (reported to its session): a loop of Ltac's interpreter
+  (`do 10 (do 1000 (do 1000 idtac))`) fills the shadow stack where native
+  Rocq runs in constant stack; emscripten's C stack overflows silently
+  (linked with 256 MB).
 
 Fixed on the way: ocaml-emcc 476f822 (x86 flags from Rocq's configure),
 d7584a2 (`Sys.chdir` under `--node-fs`); c_of_ocaml fd6db6e0 (numbers
-given to `Obj.size`), 5f602e6c (`Gc.ramp_up`, under which Rocq loads its
-libraries, ran without new segments as a callback from C).
+given to `Obj.size`), 5f602e6c (`Gc.ramp_up` ran without new segments),
+its session's 6e147c7e (tail calls of different signatures: `Check 1024.`
+overflowed with JSPI).
 
 ## Compat build (wasm32 + CPS stack)
 
-Waits for `--cps-stack` with `--dynlink` in ocaml-emcc.
+Not built yet: ocaml-emcc now supports `--cps-stack` with `--dynlink`
+(09ee06a); needs a 31-bit set of `.vo` (Rocq built for wasm32).
 
 ## Next
 
-- The worker in a browser: emscripten's file system (lazy files, findlib
-  META) instead of `--node-fs`, web/rocq-web-io.js's Web Worker side, an
-  editor (coq-lsp's VS Code extension in VS Code web, or CodeMirror).
-- Interrupting a command (shared memory flag read by Rocq).
-- Serlib's plugins; Stdlib (lia, ring...) and mathcomp packages.
+- Production build of the app (static server with COOP/COEP), faster
+  start (Prelude's files in one request, compile cache).
+- The compat build.
+- More of the interface: a package browser, several files (OPFS),
+  messages panel, outline (documentSymbol).

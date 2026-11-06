@@ -59,10 +59,16 @@ request on first read (allowed in a worker), then cached.
 - Plugins that run external programs (coq-hammer's provers) or compile
   OCaml at run time (QuickChick).
 
+## Interrupts
+
+The worker cannot receive messages while Rocq computes. The page shares a
+flag with it (a SharedArrayBuffer: the page must be cross-origin
+isolated), set on each edit; a minor GC hook of the worker
+(worker/plugins/interrupt.c) reads it and sets `Control.interrupt`, which
+Rocq's next `Control.check_for_interrupt` turns into `Sys.Break`; coq-lsp
+then handles the edit and checks again from it.
+
 ## Open questions
 
-- Interrupting a running command: a flag in shared memory the worker
-  checks in `Control.check_for_interrupt` (needs SharedArrayBuffer, i.e.
-  COOP/COEP headers), otherwise kill the worker and replay the document.
-- Protocol: coq-lsp (rocq-lsp) in the worker, or Rocq's own.
-- Whether `.vo` files built by a native 64-bit Rocq load in the full build.
+- Whether `.vo` files built by a native 64-bit Rocq load in the full
+  build: they do (Corelib, Stdlib, mathcomp).
