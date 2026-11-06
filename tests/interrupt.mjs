@@ -1,19 +1,21 @@
 // Interrupting Rocq from the page: an edit while Rocq checks a long
-// command (the loop, commented out) stops it, and Rocq is idle again
+// command (commented out by the edit) stops it, and Rocq is idle again
 // (headless Chromium, as tests/browser.mjs):
-//   node tests/interrupt.mjs [URL]
+//   node tests/interrupt.mjs [ltac|compute] [URL]
+// ltac: a loop of Ltac's interpreter, which checks for interrupts;
+// compute: a reduction, which does not (stopped from a Memprof callback)
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
 const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
 const { chromium } = createRequire(join(dir, "package.json"))("playwright");
-const url = process.argv[2] ?? "http://localhost:5173/";
+const kind = process.argv[2] ?? "ltac";
+const url = process.argv[3] ?? "http://localhost:5173/";
 
-// Long, but not deep: nested Ltac loops (the interpreter of Ltac checks
-// for interrupts; the reductions of Eval or of unification do not)
+const long = { ltac: "do 5 (do 1000 (do 1000 idtac)).", compute: "Eval compute in Nat.even (Nat.pow 3 13)." }[kind];
 const loop = `Goal True.
-do 5 (do 1000 (do 1000 idtac)).
+${long}
 Abort.
 `;
 
@@ -34,7 +36,7 @@ await page.evaluate(() => {
 });
 const t0 = Date.now();
 // comment out the loop
-await page.locator(".cm-line", { hasText: "do 5" }).click();
+await page.locator(".cm-line", { hasText: long }).click();
 await page.keyboard.press("Home");
 await page.keyboard.type("(* ");
 await page.keyboard.press("End");
