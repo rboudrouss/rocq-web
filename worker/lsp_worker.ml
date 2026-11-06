@@ -93,7 +93,24 @@ let main () =
   let coqlib = getenv "ROCQLIB" "/coqlib" in
   let debug = Sys.getenv_opt "ROCQ_WEB_DEBUG" <> None in
   let root_state =
-    let load_plugin = Coq.Loader.plugin_handler (Some (Rocq_web_plugins.Plugins.load_packages ~dir:plugins)) in
+    (* As coq-lsp's Coq.Loader.plugin_handler: the plugins of Rocq go
+       through serlib's (coq-lsp.serlib.<plugin>, which requires the
+       plugin), without its warning for the other packages, which Rocq
+       also loads (the libraries the plugins need: elpi...) *)
+    let load_plugin spec =
+      let pkg = Mltop.PluginSpec.to_package spec in
+      let serlib =
+        match String.split_on_char '.' pkg with
+        | [ "rocq-runtime"; "plugins"; name ] -> Some ("coq-lsp.serlib." ^ name)
+        | _ -> None
+      in
+      let pkg =
+        match serlib with
+        | Some s when Sys.file_exists (Filename.concat plugins (s ^ ".wasm")) -> s
+        | _ -> pkg
+      in
+      Rocq_web_plugins.Plugins.load_packages ~dir:plugins [ pkg ]
+    in
     let load_module file = CErrors.user_err Pp.(str "Cannot load " ++ str file) in
     Coq.Init.(
       coq_init
