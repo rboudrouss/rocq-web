@@ -1,16 +1,20 @@
 // A JSON-RPC client of coq-lsp's server, running in a Web Worker
 // (public/rocq/worker.js): messages are JSON strings.
+import type { Text } from "./pp";
 
 export type Position = { line: number; character: number };
 export type Range = { start: Position; end: Position };
 export type Diagnostic = { range: Range; severity: number; message: string };
 
-export type Hyp = { names: string[]; def?: string | null; ty: string };
-export type Goal = { hyps: Hyp[]; ty: string };
+// (texts: Rocq's documents, src/pp.tsx, with pp_format "Pp")
+export type Hyp = { names: string[]; def?: Text | null; ty: Text };
+export type Goal = { hyps: Hyp[]; ty: Text };
 export type GoalsResult = {
+  // the sentence's
+  range?: Range | null;
   goals?: { goals: Goal[]; stack: [Goal[], Goal[]][]; shelf: Goal[]; given_up: Goal[] };
-  messages: (string | { level: number; text: string })[];
-  error?: string;
+  messages: (Text | { level: number; text: Text })[];
+  error?: Text | null;
 };
 
 export type CompletionItem = {
@@ -162,8 +166,15 @@ export class LspClient {
     return this.request<RunResult>("petanque/run_at_point", { textDocument: { uri, version }, position, command });
   }
 
-  goals(uri: string, version: number, position: Position) {
-    return this.request<GoalsResult>("proof/goals", { textDocument: { uri, version }, position });
+  // The goals after the sentence at a position (mode "After"), or before
+  // it ("Prev"), as Rocq's documents (or strings: "Str")
+  goals(uri: string, version: number, position: Position, mode: "After" | "Prev" = "After", format: "Pp" | "Str" = "Pp") {
+    return this.request<GoalsResult>("proof/goals", {
+      textDocument: { uri, version },
+      position,
+      pp_format: format,
+      mode,
+    });
   }
 
   hover(uri: string, position: Position) {

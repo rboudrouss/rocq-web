@@ -1,8 +1,8 @@
-// The panels around the editor: files, outline, packages (left), goals,
-// problems, queries and the log (right).
+// The panels around the editor: files, outline, packages (left),
+// problems, queries and the log (right; the goals: src/goals.tsx).
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { canOpenFolder, isOnDisk, openFolder, validName } from "./files";
-import type { Diagnostic, DocumentSymbol, Goal, GoalsResult, Range } from "./lsp";
+import type { Diagnostic, DocumentSymbol, Range } from "./lsp";
 
 // [name, content, label (default: the name)]
 export function Tabs({ tabs, initial }: { tabs: [string, ReactNode, ReactNode?][]; initial?: string }) {
@@ -202,52 +202,6 @@ export function Packages({ packages, insert }: { packages: Package[] | null; ins
         </details>
       ))}
     </div>
-  );
-}
-
-// Goals
-
-function GoalView({ goal, index }: { goal: Goal; index: number }) {
-  return (
-    <div className="goal">
-      {index === 0 &&
-        goal.hyps.map((h, i) => (
-          <div className="hyp" key={i}>
-            <b>{h.names.join(", ")}</b>
-            {h.def != null && <> := {h.def}</>} : {h.ty}
-          </div>
-        ))}
-      <div className="bar">{index === 0 ? "" : `goal ${index + 1}`}</div>
-      <div className="concl">{goal.ty}</div>
-    </div>
-  );
-}
-
-export function Goals({ result }: { result: GoalsResult | null }) {
-  if (!result) return <p className="muted">Move the cursor into a proof.</p>;
-  const g = result.goals;
-  const messages = result.messages.map((m) => (typeof m === "string" ? m : m.text));
-  const pending = g ? g.stack.reduce((n, [l, r]) => n + l.length + r.length, 0) : 0;
-  return (
-    <>
-      {g ? (
-        g.goals.length > 0 ? (
-          g.goals.map((goal, i) => <GoalView goal={goal} index={i} key={i} />)
-        ) : (
-          <p className="muted">No goals{pending > 0 && `, ${pending} unfocused`}.</p>
-        )
-      ) : (
-        <p className="muted">Not in a proof.</p>
-      )}
-      {g && g.shelf.length > 0 && <p className="muted">{g.shelf.length} shelved</p>}
-      {g && g.given_up.length > 0 && <p className="muted">{g.given_up.length} given up</p>}
-      {result.error && <pre className="error">{result.error}</pre>}
-      {messages.map((m, i) => (
-        <pre className="message" key={i}>
-          {m}
-        </pre>
-      ))}
-    </>
   );
 }
 

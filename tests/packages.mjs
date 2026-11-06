@@ -45,7 +45,7 @@ for (const p of packages) {
           const timeout = new Promise((ok) => setTimeout(() => ok("timeout"), 300000));
           if ((await Promise.race([c.saveVo(uri, 1).catch(() => {}), timeout])) === "timeout")
             return "not checked after 300 s";
-          const g = await c.goals(uri, 1, { line: 0, character: 2 });
+          const g = await c.goals(uri, 1, { line: 0, character: 2 }, "After", "Str");
           return g?.error ?? null;
         } catch (e) {
           return e.message;

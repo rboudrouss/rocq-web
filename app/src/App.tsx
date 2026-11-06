@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
+import { Goals } from "./goals";
 import { activeFile, listFiles, readFile, removeFile, saveToDisk, setActiveFile, writeFile } from "./files";
 import {
   type CompletionItem,
@@ -11,8 +12,9 @@ import {
   type Position,
   type Range,
 } from "./lsp";
-import { Files, Goals, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
+import { Files, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
 import { Project, workspaceUri } from "./project";
+import { offsetAt, positionAt, sentenceAt, sentences } from "./sentences";
 import { shareUrl } from "./share";
 
 const base = import.meta.env.BASE_URL;
@@ -26,7 +28,8 @@ export function App() {
   const [files, setFiles] = useState(listFiles);
   const [active, setActive] = useState(() => activeFile(files));
   const [status, setStatus] = useState("starting");
-  const [goals, setGoals] = useState<GoalsResult | null>(null);
+  // the goals after the sentence at the cursor, and before it
+  const [goals, setGoals] = useState<{ now: GoalsResult; before: GoalsResult | null } | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [symbols, setSymbols] = useState<DocumentSymbol[]>([]);
   const [packages, setPackages] = useState<Package[] | null>(null);
@@ -66,11 +69,21 @@ export function App() {
     if (!c || !ready.current) return;
     const v = version.current;
     const name = activeRef.current;
-    c.goals(workspaceUri(name), v, cursor.current).then(
-      (r) => v === version.current && name === activeRef.current && setGoals(r),
+    const uri = workspaceUri(name);
+    const current = () => v === version.current && name === activeRef.current;
+    const at = cursor.current;
+    c.goals(uri, v, at).then(
+      async (now) => {
+        if (!current()) return;
+        // (before the sentence: at its start)
+        const text = read(name);
+        const s = sentenceAt(sentences(text), offsetAt(text, at));
+        const before = s ? await c.goals(uri, v, positionAt(text, s.start), "Prev").catch(() => null) : null;
+        if (current()) setGoals({ now, before });
+      },
       (e: Error) => log(`goals: ${e.message}`),
     );
-  }, [log]);
+  }, [log, read]);
 
   const askSymbols = useCallback(() => {
     const c = client.current;
@@ -444,7 +457,7 @@ export function App() {
         <aside className="right">
           <h2>Goals</h2>
           <div className="goals" data-testid="goals">
-            <Goals result={goals} />
+            <Goals result={goals?.now ?? null} before={goals?.before ?? null} />
           </div>
           <Tabs
             tabs={[
