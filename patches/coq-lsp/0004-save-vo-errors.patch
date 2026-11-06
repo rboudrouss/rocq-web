@@ -1,0 +1,18 @@
+diff --git a/fleche/doc.ml b/fleche/doc.ml
+index 2cb236a3..4de359e4 100644
+--- a/fleche/doc.ml
++++ b/fleche/doc.ml
+@@ -1198,6 +1198,13 @@ let check ~io ~token ~target ~doc () =
+ 
+ let save ~token ~doc =
+   match doc.completed with
++  | Yes _ when List.exists Lang.Diagnostic.is_error (diags doc) ->
++    let d = List.find Lang.Diagnostic.is_error (diags doc) in
++    let line = d.Lang.Diagnostic.range.Lang.Range.start.Lang.Point.line + 1 in
++    let error =
++      Coq.Pp_t.(str "Can't save document with errors (line " ++ int line ++ str ")")
++    in
++    Coq.Protect.E.error error
+   | Yes _ ->
+     let st =
+       Util.last doc.nodes |> Stdlib.Option.fold ~some:Node.state ~none:doc.root
