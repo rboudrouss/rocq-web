@@ -11,7 +11,7 @@ const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
 const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const kind = process.argv[2] ?? "ltac";
-const url = process.argv[3] ?? "http://localhost:5173/";
+const url = process.argv[3] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const long = { ltac: "do 5 (do 1000 (do 1000 idtac)).", compute: "Eval compute in Nat.even (Nat.pow 3 13)." }[kind];
 const loop = `Goal True.

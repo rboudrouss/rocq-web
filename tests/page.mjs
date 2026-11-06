@@ -8,7 +8,7 @@ import { join } from "node:path";
 const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
 const { chromium } = createRequire(join(dir, "package.json"))("playwright");
-const [file, url = "http://localhost:5173/"] = process.argv.slice(2);
+const [file, url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/"] = process.argv.slice(2);
 
 const browser = await chromium.launch();
 const page = await browser.newPage();

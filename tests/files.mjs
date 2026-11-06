@@ -9,7 +9,7 @@ import { join } from "node:path";
 const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
 const { chromium } = createRequire(join(dir, "package.json"))("playwright");
-const url = process.argv[2] ?? "http://localhost:5173/";
+const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const A = "Definition a := 1.\n";
 const B = `Require Import A.

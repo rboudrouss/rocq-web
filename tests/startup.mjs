@@ -14,7 +14,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const record = args[0] === "--record" && args.shift();
-const url = args[0] ?? "http://localhost:5173/";
+const url = args[0] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 const fetched = new Set();
 const doc = process.env.DOC ?? "Check nat.\n";
 
