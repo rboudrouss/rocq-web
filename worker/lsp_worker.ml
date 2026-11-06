@@ -83,12 +83,38 @@ let rec init_loop ~root_state ~cmdline ~debug =
 
 let getenv v d = Stdlib.Option.value (Sys.getenv_opt v) ~default:d
 
+(* The deadlines of the [Timeout]s running: Rocq's own (setitimer and
+   SIGALRM) never fire in WebAssembly *)
+let deadlines = ref []
+
+(* Rocq's [Control.timeout]: [f x], or an error once its deadline passed
+   (Control.Timeout raised by the Memprof callback of
+   [interrupt_reductions], then caught here unless an outer deadline
+   passed first) *)
+let timeout n f x =
+  let deadline = Unix.gettimeofday () +. n in
+  let outer = !deadlines in
+  deadlines := deadline :: outer;
+  match f x with
+  | v ->
+    deadlines := outer;
+    Ok v
+  | exception (Control.Timeout as exn) when Unix.gettimeofday () >= deadline ->
+    let _, info = Exninfo.capture exn in
+    deadlines := outer;
+    Error info
+  | exception exn ->
+    let e = Exninfo.capture exn in
+    deadlines := outer;
+    Exninfo.iraise e
+
 (* Rocq's reductions (cbv, compute, unification) never check for
    interrupts: one still pending half a second after the page asked for it
    (Control.interrupt, worker/plugins/interrupt.c) is raised by a Memprof
    callback, at an allocation, if coq-lsp runs a command then (an
    exception from anywhere in Rocq, which coq-lsp's interrupts of native
-   Rocq through memprof-limits also are) *)
+   Rocq through memprof-limits also are). The same callback ends the
+   [Timeout]s past their deadline. *)
 let interrupt_reductions () =
   let pending = ref None in
   let check _ =
@@ -102,10 +128,14 @@ let interrupt_reductions () =
          raise Sys.Break
        | Some _ -> ()
      else pending := None);
+    (match !deadlines with
+     | [] -> ()
+     | ds -> if Unix.gettimeofday () >= List.fold_left min infinity ds then raise Control.Timeout);
     None
   in
   let tracker = { Gc.Memprof.null_tracker with alloc_minor = check; alloc_major = check } in
-  ignore (Gc.Memprof.start ~callstack_size:0 ~sampling_rate:1e-5 tracker)
+  ignore (Gc.Memprof.start ~callstack_size:0 ~sampling_rate:1e-5 tracker);
+  Control.set_timeout { Control.timeout }
 
 let main () =
   Sys.interactive := false;
