@@ -1,7 +1,7 @@
 // The app with several files (headless Chromium, as tests/browser.mjs):
 // B.v requires A.v, compiled first; the outline, a query, go to
-// definition (in A.v, then in Stdlib's sources), the packages; then a change
-// of A.v that breaks B.v:
+// definition (in A.v, then in Stdlib's sources), the packages, a link
+// sharing B.v; and a change of A.v that breaks B.v:
 //   node tests/files.mjs [URL]
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -123,6 +123,18 @@ await tab("Packages");
 const packages = await page.locator(".packages details").count();
 check("packages", packages > 5, `${packages} packages`);
 if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT });
+
+// a link to B.v, opened in another browser
+await page.locator("header button", { hasText: "Share" }).click();
+const link = await page.locator(".shared input").inputValue();
+{
+  const other = await (await browser.newContext()).newPage();
+  await other.goto(link);
+  await other.waitForSelector(".cm-content");
+  const file = await other.textContent("header .file");
+  const text = await other.evaluate(() => window.rocqView.state.doc.toString());
+  check("shared link", file === "B.v" && text === B, `${link.length} characters, ${file}`);
+}
 
 await browser.close();
 process.exit(failed ? 1 : 0);

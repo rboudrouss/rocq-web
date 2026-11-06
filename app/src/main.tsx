@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { listFiles, readFile, setActiveFile, writeFile } from "./files";
+import { openShared } from "./share";
 import "./style.css";
 
 // Not cross-origin isolated (a host without COOP and COEP headers): the
@@ -15,8 +17,11 @@ if (import.meta.env.PROD && !crossOriginIsolated && "serviceWorker" in navigator
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// a file shared by a link (#share=...) first
+openShared({ list: listFiles, read: readFile, write: writeFile, activate: setActiveFile }).finally(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 );

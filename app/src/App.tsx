@@ -13,6 +13,7 @@ import {
 } from "./lsp";
 import { Files, Goals, Outline, type Package, Packages, Problems, Query, type QueryResult, Tabs } from "./panels";
 import { Project, workspaceUri } from "./project";
+import { shareUrl } from "./share";
 
 const base = import.meta.env.BASE_URL;
 
@@ -32,6 +33,7 @@ export function App() {
   const [queries, setQueries] = useState<QueryResult[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [library, setLibrary] = useState<Library | null>(null);
+  const [shared, setShared] = useState<string | null>(null);
 
   const client = useRef<LspClient | null>(null);
   const project = useRef<Project | null>(null);
@@ -318,6 +320,12 @@ export function App() {
     },
     [switchTo],
   );
+  const share = async () => {
+    const url = await shareUrl(active, read(active));
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    log(`link to ${active} copied (${url.length} characters)`);
+    setShared(url);
+  };
   const download = () => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([read(active)], { type: "text/plain" }));
@@ -341,11 +349,20 @@ export function App() {
           {status}
         </span>
         <span className="file">{active}</span>
+        <button onClick={share} title="Copy a link to this file">
+          Share
+        </button>
         <button onClick={download} title="Download the file">
           Download
         </button>
         <span className="muted">build: {build}</span>
       </header>
+      {shared && (
+        <div className="shared">
+          Link copied: <input readOnly value={shared} onFocus={(e) => e.target.select()} />
+          <button onClick={() => setShared(null)}>×</button>
+        </div>
+      )}
       <main>
         <aside className="left">
           <Tabs

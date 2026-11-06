@@ -80,3 +80,6 @@ pre.message, pre.error { font-size: 12px; }
 .result .command { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #3b6fd8; }
 .log { font-family: ui-monospace, monospace; font-size: 11px; color: #555; }
 .hover { margin: 0; padding: 0.4rem 0.6rem; max-width: 40rem; white-space: pre-wrap; font-size: 12px; }
+.shared { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 1rem; background: #eef6ee; font-size: 0.85rem; }
+.shared input { flex: 1; font-family: ui-monospace, monospace; font-size: 0.75rem; }
+.shared button { border: 0; background: none; }
