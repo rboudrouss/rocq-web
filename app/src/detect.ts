@@ -20,6 +20,9 @@ export function hasJSPI(): boolean {
 
 export type Build = "full" | "compat";
 
+// (?build=compat or ?build=full in the page's URL forces one, for tests)
 export function pickBuild(): Build {
+  const forced = new URLSearchParams(location.search).get("build");
+  if (forced === "full" || forced === "compat") return forced;
   return hasMemory64() && hasJSPI() ? "full" : "compat";
 }
