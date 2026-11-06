@@ -34,7 +34,9 @@ for pkg in $(ocamlfind query -r -format '%p' $plugins | awk '!seen[$0]++'); do
   name=$(basename "$opam" .changes)
   src=_src/byte/$name
   echo "$pkg: $(basename "$cma") from $name"
-  [ -d "$src" ] || opam source "$name" --dir "$src" >/dev/null
+  # (the version installed: opam source may take a newer one)
+  version=$(basename "$(ls -d "$OPAM_SWITCH_PREFIX/.opam-switch/packages/$name".* | head -1)")
+  [ -d "$src" ] || opam source "$version" --dir "$src" >/dev/null
   if [ -z "$(find "$src" -name "$(basename "$cma")" | head -1)" ] &&
     (cd "$src" && prebuild "$name" > /dev/null); then
     # then the plugins of each makefile rocq makefile wrote
