@@ -8,3 +8,4 @@ out/
 *.vok
 *.glob
 .*.aux
+dist/
