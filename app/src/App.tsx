@@ -35,6 +35,8 @@ export function App() {
   const [library, setLibrary] = useState<Library | null>(null);
   const [shared, setShared] = useState<string | null>(null);
   // the libraries' files downloaded while Rocq is busy
+  // a new worker when it changes (Restart)
+  const [generation, setGeneration] = useState(0);
   const [fetching, setFetching] = useState<{ path: string; files: number; bytes: number } | null>(null);
 
   const client = useRef<LspClient | null>(null);
@@ -111,6 +113,8 @@ export function App() {
       log,
     });
     client.current = c;
+    ready.current = false;
+    setStatus("starting");
     project.current = new Project(c, () => listFiles(), read, log);
     (window as unknown as { rocq: LspClient }).rocq = c;
     const t0 = performance.now();
@@ -127,7 +131,7 @@ export function App() {
       window.removeEventListener("beforeunload", flush);
       c.terminate();
     };
-  }, [build, assets, askGoals, askSymbols, log, read, flush, openActive]);
+  }, [build, assets, askGoals, askSymbols, log, read, flush, openActive, generation]);
 
   const switchTo = useCallback(
     (name: string) => {
@@ -360,6 +364,15 @@ export function App() {
           </span>
         )}
         <span className="file">{active}</span>
+        <button
+          onClick={() => {
+            flush();
+            setGeneration((g) => g + 1);
+          }}
+          title="Start Rocq again (a computation that does not stop)"
+        >
+          Restart
+        </button>
         <button onClick={share} title="Copy a link to this file">
           Share
         </button>
