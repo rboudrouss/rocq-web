@@ -11,6 +11,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# the packages whose plugins need their build first: generated code
+# (MetaRocq's, extracted from its theories), a configure script
+prebuild() {
+  case $1 in
+    rocq-metarocq-template) bash ./configure.sh && make -C template-rocq ;;
+    rocq-relation-algebra) ./configure --enable-ssr --enable-aac && make ;;
+    *) return 1 ;;
+  esac
+}
+
 dest=_build/byte-plugins
 mkdir -p "$dest" _src/byte
 plugins=$(grep -rhoE 'Declare ML Module "[^"]+"' "$OPAM_SWITCH_PREFIX/lib/coq" | sed 's/.*"\(.*\)"/\1/' | sort -u)
@@ -25,6 +35,13 @@ for pkg in $(ocamlfind query -r -format '%p' $plugins | awk '!seen[$0]++'); do
   src=_src/byte/$name
   echo "$pkg: $(basename "$cma") from $name"
   [ -d "$src" ] || opam source "$name" --dir "$src" >/dev/null
+  if [ -z "$(find "$src" -name "$(basename "$cma")" | head -1)" ] &&
+    (cd "$src" && prebuild "$name" > /dev/null); then
+    # then the plugins of each makefile rocq makefile wrote
+    grep -rl --include='*akefile*' '^bytefiles:' "$src" | while read -r mk; do
+      (cd "$(dirname "$mk")" && nice -n19 make -f "$(basename "$mk")" bytefiles > /dev/null) || true
+    done
+  fi
   if [ -z "$(find "$src" -name "$(basename "$cma")" | head -1)" ]; then
     for project in "$src"/_CoqProject* "$src"/_RocqProject*; do
       [ -f "$project" ] && grep -qE '\.(mllib|mlpack)' "$project" || continue
