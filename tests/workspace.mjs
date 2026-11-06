@@ -2,12 +2,8 @@
 // folders, Load of a file, a required file that does not compile, a zip
 // archive of it written and read back, a _RocqProject.
 //   node tests/workspace.mjs
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const files = {
@@ -17,7 +13,7 @@ const files = {
   "L.v": "Definition l := 1.\n",
   "D.v": 'Require Import Sub.C.\nFrom Workspace.Sub Require Import C.\nCheck c.\nLoad "L.v".\nCheck l.\n',
 };
-const browser = await chromium.launch();
+const browser = await launch();
 const context = await browser.newContext({ acceptDownloads: true });
 const page = await context.newPage();
 await page.addInitScript((files) => {

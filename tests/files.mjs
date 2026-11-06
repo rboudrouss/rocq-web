@@ -3,12 +3,9 @@
 // definition (in A.v, then in Stdlib's sources), the packages, a link
 // sharing B.v, a folder on disk; and a change of A.v that breaks B.v:
 //   node tests/files.mjs [URL]
-import { createRequire } from "node:module";
 import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const A = "Definition a := 1.\n";
@@ -25,7 +22,7 @@ const check = (what, ok, detail = "") => {
   failed ||= !ok;
 };
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 await page.addInitScript(
   ([a, b]) => {

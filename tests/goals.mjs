@@ -2,12 +2,8 @@
 // documents laid out for its width, the changes of the sentence at the
 // cursor highlighted, hypotheses folded.
 //   node tests/goals.mjs
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const text = `Lemma l (n m : nat) (H : n = m) : forall k, k + n + (if Nat.eqb n m then 1 else 0) = k + m + (if Nat.eqb m n then 1 else 0).
@@ -17,7 +13,7 @@ Proof.
   reflexivity.
 Qed.
 `;
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
 await page.addInitScript((t) => {
   localStorage.clear();

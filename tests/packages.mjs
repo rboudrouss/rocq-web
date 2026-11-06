@@ -4,16 +4,12 @@
 // the document is checked, then proof/goals gives the error of the Require
 // (headless Chromium, as tests/browser.mjs):
 //   node tests/packages.mjs [PACKAGE...]
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 const only = process.argv.slice(2);
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 await page.addInitScript(() => {
   localStorage.clear();

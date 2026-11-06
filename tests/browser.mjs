@@ -5,15 +5,11 @@
 // SCREENSHOT=FILE.png: the page once the goals are shown; COLOR_SCHEME=dark.
 // PLAYWRIGHT_DIR is a directory with playwright in node_modules, its
 // browsers in PLAYWRIGHT_BROWSERS_PATH (default PLAYWRIGHT_DIR/browsers).
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage({ colorScheme: process.env.COLOR_SCHEME ?? "light" });
 await page.addInitScript(() => localStorage.clear());
 page.on("console", (m) => console.log(`[console] ${m.text()}`));

@@ -3,16 +3,12 @@
 // as JSON (headless Chromium, as tests/browser.mjs):
 //   node tests/probe.mjs FILE.v 'await c.goals(uri, 2, { line: 3, character: 0 })'
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const [file, code] = process.argv.slice(2);
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 await page.addInitScript((text) => {
   localStorage.clear();

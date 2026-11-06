@@ -4,12 +4,9 @@
 //   node tests/interrupt.mjs [ltac|compute] [URL]
 // ltac: a loop of Ltac's interpreter, which checks for interrupts;
 // compute: a reduction, which does not (stopped from a Memprof callback)
-import { createRequire } from "node:module";
 import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const kind = process.argv[2] ?? "ltac";
 const url = process.argv[3] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
@@ -19,7 +16,7 @@ ${long}
 Abort.
 `;
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 await page.addInitScript((text) => localStorage.setItem("rocq-web:scratch.v", text), loop);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));

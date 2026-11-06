@@ -3,16 +3,13 @@
 // embedded (?embed): its files not in the workspace (headless Chromium,
 // as tests/browser.mjs).
 //   node tests/examples.mjs [ID...]
-import { createRequire } from "node:module";
 import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 const only = process.argv.slice(2);
 
-const browser = await chromium.launch();
+const browser = await launch();
 let failed = 0;
 const check = (ok, what) => {
   console.log(`${ok ? "ok  " : "FAIL"} ${what}`);

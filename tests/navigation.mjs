@@ -2,12 +2,8 @@
 // next and previous sentences (Alt+N, Alt+P), problems (F8), and checking
 // only up to the cursor (Alt+Enter).
 //   node tests/navigation.mjs
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const text = `Lemma a : 1 + 1 = 2.
@@ -19,7 +15,7 @@ Lemma b : True.
 Proof. exact I. Qed.
 Check undefined_thing.
 `;
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1300, height: 800 } });
 await page.addInitScript((t) => {
   if (sessionStorage.getItem("started")) return;

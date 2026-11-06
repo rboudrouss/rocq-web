@@ -2,15 +2,11 @@
 // tests/browser.mjs): a declaration found by its name and by words of its
 // statement, its source shown at it.
 //   node tests/search.mjs
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { launch } from "./launch.mjs";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
-const browser = await chromium.launch();
+const browser = await launch();
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 let failed = 0;

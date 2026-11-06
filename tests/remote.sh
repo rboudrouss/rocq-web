@@ -9,7 +9,8 @@
 #   tests/remote.sh [-p SSH_PORT] HOST TEST.mjs [ARGS...]
 # LOCAL_PORT: the app's port here (default 5173); REMOTE_PORT: its port
 # there (default 15000 + LOCAL_PORT % 1000), one for each test running;
-# CONSOLE=1: the page's console (tests that print it).
+# CONSOLE=1: the page's console (tests that print it); BROWSER and
+# ROCQ_WEB_BUILD as for tests/launch.mjs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ssh_port=22
@@ -21,6 +22,6 @@ remote_port=${REMOTE_PORT:-$((15000 + local_port % 1000))}
 rsync -a -e "ssh -p $ssh_port" tests/ "$host:$dir/tests/"
 args=$([ $# -eq 0 ] || printf ' %q' "$@")
 ssh -p "$ssh_port" -o ExitOnForwardFailure=yes -R "$remote_port:localhost:$local_port" "$host" \
-  "cd $dir && PLAYWRIGHT_DIR=\$PWD ROCQ_WEB_URL=http://localhost:$remote_port/ ${SCREENSHOT:+SCREENSHOT=/tmp/rocq-web-screenshot.png} ${COLOR_SCHEME:+COLOR_SCHEME=$COLOR_SCHEME} ${CONSOLE:+CONSOLE=1} node tests/$(basename "$test")$args"
+  "cd $dir && PLAYWRIGHT_DIR=\$PWD ROCQ_WEB_URL=http://localhost:$remote_port/ ${SCREENSHOT:+SCREENSHOT=/tmp/rocq-web-screenshot.png} ${COLOR_SCHEME:+COLOR_SCHEME=$COLOR_SCHEME} ${CONSOLE:+CONSOLE=1} ${BROWSER:+BROWSER=$BROWSER} ${ROCQ_WEB_BUILD:+ROCQ_WEB_BUILD=$ROCQ_WEB_BUILD} node tests/$(basename "$test")$args"
 # SCREENSHOT=FILE.png: the test's screenshot, copied here
 if [ -n "${SCREENSHOT:-}" ]; then scp -q -P "$ssh_port" "$host:/tmp/rocq-web-screenshot.png" "$SCREENSHOT"; fi

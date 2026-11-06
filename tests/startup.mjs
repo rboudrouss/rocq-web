@@ -4,13 +4,10 @@
 // --record adds the files fetched one by one when Rocq starts to
 // web/boot-files.txt, the files of boot.bin (scripts/assets.mjs); delete it
 // first to start from none.
-import { createRequire } from "node:module";
 import { join } from "node:path";
 
-const dir = process.env.PLAYWRIGHT_DIR ?? join(process.env.HOME, "tools/pw");
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= join(dir, "browsers");
-const { chromium } = createRequire(join(dir, "package.json"))("playwright");
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { launch } from "./launch.mjs";
 
 const args = process.argv.slice(2);
 const record = args[0] === "--record" && args.shift();
@@ -18,7 +15,7 @@ const url = args[0] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 const fetched = new Set();
 const doc = process.env.DOC ?? "Check nat.\n";
 
-const browser = await chromium.launch();
+const browser = await launch();
 const context = await browser.newContext();
 for (const run of ["cold", "warm"]) {
   const page = await context.newPage();
