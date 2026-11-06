@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pickBuild } from "./detect";
 import { Editor, type EditorHandle } from "./Editor";
-import { type Goal, type GoalsResult, LspClient, type Position } from "./lsp";
+import { type CompletionItem, type Goal, type GoalsResult, LspClient, type Position } from "./lsp";
 
 const uri = "file:///workspace/scratch.v";
+const storageKey = "rocq-web:scratch.v";
 
 const example = `(* Rocq in the browser *)
 Theorem plus_comm : forall n m : nat, n + m = m + n.
@@ -58,6 +59,9 @@ function Goals({ result }: { result: GoalsResult | null }) {
   );
 }
 
+// The document of the previous visit, else the example
+const initial = localStorage.getItem(storageKey) ?? example;
+
 export function App() {
   const [build] = useState(pickBuild);
   const [status, setStatus] = useState("starting");
@@ -68,6 +72,7 @@ export function App() {
   const version = useRef(1);
   const cursor = useRef<Position>({ line: 0, character: 0 });
   const ready = useRef(false);
+  const text = useRef(initial);
 
   const askGoals = useCallback(() => {
     const c = client.current;
@@ -90,19 +95,33 @@ export function App() {
       log: (m) => setLogs((l) => [...l.slice(-50), m]),
     });
     client.current = c;
+    (window as unknown as { rocq: LspClient }).rocq = c;
     const t0 = performance.now();
     c.initialize().then(() => {
       setLogs((l) => [...l, `server ready in ${Math.round(performance.now() - t0)} ms`]);
       ready.current = true;
-      c.open(uri, example, version.current);
+      c.open(uri, text.current, version.current);
     });
     return () => c.terminate();
   }, [build, askGoals]);
 
   const timer = useRef<number | undefined>(undefined);
-  const onChange = useCallback((text: string) => {
+  const save = useRef<number | undefined>(undefined);
+  const onChange = useCallback((t: string) => {
+    text.current = t;
     version.current++;
-    if (ready.current) client.current?.change(uri, text, version.current);
+    if (ready.current) client.current?.change(uri, t, version.current);
+    window.clearTimeout(save.current);
+    save.current = window.setTimeout(() => localStorage.setItem(storageKey, t), 500);
+  }, []);
+  const hover = useCallback(
+    (p: Position) => (ready.current && client.current ? client.current.hover(uri, p) : Promise.resolve(null)),
+    [],
+  );
+  const complete = useCallback(async (p: Position): Promise<CompletionItem[]> => {
+    if (!ready.current || !client.current) return [];
+    const r = await client.current.completion(uri, p);
+    return Array.isArray(r) ? r : (r?.items ?? []);
   }, []);
   const onCursor = useCallback(
     (p: Position) => {
@@ -123,7 +142,14 @@ export function App() {
         <span className="muted">build: {build}</span>
       </header>
       <main>
-        <Editor ref={editor} initial={example} onChange={onChange} onCursor={onCursor} />
+        <Editor
+          ref={editor}
+          initial={initial}
+          onChange={onChange}
+          onCursor={onCursor}
+          hover={hover}
+          complete={complete}
+        />
         <aside>
           <h2>Goals</h2>
           <div className="goals" data-testid="goals">

@@ -25,3 +25,4 @@ aside h2 { font-size: 0.8rem; text-transform: uppercase; color: #777; margin: 0.
 .message, .error { white-space: pre-wrap; margin: 0.25rem 0; }
 .error { color: #b00020; }
 .log { flex: 1; overflow: auto; font-family: ui-monospace, monospace; font-size: 11px; color: #555; }
+.hover { margin: 0; padding: 0.4rem 0.6rem; max-width: 40rem; white-space: pre-wrap; font-size: 12px; }

@@ -13,6 +13,14 @@ export type GoalsResult = {
   error?: string;
 };
 
+export type CompletionItem = {
+  label: string;
+  insertText?: string;
+  labelDetails?: { detail?: string };
+  textEdit?: { range: Range; newText: string };
+};
+export type Hover = { contents: { kind: string; value: string } | string; range?: Range };
+
 type Handlers = {
   diagnostics?: (uri: string, version: number, diagnostics: Diagnostic[]) => void;
   status?: (status: string) => void;
@@ -94,6 +102,17 @@ export class LspClient {
 
   goals(uri: string, version: number, position: Position) {
     return this.request<GoalsResult>("proof/goals", { textDocument: { uri, version }, position });
+  }
+
+  hover(uri: string, position: Position) {
+    return this.request<Hover | null>("textDocument/hover", { textDocument: { uri }, position });
+  }
+
+  completion(uri: string, position: Position) {
+    return this.request<CompletionItem[] | { items: CompletionItem[] } | null>("textDocument/completion", {
+      textDocument: { uri },
+      position,
+    });
   }
 
   terminate() {

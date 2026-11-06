@@ -14,6 +14,7 @@ const url = process.argv[2] ?? "http://localhost:5173/";
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+await page.addInitScript(() => localStorage.clear());
 page.on("console", (m) => console.log(`[console] ${m.text()}`));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 const t0 = Date.now();
@@ -30,4 +31,33 @@ await page.waitForFunction(() => document.querySelector('[data-testid="goals"]')
 console.log("goals:", (await page.textContent('[data-testid="goals"]'))?.trim());
 console.log("log:", (await page.textContent(".log"))?.trim().slice(0, 300));
 if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT });
+// Hover on plus_n_Sm, then a unicode completion
+{
+  // the mouse on IH of "rewrite IH" (rocqView: the editor, in development)
+  const { x, y } = await page.evaluate(() => {
+    const v = window.rocqView, text = v.state.doc.toString();
+    const c = v.coordsAtPos(text.indexOf("rewrite IH") + "rewrite I".length);
+    return { x: c.left, y: (c.top + c.bottom) / 2 };
+  });
+  await page.mouse.move(x, y);
+}
+await page.waitForSelector(".hover", { timeout: 20000 }).then(
+  async (h) => console.log("hover:", (await h.textContent())?.trim().split("\n")[0]),
+  () => console.log("hover: none"),
+);
+await page.locator(".cm-line").last().click();
+await page.keyboard.type("Check \\fora");
+await page.waitForSelector(".cm-tooltip-autocomplete", { timeout: 20000 }).then(
+  async (t) => console.log("completion:", (await t.textContent())?.slice(0, 80)),
+  async () =>
+    console.log(
+      "completion: none; server:",
+      JSON.stringify(
+        await page.evaluate(() => {
+          const t = document.querySelector(".cm-content").innerText.split("\n");
+          return window.rocq.completion("file:///workspace/scratch.v", { line: t.length - 1, character: t.at(-1).length });
+        }),
+      ).slice(0, 200),
+    ),
+);
 await browser.close();
