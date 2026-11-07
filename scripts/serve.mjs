@@ -2,11 +2,12 @@
 // - cross-origin isolated (COOP and COEP), for the memory the page shares
 //   with the worker to interrupt Rocq;
 // - the brotli compression of a file (FILE.br) when the browser takes it;
+// - the rewrites of DIR/_redirects (FROM/* TO/:splat 200, as Netlify's);
 // - the files of vite (assets/, named by their hash) and those of Rocq
 //   fetched with their version (?v=, web/rocq-web-fs.js) cached for good,
 //   the others revalidated (ETag).
 //   node scripts/serve.mjs [DIR] [PORT]   (default dist, 8080)
-import { createReadStream, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 
@@ -26,6 +27,12 @@ const types = {
   ".tsv": "text/tab-separated-values; charset=utf-8",
 };
 
+const redirects = join(dir, "_redirects");
+const rewrites = (existsSync(redirects) ? readFileSync(redirects, "utf8").split("\n") : [])
+  .map((l) => /^(\S+)\*\s+(\S+):splat\s+200$/.exec(l.trim()))
+  .filter(Boolean)
+  .map(([, from, to]) => [from, to]);
+
 const stat = (p) => {
   try {
     const s = statSync(p);
@@ -39,6 +46,7 @@ createServer((req, res) => {
   const url = new URL(req.url, "http://localhost");
   let path = normalize(decodeURIComponent(url.pathname));
   if (path.includes("..")) return res.writeHead(400).end();
+  for (const [from, to] of rewrites) if (path.startsWith(from)) path = to + path.slice(from.length);
   if (path.endsWith("/")) path += "index.html";
   let file = join(dir, path);
   let s = stat(file);

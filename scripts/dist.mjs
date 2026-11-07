@@ -28,6 +28,26 @@ for (const build of ["full", "compat"]) {
   if (existsSync(join(from, "files.json"))) cpSync(from, to, { recursive: true, dereference: true });
 }
 
+// The libraries of compat, the same .vo as full's (docs/design.md): served
+// from full's (a rewrite of _redirects, which scripts/serve.mjs, Netlify
+// and Cloudflare Pages follow) when every file is the same
+const rewrites = [];
+{
+  const full = join(dir, "rocq/full/coqlib"), compat = join(dir, "rocq/compat/coqlib");
+  if (existsSync(full) && existsSync(compat)) {
+    let same = true;
+    walk(compat, (p) => {
+      const q = join(full, relative(compat, p));
+      if (same && (!existsSync(q) || !readFileSync(p).equals(readFileSync(q)))) same = false;
+    });
+    if (same) {
+      rmSync(compat, { recursive: true });
+      rewrites.push("/rocq/compat/coqlib/* /rocq/full/coqlib/:splat 200");
+    }
+  }
+}
+writeFileSync(join(dir, "_redirects"), rewrites.map((r) => r + "\n").join(""));
+
 // The servers that cannot set headers: COOP and COEP (scripts/serve.mjs
 // sets them itself) for Netlify and Cloudflare Pages
 writeFileSync(
