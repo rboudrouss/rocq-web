@@ -88,11 +88,32 @@ Chromium, local server, a loaded machine).
   forced then raises it again later. Only once the command has not
   checked for interrupts for half a second.
 
-## Compat build (wasm32 + CPS stack)
+## Compat build (wasm64 lowered to wasm32 + CPS stack)
 
-Not built yet: ocaml-emcc supports `--cps-stack` with `--dynlink`
-(09ee06a); needs a 31-bit set of `.vo` (Rocq built for wasm32).
+Works (docs/design.md): `tests/*.mjs` with `ROCQ_WEB_BUILD=compat` in
+Chromium (JSPI hidden from the page) and Firefox (JSPI disabled): goals,
+navigation, workspace, search, files, interrupts (Ltac and reductions),
+`support.v`; `rocq_web.js` under node gives the native outputs. Its
+`.wasm` is about 100 MB (36 MB for full: CPS versions), checked in 3 s in
+Chromium, 18 to 24 s in Firefox (development server, no brotli).
+
+### Known problems
+
+- `Search (_ + S _ = S (_ + _))` overflows the stack in the worker (JS
+  `Maximum call stack size exceeded`, the worker stops), as does the
+  Basics example: Rocq's `Constr_matching.sub_match`
+  (`try_sub_match_rec`, `try_aux`, `next`, closures) recurses about 2 000
+  deep from `main` without a CPS bounce (no `camlc_cps_depth` decrement in
+  its cycle), c_of_ocaml bd0845e8. Reproduced under node:
+  `OCAML_EMCC_STACK_MB=1 node tests/lsp.mjs out/compat/lsp_worker.js F.v`
+  with F.v the first 32 lines of `app/public/examples/Basics/Basics.v`
+  (`rocq repl` of the compat build runs the same `Search` without it).
+- Memory: 4 GB at most (a 32-bit memory).
+- Without cross-origin isolation the page cannot share memory with the
+  worker, which then cannot receive messages: compat needs it.
 
 ## Next
 
-- The compat build.
+- Compat: the stack overflow of `Search` (above), in c_of_ocaml.
+- The libraries shared by the two builds in the site (the same `.vo`),
+  instead of a copy in each.
