@@ -207,7 +207,7 @@ export function App() {
       },
       progress: (u, rs) => u === workspaceUri(activeRef.current) && editor.current?.setProcessing(rs),
       log,
-    });
+    }, { channel: build === "compat" });
     client.current = c;
     ready.current = false;
     setStatus("starting");

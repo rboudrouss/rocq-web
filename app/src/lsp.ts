@@ -1,5 +1,6 @@
 // A JSON-RPC client of coq-lsp's server, running in a Web Worker
 // (public/rocq/worker.js): messages are JSON strings.
+import { Channel } from "./channel";
 import type { Text } from "./pp";
 
 export type Position = { line: number; character: number };
@@ -51,7 +52,11 @@ export class LspClient {
   private pending = new Map<number, { ok: (r: unknown) => void; fail: (e: Error) => void }>();
   private handlers: Handlers;
 
-  constructor(workerUrl: string, handlers: Handlers) {
+  // (the compat build: the page's messages through shared memory,
+  // src/channel.ts, which needs a cross-origin isolated page)
+  private channel: Channel | null = null;
+
+  constructor(workerUrl: string, handlers: Handlers, options: { channel?: boolean } = {}) {
     this.handlers = handlers;
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = (e) => {
@@ -69,6 +74,12 @@ export class LspClient {
     // the worker stopped (an abort of the WebAssembly, out of memory...)
     this.worker.onerror = (e) => this.stopped(e.message);
     if (this.interruptFlag) this.worker.postMessage({ interrupt: this.interruptFlag });
+    if (options.channel) {
+      if (typeof SharedArrayBuffer === "function" && crossOriginIsolated) {
+        this.channel = new Channel();
+        this.worker.postMessage({ rocqWebChannel: this.channel.buffer });
+      } else setTimeout(() => this.stopped("this browser needs a cross-origin isolated page to run Rocq"));
+    }
   }
 
   private receive(msg: { id?: number; method?: string; params?: any; result?: unknown; error?: { message: string } }) {
@@ -111,7 +122,9 @@ export class LspClient {
   }
 
   private send(msg: object) {
-    this.worker.postMessage(JSON.stringify({ jsonrpc: "2.0", ...msg }));
+    const s = JSON.stringify({ jsonrpc: "2.0", ...msg });
+    if (this.channel) this.channel.send(s);
+    else this.worker.postMessage(s);
   }
 
   request<T>(method: string, params?: object): Promise<T> {
@@ -128,7 +141,8 @@ export class LspClient {
     const id = this.nextId++;
     return new Promise<T>((ok, fail) => {
       this.pending.set(id, { ok: ok as (r: unknown) => void, fail });
-      this.worker.postMessage({ rocqWebFs: { id, op, path, data } });
+      if (this.channel) this.channel.sendFs({ id, op, path, data });
+      else this.worker.postMessage({ rocqWebFs: { id, op, path, data } });
     });
   }
 
