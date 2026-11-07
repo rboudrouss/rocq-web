@@ -115,5 +115,3 @@ Chromium, 18 to 24 s in Firefox (development server, no brotli).
 ## Next
 
 - Compat: the stack overflow of `Search` (above), in c_of_ocaml.
-- The libraries shared by the two builds in the site (the same `.vo`),
-  instead of a copy in each.
