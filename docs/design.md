@@ -9,30 +9,43 @@ when a document needs them.
 
 | | full | compat |
 |-|------|--------|
-| target | wasm64 (63-bit OCaml integers) | wasm32 (31-bit) |
+| target | wasm64 (63-bit OCaml integers) | the same code, its memory64 lowered to a 32-bit memory |
 | deep recursion | `--jspi` | `--cps-stack` |
-| plugins | wasm side modules, fetched on `Declare ML Module` (`--dynlink`) | the same, built for wasm32 (waits for ocaml-emcc to support `--cps-stack` with `--dynlink`) |
+| plugins | wasm side modules, fetched on `Declare ML Module` (`--dynlink`) | the same, lowered and with `--cps-stack` |
 | browsers | memory64 and JSPI: Chrome/Edge 137+ (Firefox once it ships JSPI) | all |
-| `.vo` files | a 63-bit set | a 31-bit set |
+| memory | up to 16 GB | up to 4 GB |
+| `.vo` files | the switch's | the same |
 
 The page picks the build at startup: `WebAssembly.validate` on a module
 with a 64-bit memory, and `WebAssembly.Suspending` for JSPI. Either missing
-means compat.
+means compat (`?build=compat` or `?build=full` in the URL forces one).
 
-### Why two sets of `.vo`
+### Why compat is 64-bit code
 
-Rocq picks its 63-bit integers and floats with `int_size`
-(`uint63_63.ml` or `uint63_31.ml`): on wasm32 a primitive integer is a
-boxed `Int64`, on wasm64 an immediate. Marshalled terms (`.vo`) differ, so
-each build gets libraries compiled by a Rocq of the same word size, with
-the same Rocq version and the same plugins.
+A wasm32 Rocq (31-bit OCaml integers) would need its own libraries: Rocq
+picks its primitive integers with the word size (`uint63_31.ml`, a boxed
+`Int64`, or `uint63_63.ml`, an immediate), so marshalled terms differ, and
+a 32-bit OCaml cannot read the 63-bit integers of a 64-bit `.vo`. Instead
+compat is the code of full (compiled for wasm64, objects shared), linked
+with emscripten's `MEMORY64=2`: binaryen's `--memory64-lowering` turns its
+64-bit addresses into 32-bit ones of a 32-bit memory, the code computing
+with 64-bit pointers and integers as before. It runs in engines without
+memory64, reads the same `.vo`, and its plugins are the same side modules
+lowered the same way (`EMCC_CFLAGS=-sMEMORY64=2` for `ocaml-emcc plugin`,
+emscripten's dynamic linker supporting it). Without JSPI, deep recursions
+go on in CPS on the heap (`--cps-stack`, with `--dynlink` since ocaml-emcc
+09ee06a). They still grow emscripten's C stack (over-applications, C
+functions), which is then the limit: 64 MB, checked
+(`-sSTACK_OVERFLOW_CHECK=2`: an overflow aborts the worker instead of
+writing over the static data below the stack; no measured cost).
 
-### Compat build and plugins
-
-ocaml-emcc does not support `--cps-stack` with `--dynlink` yet; this is
-being worked on there. Until then compat is prepared
-(`scripts/build.sh compat`) but not built. Once it works, compat loads
-plugins as full does, from its own plugin set.
+CPS does not cover callbacks from C or JavaScript, so the worker's loop
+stays in `main` there too, and, without JSPI to suspend it while it waits
+for a message, it blocks (`Atomics.wait`): the page then sends its
+messages, and its operations on the worker's files, through memory shared
+with the worker (`app/src/channel.ts`, read by `web/rocq-web-io.js`)
+instead of `postMessage`, which a blocked worker never receives. That
+needs a cross-origin isolated page, as the interrupts do.
 
 ## Plugins
 

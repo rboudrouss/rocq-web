@@ -18,7 +18,7 @@ progress: see [docs/design.md](docs/design.md).
 | `app/` | the web app (pnpm, Vite, React, CodeMirror): files, outline, packages, goals, queries, coq-lsp client |
 | `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`, `search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`, `probe.mjs`), on another machine (`remote.sh`) |
 | `docs/status.md` | where each build stands, blockers |
-| `docs/design.md` | the two builds (wasm64 + JSPI, wasm32 + CPS stack), plugins, packages |
+| `docs/design.md` | the two builds (wasm64 + JSPI, wasm64 lowered to wasm32 + CPS stack), plugins, packages |
 
 ## Running
 
@@ -26,9 +26,15 @@ progress: see [docs/design.md](docs/design.md).
 scripts/vendor.sh                      # coq-lsp, patched
 . scripts/env.sh
 scripts/byte-plugins.sh                # once the switch's Rocq packages are installed
-scripts/build.sh full
-cd app && pnpm install && pnpm dev     # http://localhost:5173/, Chrome or Edge 137+
+scripts/build.sh full                  # and/or compat
+cd app && pnpm install && pnpm dev     # http://localhost:5173/
 ```
+
+The C that c_of_ocaml generates must come from c_of_ocaml bd0845e8 or
+later (the applications to more arguments than the arity off emscripten's
+C stack, the asynchronous actions of allocations): `OCAML_EMCC_C_OF_OCAML`
+names it when the switch's is older. An older one builds a worker whose
+Ltac loops overflow the stack and whose reductions cannot be interrupted.
 
 The static site, served cross-origin isolated (COOP and COEP: the
 interrupts of Rocq need it), with brotli:

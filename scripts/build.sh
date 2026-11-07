@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Builds the worker and Rocq's plugins for one build of docs/design.md:
 #   scripts/build.sh full     wasm64 + JSPI
-#   scripts/build.sh compat   wasm32 + CPS stack (waits for ocaml-emcc to
-#                             support --cps-stack with --dynlink)
+#   scripts/build.sh compat   CPS stack, memory64 lowered to wasm32
 # into out/<build>/: rocq_web.js (rocq compile/repl), lsp_worker.js (coq-lsp),
 # their .wasm, plugins/<findlib name>.wasm, and web/ for a Web Worker
 # (lsp_worker.js and the files it reads)
@@ -14,12 +13,18 @@ build=${1:-full}
 stack=(${ROCQ_WEB_STACK:+--stack-size "$ROCQ_WEB_STACK"})
 case $build in
   full) flags=(--target wasm64) link=(--jspi "${stack[@]}") ;;
+  # the same 64-bit code (63-bit OCaml integers, the same .vo), its
+  # memory64 lowered to a 32-bit memory by binaryen (emscripten's
+  # MEMORY64=2, for the program and its plugins: EMCC_CFLAGS)
+  # Deep recursions in CPS leave emscripten's C stack, which they still
+  # grow (over-applications, C functions), as the limit: 64 MB (8 MB
+  # overflows on Eval compute in Nat.even (Nat.pow 3 11), 177147 deep),
+  # checked (an overflow aborts instead of writing over the static data
+  # placed below it), at no measured cost
   compat)
-    flags=(--target wasm32) link=(--cps-stack "${stack[@]}")
-    if [ -z "${ROCQ_WEB_COMPAT:-}" ]; then
-      echo "compat: needs --cps-stack with --dynlink in ocaml-emcc (ROCQ_WEB_COMPAT=1 to try)" >&2
-      exit 1
-    fi ;;
+    flags=(--target wasm64)
+    link=(--cps-stack --stack-size "${ROCQ_WEB_STACK:-64MB}" --emcc-flag -sSTACK_OVERFLOW_CHECK=2)
+    export EMCC_CFLAGS="${EMCC_CFLAGS:+$EMCC_CFLAGS }-sMEMORY64=2" ;;
   *) echo "usage: $0 full|compat" >&2; exit 2 ;;
 esac
 
