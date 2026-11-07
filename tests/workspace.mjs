@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { launch } from "./launch.mjs";
 
-const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
+const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
 
 const files = {
   "A.v": "Definition a := 1.\nCheck nope.\n",
@@ -54,7 +54,11 @@ check((await problems()).length === 0, `D.v: Sub/C.v required, L.v loaded ${awai
 check((await page.locator(".files li.dir").allTextContents()).includes("Sub/"), "the folder Sub/ in the files");
 
 await open("B.v");
-await page.waitForTimeout(1000);
+await page
+  .waitForFunction(() => [...document.querySelectorAll(".problems li")].some((l) => l.textContent.includes("does not compile")), null, {
+    timeout: 15000,
+  })
+  .catch(() => {});
 const pb = await problems();
 check(pb.some((p) => p.includes("A.v does not compile")), `B.v: ${pb}`);
 
@@ -97,7 +101,8 @@ await page.evaluate(() => {
   const v = window.rocqView;
   v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: "Require Import Base.\nCheck Other.Base.base.\n" } });
 });
-await page.waitForTimeout(1500);
+// (Base.v compiled again as Other.Base, then Use2.v checked again)
+await page.waitForFunction(() => document.querySelectorAll(".problems li").length === 0, null, { timeout: 15000 }).catch(() => {});
 await idle();
 check((await problems()).length === 0, `Lib/Use2.v with Other.Base (project read again): ${await problems()}`);
 
