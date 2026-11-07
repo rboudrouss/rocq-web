@@ -2,8 +2,9 @@
 // width, what the sentence changed highlighted (the goals before it), the
 // hypotheses folded by a click on their names.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Goal, GoalsResult, Hyp } from "./lsp";
-import { added, PpView, type Text } from "./pp";
+import type { Goal, GoalsResult, Hyp } from "../../lib/lsp";
+import { added, type Text } from "../../lib/pp";
+import { PpView } from "./Pp";
 
 // The panel's width in characters
 function useColumns() {

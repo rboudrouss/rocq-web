@@ -1,0 +1,18 @@
+.context-menu { position: fixed; z-index: 30; min-width: 13rem; padding: 0.25rem; background: #fff; border: 1px solid #d0d4dc; border-radius: 6px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); display: flex; flex-direction: column; }
+.context-menu button { display: flex; align-items: center; gap: 0.5rem; border: 0; background: none; text-align: left; padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.82rem; color: inherit; }
+.context-menu button:hover:not(:disabled) { background: #eef1f6; }
+.context-menu button:disabled { opacity: 0.45; cursor: default; }
+.context-menu button.danger { color: #b00020; }
+.context-menu .icon { display: inline-flex; width: 1rem; color: #777; }
+.context-menu hr { border: 0; border-top: 1px solid #e5e7eb; margin: 0.2rem 0; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; padding: 0.2rem; border-radius: 4px; color: #666; }
+.icon-button:hover:not(:disabled) { background: #e8ebf1; color: #1d1d1f; }
+.icon-button:disabled { opacity: 0.4; cursor: default; }
+@media (prefers-color-scheme: dark) {
+  .context-menu { background: #282c34; border-color: #444b58; }
+  .context-menu button:hover:not(:disabled) { background: #333946; }
+  .context-menu hr { border-color: #3a404c; }
+  .context-menu button.danger { color: #ff7b7b; }
+  .icon-button { color: #9198a5; }
+  .icon-button:hover:not(:disabled) { background: #333946; color: #e6e8ec; }
+}

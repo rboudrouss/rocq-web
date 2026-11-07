@@ -1,40 +1,10 @@
-// The files of the workspace that a file requires, compiled to .vo before
+// The files of its workspace that a file requires, compiled to .vo before
 // it is checked: each one is opened in coq-lsp, saved (coq/saveVo writes
-// /workspace/NAME.vo, which the worker's load path maps to Workspace.NAME)
+// /workspace/PATH.vo, which the workspace's load path maps to its module)
 // and closed, its own dependencies first; then coq/workspace_update makes
 // coq-lsp check the documents again with them.
-import { isRocq, projectFile } from "./files";
 import type { LspClient } from "./lsp";
-
-export const workspaceUri = (name: string) => `file:///workspace/${name}`;
-
-// The logical names of the workspace's directories: [directory (relative,
-// "" the workspace), name] of the -R and -Q options of its _RocqProject,
-// or the worker's (-R /workspace Workspace)
-export function loadPath(files: string[], read: (name: string) => string): [string, string][] {
-  if (!files.includes(projectFile)) return [["", "Workspace"]];
-  const words = read(projectFile).replace(/#.*$/gm, "").match(/"[^"]*"|\S+/g) ?? [];
-  const out: [string, string][] = [];
-  for (let i = 0; i + 2 < words.length; i++)
-    if (words[i] === "-R" || words[i] === "-Q") {
-      const dir = words[i + 1].replace(/^"|"$/g, "").replace(/^\/workspace\/?/, "").replace(/^\.\/?/, "").replace(/\/$/, "");
-      out.push([dir, words[i + 2].replace(/^"|"$/g, "")]);
-      i += 2;
-    }
-  return out;
-}
-
-// The module of a file of the workspace (Workspace.Sub.Foo), if in the
-// load path
-export function moduleName(file: string, lp: [string, string][]): string | null {
-  if (!isRocq(file)) return null;
-  let best: [string, string] | null = null;
-  for (const [dir, name] of lp)
-    if ((dir === "" || file.startsWith(dir + "/")) && (!best || dir.length > best[0].length)) best = [dir, name];
-  if (!best) return null;
-  const rest = file.slice(best[0] ? best[0].length + 1 : 0).replace(/\.v$/, "").replace(/\//g, ".");
-  return best[1] ? `${best[1]}.${rest}` : rest;
-}
+import { filesOf, moduleName, workerUri, workspaceOf } from "./workspaces";
 
 // The text without its comments (nested) and strings
 function code(text: string) {
@@ -56,11 +26,17 @@ function code(text: string) {
   return out;
 }
 
-// The files of [files] that [text] requires: those whose module is the
-// name required, or ends with it (From: starts with its prefix)
-export function requires(text: string, files: string[], lp: [string, string][]): string[] {
-  const modules = files.flatMap((f) => {
-    const m = moduleName(f, lp);
+// The files of [file]'s workspace that [text] requires: those whose module
+// is the name required, or ends with it (From: starts with its prefix)
+export function requires(
+  file: string,
+  text: string,
+  files: string[],
+  workspaces: string[],
+  read: (name: string) => string,
+): string[] {
+  const modules = filesOf(workspaceOf(file, workspaces), files, workspaces).flatMap((f) => {
+    const m = moduleName(f, workspaces, files, read);
     return m ? [[m, f] as const] : [];
   });
   const deps = new Set<string>();
@@ -70,7 +46,7 @@ export function requires(text: string, files: string[], lp: [string, string][]):
       const found = modules.find(([m]) =>
         from ? m === `${from}.${n}` || (m.startsWith(from + ".") && m.endsWith("." + n)) : m === n || m.endsWith("." + n),
       );
-      if (found) deps.add(found[1]);
+      if (found && found[1] !== file) deps.add(found[1]);
     }
   return [...deps];
 }
@@ -86,13 +62,18 @@ export class Project {
   constructor(
     private client: LspClient,
     private files: () => string[],
+    private workspaces: () => string[],
     private read: (name: string) => string,
     private log: (message: string) => void,
   ) {}
 
-  private requires(text: string) {
-    const files = this.files();
-    return requires(text, files, loadPath(files, this.read));
+  private requires(file: string) {
+    return requires(file, this.read(file), this.files(), this.workspaces(), this.read);
+  }
+
+  // What was compiled, to compile again (a workspace's project changed)
+  forget() {
+    this.built.clear();
   }
 
   // Compiles the files [name] requires (not [name]), one call at a time;
@@ -100,7 +81,7 @@ export class Project {
   prepare(name: string): Promise<boolean> {
     const run = async () => {
       let rebuilt = false;
-      for (const dep of this.requires(this.read(name))) {
+      for (const dep of this.requires(name)) {
         const before = this.clock;
         await this.build(dep, new Set([name]));
         rebuilt ||= this.clock > before;
@@ -115,7 +96,7 @@ export class Project {
 
   // Whether [name]'s dependencies were all compiled from their current text
   upToDate(name: string) {
-    return this.requires(this.read(name)).every((d) => this.built.get(d)?.text === this.read(d));
+    return this.requires(name).every((d) => this.built.get(d)?.text === this.read(d));
   }
 
   // The time [name] was compiled at, after its dependencies
@@ -124,11 +105,11 @@ export class Project {
     visiting.add(name);
     const text = this.read(name);
     let newest = 0;
-    for (const dep of this.requires(text)) newest = Math.max(newest, await this.build(dep, visiting));
+    for (const dep of this.requires(name)) newest = Math.max(newest, await this.build(dep, visiting));
     visiting.delete(name);
     const b = this.built.get(name);
     if (b && b.text === text && b.at >= newest) return b.at;
-    const uri = workspaceUri(name);
+    const uri = workerUri(name);
     const version = this.version++;
     const t0 = performance.now();
     this.client.open(uri, text, version);

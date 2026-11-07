@@ -46,6 +46,8 @@ type Handlers = {
   fetch?: (path: string, size: number) => void;
 };
 
+const folder = (dir: string) => ({ uri: `file://${dir}`, name: dir });
+
 export class LspClient {
   private worker: Worker;
   private nextId = 1;
@@ -168,15 +170,26 @@ export class LspClient {
   }
 
   // checkOnRequest: Rocq checks a document only up to the points of
-  // requests (goals...), not all of it after each change
-  async initialize(checkOnRequest = false) {
+  // requests (goals...), not all of it after each change. folders: the
+  // directories of the workspaces (each with its _RocqProject), a file in
+  // the first one containing it
+  async initialize(checkOnRequest: boolean, folders: string[]) {
     await this.request("initialize", {
       processId: null,
-      rootUri: "file:///workspace",
+      rootUri: null,
+      workspaceFolders: folders.map(folder),
       capabilities: {},
       initializationOptions: this.settings(checkOnRequest),
     });
     this.notify("initialized", {});
+  }
+
+  // Workspaces added (first in the order of the search for a file's) and
+  // removed: their _RocqProject read again
+  changeWorkspaces(added: string[], removed: string[]) {
+    this.notify("workspace/didChangeWorkspaceFolders", {
+      event: { added: added.map(folder), removed: removed.map(folder) },
+    });
   }
 
   private settings(checkOnRequest: boolean) {

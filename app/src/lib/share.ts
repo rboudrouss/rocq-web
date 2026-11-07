@@ -1,4 +1,4 @@
-import { embedded, validName } from "./files";
+import { embedded, validName } from "./storage";
 
 // A file in the page's URL (#share=NAME:TEXT, the text deflated and in
 // base64url), to share it as a link

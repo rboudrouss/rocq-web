@@ -1,10 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { examples, loadExample } from "./examples";
-import { embedded, listFiles, readFile, setActiveFile, writeFile } from "./files";
-import { openShared } from "./share";
-import "./style.css";
+import { examples, loadExample } from "./lib/examples";
+import { openShared } from "./lib/share";
+import { pickBuild } from "./lib/detect";
+import { embedded, listFiles, readFile, setActiveFile, writeFile } from "./lib/storage";
+import { setLibraries } from "./lib/workspaces";
+import "./styles.css";
 
 // Not cross-origin isolated (a host without COOP and COEP headers): the
 // service worker public/coi.js adds them, from the next load of the page
@@ -35,8 +37,16 @@ async function openExample() {
   }
 }
 
+// The names of the libraries, which the workspaces' must not hide
+async function libraries() {
+  const r = await fetch(`${import.meta.env.BASE_URL}rocq/${pickBuild()}/packages.json`);
+  const packages: { modules: string[] }[] = await r.json();
+  setLibraries(packages.flatMap((p) => p.modules.map((m) => m.split(".")[0])));
+}
+
 // a file shared by a link (#share=...) first
 Promise.all([
+  libraries().catch(() => {}),
   openExample().catch(() => {}),
   openShared({ list: listFiles, read: readFile, write: writeFile, activate: setActiveFile }),
 ]).finally(() =>

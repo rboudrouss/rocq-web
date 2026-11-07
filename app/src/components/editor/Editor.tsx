@@ -6,9 +6,9 @@ import { type Diagnostic as CmDiagnostic, lintGutter, setDiagnostics } from "@co
 import { EditorState, StateEffect, StateField, type Text } from "@codemirror/state";
 import { Decoration, EditorView, highlightActiveLine, hoverTooltip, keymap, lineNumbers } from "@codemirror/view";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
-import type { CompletionItem, Diagnostic, Hover, Position, Range } from "./lsp";
+import type { CompletionItem, Diagnostic, Hover, Position, Range } from "../../lib/lsp";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { rocq } from "./rocq-syntax";
+import { rocq } from "../../lib/rocq-syntax";
 
 // the system's dark mode, when the editor is created
 const dark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches;
@@ -124,6 +124,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
         doc: callbacks.current.initial,
         extensions: [
           lineNumbers(),
+          // (long lines wrapped: the editor's column is narrow next to the panels)
+          EditorView.lineWrapping,
           history(),
           highlightActiveLine(),
           keymap.of([
