@@ -15,7 +15,7 @@ const check = (ok, what) => {
   if (!ok) failed++;
 };
 await page.goto(url);
-await page.locator(".tabs nav button", { hasText: "Search" }).click();
+await page.locator('.activity button[aria-label="Search"]').click();
 const input = page.locator(".library-search input");
 const t0 = Date.now();
 await input.fill("pred_succ");

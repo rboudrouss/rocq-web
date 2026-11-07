@@ -37,7 +37,13 @@ await page.addInitScript(
 );
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 const idle = () => page.waitForSelector('.status[data-status="Idle"]', { timeout: 120000 });
-const tab = (name) => page.locator(".tabs nav button", { hasText: name }).click();
+// a panel: of the activity bar (left), or a tab (right)
+const tab = async (name) => {
+  const side = page.locator(`.activity button[aria-label="${name}"]`);
+  if (await side.count()) {
+    if ((await side.getAttribute("aria-pressed")) !== "true") await side.click();
+  } else await page.locator(".tabs nav button", { hasText: name }).click();
+};
 const errors = async () => (await page.locator(".problems li").allTextContents()).filter((t) => t.includes("error"));
 
 const t0 = Date.now();
@@ -145,6 +151,7 @@ const link = await page.locator(".shared input").inputValue();
       createWritable: async () => ({ write: async (t) => (window.written[name] = t), close: async () => {} }),
     });
     window.showDirectoryPicker = async () => ({
+      name: "Disk",
       values: async function* () {
         yield file("C.v", "Definition c := 3.\n");
         yield file("not a module.v", "");
@@ -152,15 +159,17 @@ const link = await page.locator(".shared input").inputValue();
     });
   });
   await other.goto(url);
-  await other.locator("button", { hasText: "Open folder" }).click();
-  await other.waitForFunction(() => document.querySelector("header .file")?.textContent === "C.v");
+  await other.locator('[aria-label="Open folder on disk"]').click();
+  await other.waitForFunction(() => document.querySelector("header .file")?.textContent === "Disk/C.v");
   await other.evaluate(() => {
     const v = window.rocqView;
     v.dispatch({ changes: { from: v.state.doc.length, insert: "Check c.\n" } });
   });
   await other.waitForTimeout(1500);
   const written = await other.evaluate(() => window.written["C.v"]);
+  const ws = await other.locator(".files li.dir.workspace").allTextContents();
   check("folder on disk", written === "Definition c := 3.\nCheck c.\n", JSON.stringify(written));
+  check("a workspace", ws.some((t) => t.startsWith("Disk/")), ws.join(", "));
 }
 
 await browser.close();

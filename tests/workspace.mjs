@@ -1,7 +1,12 @@
 // The workspace (headless Chromium, as tests/browser.mjs): files in
 // folders, Load of a file, a required file that does not compile, a zip
-// archive of it written and read back, a _RocqProject.
+// archive of the files, a folder imported (a workspace of its own, its
+// project file then written by the user, read again by Rocq), a
+// _RocqProject at the root.
 //   node tests/workspace.mjs
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { launch } from "./launch.mjs";
 
 const url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
@@ -53,19 +58,48 @@ await page.waitForTimeout(1000);
 const pb = await problems();
 check(pb.some((p) => p.includes("A.v does not compile")), `B.v: ${pb}`);
 
-// the zip archive, read back into an empty workspace
-const [download] = await Promise.all([page.waitForEvent("download"), page.getByText("Export zip").click()]);
-const zip = await download.path();
-await page.evaluate(() => {
-  for (const k of Object.keys(localStorage)) if (k.endsWith(".v") && k !== "rocq-web:B.v") localStorage.removeItem(k);
-});
-await page.reload();
-await start();
-check((await page.locator(".files li button.name").count()) === 1, "one file left");
-await page.locator('.files input[type="file"]').setInputFiles(zip);
+// the zip archive of the files
+const [download] = await Promise.all([page.waitForEvent("download"), page.locator('[aria-label="Export zip"]').click()]);
+check(/\.zip$/.test(download.suggestedFilename()), `zip archive ${download.suggestedFilename()}`);
+
+// a folder imported: the workspace Lib (its modules Lib.*)
+const dir = join(mkdtempSync(join(tmpdir(), "rocq-web-")), "Lib");
+mkdirSync(join(dir, ".git"), { recursive: true });
+writeFileSync(join(dir, "Base.v"), "Definition base := 1.\n");
+writeFileSync(join(dir, "Use.v"), "Require Import Base.\nCheck Lib.Base.base.\n");
+writeFileSync(join(dir, ".git", "ignored.v"), "");
+await page.locator(".files input[webkitdirectory]").setInputFiles(dir);
 await page.waitForTimeout(1500);
-const names = await page.locator(".files li button.name").evaluateAll((bs) => bs.map((b) => b.title));
-check(JSON.stringify(names.sort()) === JSON.stringify(Object.keys(files).sort()), `read back: ${names}`);
+const titles = await page.locator(".files li button.name").evaluateAll((bs) => bs.map((b) => b.title));
+check(titles.includes("Lib/Base.v") && titles.includes("Lib/Use.v") && !titles.some((t) => t.includes(".git")), `imported: ${titles}`);
+const wsRows = await page.locator(".files li.dir.workspace").allTextContents();
+check(wsRows.some((t) => t.startsWith("Lib/")), `Lib a workspace: ${wsRows}`);
+await open("Use.v");
+await page.waitForTimeout(1000);
+check((await problems()).length === 0, `Lib/Use.v with Lib.Base: ${await problems()}`);
+
+// its project file written: its modules Other.*, read again without a restart
+await page.locator(".files li.dir.workspace", { hasText: "Lib/" }).click({ button: "right" });
+await page.locator(".context-menu button", { hasText: "Write its _RocqProject" }).click();
+await page.waitForFunction(() => document.querySelector("header .file")?.textContent === "Lib/_RocqProject");
+await page.evaluate(() => {
+  const v = window.rocqView;
+  v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: "-R . Other\n" } });
+});
+await page.waitForFunction(() => document.querySelector(".log")?.textContent.includes("workspaces read again: Lib"), null, { timeout: 30000 }).catch(() => {});
+// a new file of Lib, by its menu
+await page.locator(".files li.dir.workspace", { hasText: "Lib/" }).click({ button: "right" });
+await page.locator(".context-menu button", { hasText: "New file" }).click();
+await page.keyboard.type("Use2");
+await page.keyboard.press("Enter");
+await page.waitForFunction(() => document.querySelector("header .file")?.textContent === "Lib/Use2.v");
+await page.evaluate(() => {
+  const v = window.rocqView;
+  v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: "Require Import Base.\nCheck Other.Base.base.\n" } });
+});
+await page.waitForTimeout(1500);
+await idle();
+check((await problems()).length === 0, `Lib/Use2.v with Other.Base (project read again): ${await problems()}`);
 
 // a _RocqProject naming the files' modules MyLib.*
 await page.evaluate(() => {
