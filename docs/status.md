@@ -13,9 +13,12 @@ site (`scripts/dist.mjs`, `scripts/serve.mjs`).
 
 The app (`app/`):
 
-- several files in folders, kept in the browser, or the `.v` files of a
-  folder on disk (Chrome's File System Access API, edits written back);
-  a `_RocqProject`; zip archives of the workspace, written and read; a
+- several files in folders (a tree: folded folders, a menu on a right
+  click, rows dragged onto a folder), kept in the browser; folders
+  imported (picked, dropped from disk, or opened on disk with Chrome's
+  File System Access API, edits written back), each a workspace with its
+  generated or own project file, read again when it changes; a
+  `_RocqProject` at the root; zip archives of the files or a folder; a
   file requiring another (`Require Import A.`) is checked after it is
   compiled (`coq/saveVo`), again when it changed, and its errors shown if
   it does not compile; `Load`; the files Rocq writes (`Extraction`), shown
@@ -28,6 +31,7 @@ The app (`app/`):
   previous sentences (Alt+N, Alt+P) and problems (F8, Shift+F8);
 - `Timeout`; `native_compute` (Rocq falls back to its VM, `vm_compute`:
   the same results, the VM's speed);
+- the panels on the left chosen (or closed) by an activity bar;
 - the outline of the file (documentSymbol), queries at the cursor
   (`Search`, `About`, `Check`... through petanque, the document
   unchanged);

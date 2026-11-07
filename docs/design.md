@@ -80,14 +80,35 @@ The app's package browser lists the opam packages with Rocq libraries
 
 ## The user's files
 
-The app keeps several files (the browser's local storage), in folders;
-each is the module `Workspace.DIR.NAME` (`/workspace` in the worker, its
-`_RocqProject` binds it), or what the workspace's own `_RocqProject`
-says. The page writes the files in the worker's file system too
-(`web/rocq-web-fs.js`, messages answered between two of Rocq's steps):
-`Load` reads them, `_RocqProject` is read when Rocq starts, and the files
-Rocq writes there (`Extraction`) are listed, shown and downloaded.
+The app keeps the files (the browser's local storage), in folders; the
+page writes them in the worker's file system too (`web/rocq-web-fs.js`,
+messages answered between two of Rocq's steps): `Load` reads them, and the
+files Rocq writes there (`Extraction`) are listed, shown and downloaded.
 `/workspace` is the worker's current directory.
+
+### Workspaces
+
+A folder can be a workspace: a Rocq project of its own, its files the
+modules `NAME.*` (`NAME` the folder's name), as its project file says. That
+file is generated (`-R . NAME`) unless the user writes one in the folder
+(`_RocqProject`, or `_CoqProject`: menu "Write its _RocqProject"); the
+files outside the workspaces are the modules `Workspace.DIR.NAME`, or what
+a `_RocqProject` at the root says. A folder imported (picked, dropped, or
+opened on disk) or an example becomes a workspace; workspaces do not
+contain one another.
+
+Each workspace is a workspace folder of coq-lsp (`/workspace/DIR`, the
+root `/workspace` last: coq-lsp takes the first containing a file), the
+generated project files written in the worker. A project file that
+changes, or a workspace added or removed, is read again without
+restarting Rocq (`workspace/didChangeWorkspaceFolders`: the workspace
+removed and added; all of them for the root's, as coq-lsp searches them
+from the last added), and the document open again.
+
+The code: `app/src/lib/` (storage, workspaces, the LSP client, the
+dependencies' compilation...), `app/src/hooks/` (the files as React state,
+the Rocq session, the active document, navigation, queries),
+`app/src/components/` (the views).
 
 Before checking a file, the app compiles the files it requires, in
 order: opened in coq-lsp, `coq/saveVo` writes their `.vo` (patched to
@@ -99,10 +120,10 @@ previous one and trims coq-lsp's caches (`coq/trimCaches`).
 Checking up to the cursor is coq-lsp's `check_only_on_request`: a
 document is checked up to the points of requests, the goals' at the
 cursor on Alt+Enter, Alt+N, Alt+P (the sentences are found by the page,
-`app/src/sentences.ts`).
+`app/src/lib/sentences.ts`).
 
 The goals are Rocq's documents (`pp_format` "Pp"), laid out for the
-panel's width by the page (`app/src/pp.tsx`, Format's boxes and breaks);
+panel's width by the page (`app/src/components/goals/Pp.tsx`, Format's boxes and breaks);
 the goals before the sentence (`mode` "Prev" at its start) give what it
 changed, the words of the goals' longest common subsequence not
 highlighted.
