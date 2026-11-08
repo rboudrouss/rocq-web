@@ -37,15 +37,22 @@ scripts/vendor.sh
 # ROCQ_WEB_PLUGINS_ONLY: the plugins of the worker already built (new
 # packages in the switch)
 if [ -z "${ROCQ_WEB_PLUGINS_ONLY:-}" ]; then
-  "$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs
+  # (the three at the same time, each in its own work directory: ocaml-emcc
+  # compiles the parts of their C in parallel too, OCAML_EMCC_JOBS)
+  pids=()
+  "$OCAML_EMCC" "${flags[@]}" build "$out/rocq_web.js" --exe worker/rocq_web "${link[@]}" --node-fs &
+  pids+=($!)
   # coq-lsp's server, its messages from web/rocq-web-io.js
   "$OCAML_EMCC" "${flags[@]}" build "$out/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" --node-fs \
-    -- --pre-js web/rocq-web-io.js
+    -- --pre-js web/rocq-web-io.js &
+  pids+=($!)
 
   # The same for a Web Worker: Rocq's files in emscripten's file system
   # (web/rocq-web-fs.js, scripts/assets.mjs)
   "$OCAML_EMCC" "${flags[@]}" build "$out/web/lsp_worker.js" --exe worker/lsp_worker "${link[@]}" \
-    -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1
+    -- --pre-js web/rocq-web-io.js --pre-js web/rocq-web-fs.js -sENVIRONMENT=web,worker -sFORCE_FILESYSTEM=1 &
+  pids+=($!)
+  for p in "${pids[@]}"; do wait "$p"; done
 fi
 
 # The plugins, side modules named after their findlib package: those the
@@ -67,7 +74,11 @@ linked=$(ocamlfind query -r -format '%p' $libs findlib ocaml-emcc.dynlink | sort
 for f in "$out"/plugins/*.wasm; do
   if grep -qx "$(basename "$f" .wasm)" <<< "$linked"; then rm "$f"; fi
 done
-failed=()
+# (ROCQ_WEB_JOBS at a time, default half the cores, for the memory: each
+# compiles on one core, in its own work directory)
+jobs=${ROCQ_WEB_JOBS:-$(( ($(nproc) + 1) / 2 ))}
+failed=$(mktemp)
+trap 'rm -f "$failed"' EXIT
 for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
   if grep -qx "$pkg" <<< "$linked"; then continue; fi
   case $pkg in
@@ -78,10 +89,13 @@ for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
   # (packages installed without their bytecode, coq_makefile's: built by
   # scripts/byte-plugins.sh)
   [ -f "$cma" ] || cma=_build/byte-plugins/$(basename "$(dirname "$cma")")/$(basename "$cma")
-  if [ ! -f "$cma" ]; then failed+=("$pkg (no $(basename "$cma"): scripts/byte-plugins.sh)"); continue; fi
+  if [ ! -f "$cma" ]; then echo "$pkg (no $(basename "$cma"): scripts/byte-plugins.sh)" >> "$failed"; continue; fi
   [ -f "$out/plugins/$pkg.wasm" ] && [ "$out/plugins/$pkg.wasm" -nt "$cma" ] && [ "$out/plugins/$pkg.wasm" -nt "$out/lsp_worker.wasm" ] && continue
-  "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js" || failed+=("$pkg")
+  while [ "$(jobs -rp | wc -l)" -ge "$jobs" ]; do wait -n || true; done
+  { "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js" ||
+      echo "$pkg" >> "$failed"; } &
 done
-for f in "${failed[@]}"; do echo "plugin not built: $f" >&2; done
+wait
+while read -r f; do echo "plugin not built: $f" >&2; done < "$failed"
 
 node scripts/assets.mjs "$build" "$out/web"
