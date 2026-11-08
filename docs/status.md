@@ -21,7 +21,8 @@ The app (`app/`):
   `_RocqProject` at the root; zip archives of the files or a folder; a
   file requiring another (`Require Import A.`) is checked after it is
   compiled (`coq/saveVo`), again when it changed, and its errors shown if
-  it does not compile; `Load`; the files Rocq writes (`Extraction`), shown
+  it does not compile, in its workspace or another (`From Lib Require`);
+  `Load`; the files Rocq writes (`Extraction`), shown
   and downloaded; a link sharing a file (its text in the URL), downloads;
 - diagnostics, the Problems panel, hover, completion (identifiers,
   unicode input: `\forall`);

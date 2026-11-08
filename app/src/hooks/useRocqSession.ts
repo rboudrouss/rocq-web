@@ -49,23 +49,23 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
   // The project files of the workspaces as Rocq reads them: [dir, text]
   const projects = useCallback(() => {
     const { files, workspaces } = wsRef.current.current.current;
-    return [...workspaces, root].map((d) => [d, projectOf(d, files, readWritten).text] as const);
+    return [...workspaces, root].map((d) => [d, projectOf(d, files, workspaces, readWritten).text] as const);
   }, [readWritten]);
 
   // The generated project files in the worker (those the user did not
   // write: a _CoqProject of the user's without the generated _RocqProject
   // next to it, which coq-lsp would read first)
   const writeGenerated = useCallback((c: LspClient, dirs: string[]) => {
-    const { files } = wsRef.current.current.current;
+    const { files, workspaces } = wsRef.current.current.current;
     return Promise.all(
       dirs.map((d) => {
         const custom = customProject(d, files);
         const path = `${workerDir(d)}/_RocqProject`;
-        if (!custom) return c.writeFile(path, generatedProject(d)).catch(() => {});
+        if (!custom) return c.writeFile(path, generatedProject(d, files, workspaces, readWritten)).catch(() => {});
         return custom.endsWith("_CoqProject") ? c.removeFile(path).catch(() => {}) : Promise.resolve();
       }),
     );
-  }, []);
+  }, [readWritten]);
 
   // The workspaces of coq-lsp made those of the files (after a change of
   // the workspaces or of a project file): those whose project changed

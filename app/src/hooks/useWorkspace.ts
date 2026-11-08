@@ -220,11 +220,12 @@ export function useWorkspace(log: (message: string) => void) {
   const customizeProject = useCallback(
     (dir: string) => {
       const path = dir ? `${dir}/_RocqProject` : "_RocqProject";
-      if (!listFiles().includes(path)) write(path, generatedProject(dir));
+      const files = listFiles();
+      if (!files.includes(path)) write(path, generatedProject(dir, files, listWorkspaces(), read));
       refresh();
       select(path);
     },
-    [refresh, select],
+    [read, refresh, select],
   );
 
   // All the folders: those of the files, and the empty ones

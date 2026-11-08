@@ -97,6 +97,18 @@ a `_RocqProject` at the root says. A folder imported (picked, dropped, or
 opened on disk) or an example becomes a workspace; workspaces do not
 contain one another.
 
+A workspace sees the others, and the root's files see them all: their
+modules are required by their qualified names (`From Lib Require Base`,
+`Require Lib.Base`), the generated project files adding a `-Q` for each
+directory of the others' load paths (relative to the folder,
+`-Q ../Lib Lib`). The root's adds them with `-R`: coq-lsp adds a project's
+`-Q` before its `-R`, and the root's `-R . Workspace`, which covers the
+workspaces' folders, would bind them last (Rocq binds a folder to one
+name; the warning of a folder bound again is off). A project file the
+user writes says itself what it sees (menu "Write its _RocqProject"
+starts from the generated one, with these lines). The root's files are in
+no workspace's load path.
+
 Each workspace is a workspace folder of coq-lsp (`/workspace/DIR`, the
 root `/workspace` last: coq-lsp takes the first containing a file), the
 generated project files written in the worker. A project file that

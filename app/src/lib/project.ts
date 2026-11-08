@@ -1,10 +1,10 @@
-// The files of its workspace that a file requires, compiled to .vo before
+// The files of the workspaces that a file requires, compiled to .vo before
 // it is checked: each one is opened in coq-lsp, saved (coq/saveVo writes
 // /workspace/PATH.vo, which the workspace's load path maps to its module)
 // and closed, its own dependencies first; then coq/workspace_update makes
 // coq-lsp check the documents again with them.
 import type { LspClient } from "./lsp";
-import { filesOf, moduleName, workerUri, workspaceOf } from "./workspaces";
+import { filesOf, moduleName, root, visibleWorkspaces, workerUri, workspaceOf } from "./workspaces";
 
 // The text without its comments (nested) and strings
 function code(text: string) {
@@ -26,8 +26,10 @@ function code(text: string) {
   return out;
 }
 
-// The files of [file]'s workspace that [text] requires: those whose module
-// is the name required, or ends with it (From: starts with its prefix)
+// The files that [text] requires, of [file]'s workspace (-R: those whose
+// module is the name required, or ends with it) and of the workspaces it
+// sees (-Q: their qualified names; the root's -R, after its own); From:
+// their module starts with its prefix
 export function requires(
   file: string,
   text: string,
@@ -35,17 +37,23 @@ export function requires(
   workspaces: string[],
   read: (name: string) => string,
 ): string[] {
-  const modules = filesOf(workspaceOf(file, workspaces), files, workspaces).flatMap((f) => {
-    const m = moduleName(f, workspaces, files, read);
-    return m ? [[m, f] as const] : [];
-  });
+  const modulesOf = (dir: string) =>
+    filesOf(dir, files, workspaces).flatMap((f) => {
+      const m = moduleName(f, workspaces, files, read);
+      return m ? [[m, f] as const] : [];
+    });
+  const own = workspaceOf(file, workspaces);
+  const mine = modulesOf(own);
+  const others = visibleWorkspaces(own, workspaces).flatMap(modulesOf);
   const deps = new Set<string>();
   const re = /(?:\bFrom\s+([\w.']+)\s+)?\bRequire\s+(?:(?:Import|Export)\s+)?([^]*?)\.(?=\s|$)/g;
   for (const [, from, names] of code(text).matchAll(re))
     for (const n of names.split(/\s+/).filter(Boolean)) {
-      const found = modules.find(([m]) =>
-        from ? m === `${from}.${n}` || (m.startsWith(from + ".") && m.endsWith("." + n)) : m === n || m.endsWith("." + n),
-      );
+      const inFrom = (m: string) => m === `${from}.${n}` || (m.startsWith(from + ".") && m.endsWith("." + n));
+      const short = (m: string) => m === n || m.endsWith("." + n);
+      const found =
+        mine.find(([m]) => (from ? inFrom(m) : short(m))) ??
+        others.find(([m]) => (from ? inFrom(m) : own === root ? short(m) : m === n));
       if (found && found[1] !== file) deps.add(found[1]);
     }
   return [...deps];

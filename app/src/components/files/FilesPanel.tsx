@@ -83,7 +83,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
       const path = parent ? `${parent}/${name}` : name;
       if (!validName(path)) return nameError(false);
       if (ws.files.includes(path)) return `${path} already exists`;
-      ws.createFile(path, isProject(path) ? generatedProject(dirname(path)) : "");
+      ws.createFile(path, isProject(path) ? generatedProject(dirname(path), ws.files, ws.workspaces, ws.read) : "");
     } else {
       const path = parent ? `${parent}/${typed}` : typed;
       if (!validFolder(path)) return nameError(true);
