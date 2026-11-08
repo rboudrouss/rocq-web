@@ -40,7 +40,7 @@ The app (`app/`):
 - the package browser: the opam packages with their modules, a click
   inserts the `Require`; the search of the declarations of the libraries'
   sources;
-- examples, from a menu or a link (`?example=Basics`), and the page
+- examples, from a panel or a link (`?example=Basics`), and the page
   embedded in another (`?embed`: its files in memory only; without
   cross-origin isolation in an iframe, edits do not interrupt Rocq);
 - edits interrupt the command being checked, reductions included
