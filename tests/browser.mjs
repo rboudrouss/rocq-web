@@ -17,7 +17,7 @@ page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 const t0 = Date.now();
 await page.goto(url);
 await page.waitForSelector('.status[data-status="Idle"]', { timeout: 120000 });
-console.log(`checked in ${Date.now() - t0} ms (build ${await page.textContent("header .muted")})`);
+console.log(`checked in ${Date.now() - t0} ms`);
 for (const d of await page.locator(".cm-lintRange").all()) console.log("diagnostic on:", JSON.stringify(await d.textContent()));
 // The line "intros n m. ..." of the example: the goal of plus_comm
 await page.locator(".cm-line", { hasText: "intros n m" }).click();
