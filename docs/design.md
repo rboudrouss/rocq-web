@@ -37,7 +37,13 @@ go on in CPS on the heap (`--cps-stack`, with `--dynlink` since ocaml-emcc
 09ee06a). They still grow emscripten's C stack (over-applications, C
 functions), which is then the limit: 64 MB, checked
 (`-sSTACK_OVERFLOW_CHECK=2`: an overflow aborts the worker instead of
-writing over the static data below the stack; no measured cost).
+writing over the static data below the stack; no measured cost). It
+keeps the wasm tail calls, so it needs an engine that has them (Safari
+18.2, Firefox 121, Chrome 112 and later): without them
+(`ROCQ_WEB_NO_TAIL_CALLS=1`, `--no-tail-calls`, which makes them ordinary
+calls) coq-lsp overflows the stack of Chromium's worker on the first
+example, `--cps-stack` notwithstanding (`rocq_web.js` compiles it under
+node).
 
 CPS does not cover callbacks from C or JavaScript, so the worker's loop
 stays in `main` there too, and, without JSPI to suspend it while it waits

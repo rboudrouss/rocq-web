@@ -9,6 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 build=${1:-full}
+plugin=()
 # emscripten's C stack: ocaml-emcc's default unless ROCQ_WEB_STACK
 stack=(${ROCQ_WEB_STACK:+--stack-size "$ROCQ_WEB_STACK"})
 case $build in
@@ -20,10 +21,14 @@ case $build in
   # grow (over-applications, C functions), as the limit: 64 MB (8 MB
   # overflows on Eval compute in Nat.even (Nat.pow 3 11), 177147 deep),
   # checked (an overflow aborts instead of writing over the static data
-  # placed below it), at no measured cost
+  # placed below it), at no measured cost. ROCQ_WEB_NO_TAIL_CALLS=1:
+  # without wasm tail calls (--no-tail-calls, its plugins too), for the
+  # engines that lack them; coq-lsp then overflows the stack of a browser
+  # (docs/status.md)
   compat)
     flags=(--target wasm64)
-    link=(--cps-stack --stack-size "${ROCQ_WEB_STACK:-64MB}" --emcc-flag -sSTACK_OVERFLOW_CHECK=2)
+    if [ -n "${ROCQ_WEB_NO_TAIL_CALLS:-}" ]; then plugin=(--no-tail-calls); fi
+    link=(--cps-stack "${plugin[@]}" --stack-size "${ROCQ_WEB_STACK:-64MB}" --emcc-flag -sSTACK_OVERFLOW_CHECK=2)
     export EMCC_CFLAGS="${EMCC_CFLAGS:+$EMCC_CFLAGS }-sMEMORY64=2" ;;
   *) echo "usage: $0 full|compat" >&2; exit 2 ;;
 esac
@@ -92,7 +97,7 @@ for pkg in $(ocamlfind query -r -format '%p' $roots | awk '!seen[$0]++'); do
   if [ ! -f "$cma" ]; then echo "$pkg (no $(basename "$cma"): scripts/byte-plugins.sh)" >> "$failed"; continue; fi
   [ -f "$out/plugins/$pkg.wasm" ] && [ "$out/plugins/$pkg.wasm" -nt "$cma" ] && [ "$out/plugins/$pkg.wasm" -nt "$out/lsp_worker.wasm" ] && continue
   while [ "$(jobs -rp | wc -l)" -ge "$jobs" ]; do wait -n || true; done
-  { "$OCAML_EMCC" "${flags[@]}" plugin "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js" ||
+  { "$OCAML_EMCC" "${flags[@]}" plugin "${plugin[@]}" "$cma" -o "$out/plugins/$pkg.wasm" --main "$out/lsp_worker.js" ||
       echo "$pkg" >> "$failed"; } &
 done
 wait

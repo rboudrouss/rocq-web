@@ -107,5 +107,10 @@ Chromium, 18 to 24 s in Firefox (development server, no brotli).
 ### Known problems
 
 - Memory: 4 GB at most (a 32-bit memory).
+- Without wasm tail calls (`ROCQ_WEB_NO_TAIL_CALLS=1`, ocaml-emcc's
+  `--no-tail-calls`; c_of_ocaml 533686fa), the worker overflows the stack
+  of Chromium's worker ("Maximum call stack size exceeded") when it checks
+  the first example, though `rocq_web.js` compiles it under node: compat
+  needs an engine with tail calls (Safari 18.2, Firefox 121, Chrome 112).
 - Without cross-origin isolation the page cannot share memory with the
   worker, which then cannot receive messages: compat needs it.
