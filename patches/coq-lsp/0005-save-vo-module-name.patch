@@ -1,0 +1,19 @@
+diff --git a/fleche/doc.ml b/fleche/doc.ml
+--- a/fleche/doc.ml
++++ b/fleche/doc.ml
+@@ -1210,10 +1210,13 @@
+       Util.last doc.nodes |> Stdlib.Option.fold ~some:Node.state ~none:doc.root
+     in
+     let uri = doc.uri in
+-    let ldir = Coq.Workspace.dirpath_of_uri ~uri in
+     let in_file = Lang.LUri.File.to_string_file uri in
++    (* the module's name from the load path of the document's state, not of
++       the state another document left *)
+     Coq.State.in_stateM ~token ~st
+-      ~f:(fun () -> Coq.Save.save_vo ~token ~st ~ldir ~in_file)
++      ~f:(fun () ->
++        let ldir = Coq.Workspace.dirpath_of_uri ~uri in
++        Coq.Save.save_vo ~token ~st ~ldir ~in_file)
+       ()
+   | _ ->
+     let error = Coq.Pp_t.(str "Can't save document that failed to check") in

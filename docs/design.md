@@ -112,7 +112,10 @@ the Rocq session, the active document, navigation, queries),
 
 Before checking a file, the app compiles the files it requires, in
 order: opened in coq-lsp, `coq/saveVo` writes their `.vo` (patched to
-refuse a document with errors), closed; then `coq/workspace_update` makes
+refuse a document with errors, and to name the module from the
+document's load path, not from that of the state another document left:
+a workspace renamed by its project file compiled under its former name),
+closed; then `coq/workspace_update` makes
 coq-lsp check again with them (patched so that documents opened later do
 not reuse what `Require` loaded before). Switching files closes the
 previous one. coq-lsp's caches are kept, so going back to a file is
