@@ -3,8 +3,9 @@
 // archive of the files, a folder imported (a workspace of its own, its
 // project file then written by the user, read again by Rocq), a
 // _RocqProject at the root, workspaces requiring one another, the .vo kept
-// from one load of the page to the next.
+// from one load of the page to the next, a library from an archive.
 //   node tests/workspace.mjs
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -138,6 +139,31 @@ await start();
 await page.waitForTimeout(1500);
 check((await problems()).length === 0, `App/Main.v after a reload: ${await problems()}`);
 check((await log()).includes("Core/Base2.v not compiled again"), "the .vo of Core/Base2.v kept");
+
+// a library from an archive (its folder mini-1.0/, its modules Mini.*), which
+// the root's files require
+const lib = mkdtempSync(join(tmpdir(), "rocq-web-"));
+mkdirSync(join(lib, "mini-1.0", "theories"), { recursive: true });
+writeFileSync(join(lib, "mini-1.0", "_CoqProject"), "-R theories Mini\n");
+writeFileSync(join(lib, "mini-1.0", "theories", "A.v"), "Definition mini := 1.\n");
+writeFileSync(join(lib, "mini-1.0", "README.v"), "Fail.\n");
+execFileSync("tar", ["czf", join(lib, "mini-1.0.tar.gz"), "-C", lib, "mini-1.0"]);
+await page.locator('.files input[accept*=".tgz"]').setInputFiles(join(lib, "mini-1.0.tar.gz"));
+await page.waitForTimeout(1500);
+const libTitles = await page.locator(".files li button.name").evaluateAll((bs) => bs.map((b) => b.title));
+check(
+  libTitles.includes("mini-1.0/theories/A.v") && !libTitles.includes("mini-1.0/README.v"),
+  `the library's files: ${libTitles.filter((t) => t.startsWith("mini"))}`,
+);
+await page.evaluate(() => {
+  localStorage.setItem("rocq-web:UseMini.v", "From Mini Require Import A.\nCheck mini.\n");
+  localStorage.setItem("rocq-web:active", "UseMini.v");
+  localStorage.removeItem("rocq-web:_RocqProject");
+});
+await page.reload();
+await start();
+await page.waitForTimeout(1500);
+check((await problems()).length === 0, `UseMini.v requiring Mini.A: ${await problems()}`);
 
 await browser.close();
 console.log(`${failed} failed`);

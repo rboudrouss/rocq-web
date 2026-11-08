@@ -13,6 +13,7 @@ import {
   FolderPlus,
   FolderSync,
   Layers,
+  PackagePlus,
   Pencil,
   RotateCcw,
   Trash2,
@@ -21,8 +22,17 @@ import {
 import { type DragEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { saveBlob, saveZip } from "../../lib/download";
 import { canOpenFolder, openFolder, readDropped, readInput } from "../../lib/disk";
+import { archiveLibrary, fetchLibrary, type Library } from "../../lib/library";
 import { basename, dirname, isProject, isRocq, projectFile, validFolder, validName, within } from "../../lib/storage";
-import { canBeWorkspace, customProject, generatedProject, root, workspaceName, workspaceOf } from "../../lib/workspaces";
+import {
+  canBeWorkspace,
+  customProject,
+  generatedProject,
+  isLibraryName,
+  root,
+  workspaceName,
+  workspaceOf,
+} from "../../lib/workspaces";
 import type { Workspace } from "../../hooks/useWorkspace";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import { ContextMenu, type MenuItem } from "../ui/ContextMenu";
@@ -112,6 +122,39 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
     importInto.current = into;
     fileInput.current?.click();
   };
+  // A library (lib/library.ts): a workspace of its own
+  const addLibrary = async (get: () => Promise<Library>) => {
+    try {
+      const lib = await get();
+      if (!lib.files.some((f) => isRocq(f.path))) return log(`${lib.name} has no Rocq files (.v)`);
+      const written = ws.importFiles(
+        lib.files.map((f) => ({ path: `${lib.name}/${f.path}`, text: f.text })),
+        root,
+      );
+      if (!written.length) return;
+      const hidden = lib.names.filter(isLibraryName);
+      if (hidden.length)
+        log(`${lib.name} has modules ${hidden.join(", ")} as a library of the build does, Rocq may load either`);
+      if (lib.plugins)
+        log(`${lib.name} declares OCaml plugins (Declare ML Module), which only the build's packages have in the browser`);
+    } catch (e) {
+      log((e as Error).message);
+    }
+  };
+  const libraryFromUrl = () => {
+    const spec = prompt(
+      "A GitHub repository (owner/repo, owner/repo@tag, its URL) or the URL of a .zip or .tar.gz archive, added as a library",
+    )?.trim();
+    if (!spec) return;
+    log(`fetching ${spec}`);
+    let shown = 0;
+    addLibrary(() =>
+      fetchLibrary(spec, (done, total) => {
+        // (every quarter)
+        if (done === total || done >= shown + total / 4) log(`fetched ${(shown = done)} of the ${total} files of ${spec}`);
+      }),
+    );
+  };
   const fromDisk = (into: string) =>
     openFolder(into).then(
       (found) => ws.importFiles(found, into),
@@ -126,7 +169,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
       { label: "New file", icon: <FilePlus size={14} />, action: () => create("file", folder) },
       { label: "New folder", icon: <FolderPlus size={14} />, action: () => create("folder", folder) },
       { label: "Import folder…", icon: <FolderInput size={14} />, action: () => importFolder(folder) },
-      { label: "Import files…", icon: <Upload size={14} />, action: () => importFiles(folder) },
+      { label: "Import files or archives…", icon: <Upload size={14} />, action: () => importFiles(folder) },
     ];
     if (node?.kind === "folder") {
       const isWs = ws.workspaces.includes(node.path);
@@ -189,6 +232,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
         custom
           ? { label: `Open ${projectFile}`, icon: <FileCog size={14} />, action: () => ws.select(custom) }
           : { label: `Write the root's ${projectFile}`, icon: <FileCog size={14} />, action: () => ws.customizeProject(root) },
+        { label: "Add a library…", icon: <PackagePlus size={14} />, action: libraryFromUrl },
         { label: "Export all as zip", icon: <Archive size={14} />, action: () => zipOf(root) },
       );
     }
@@ -253,6 +297,14 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
             <FolderSync size={16} />
           </button>
         )}
+        <button
+          className="icon-button"
+          title="Add a library, from GitHub or an archive (.zip, .tar.gz), a workspace of its own"
+          aria-label="Add a library"
+          onClick={libraryFromUrl}
+        >
+          <PackagePlus size={16} />
+        </button>
         <button className="icon-button" title="Export all the files as a zip" aria-label="Export zip" onClick={() => zipOf(root)}>
           <Archive size={16} />
         </button>
@@ -340,11 +392,18 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
       <input
         ref={fileInput}
         type="file"
-        accept=".v,_RocqProject,_CoqProject"
+        accept=".v,_RocqProject,_CoqProject,.zip,.tar,.tar.gz,.tgz"
         multiple
         hidden
         onChange={async (e) => {
-          const list = e.target.files;
+          const all = [...(e.target.files ?? [])];
+          // (archives: libraries)
+          const isArchive = (f: File) => /\.(zip|tar|tar\.gz|tgz)$/i.test(f.name);
+          for (const f of all.filter(isArchive))
+            await addLibrary(async () => archiveLibrary(f.name, new Uint8Array(await f.arrayBuffer())));
+          const dt = new DataTransfer();
+          for (const f of all.filter((f) => !isArchive(f))) dt.items.add(f);
+          const list = dt.files.length ? dt.files : null;
           if (list) {
             // (files, not a folder: none becomes a workspace)
             const found = await readInput(list);

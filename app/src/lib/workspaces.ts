@@ -22,6 +22,7 @@ const args = "-arg -w -arg -extraction-default-directory,-overriding-logical-loa
 // them from the build's packages.json before the page starts)
 let libraries = new Set(["Corelib", "Stdlib", "Ltac2", "Coq", "Rocq"]);
 export const setLibraries = (names: Iterable<string>) => (libraries = new Set([...libraries, ...names]));
+export const isLibraryName = (name: string) => libraries.has(name.split(".")[0]);
 
 // The logical name of a workspace: its folder's name, made a Rocq name,
 // and _ after it when a library has that name (the example Ltac2/: Ltac2_)
@@ -121,9 +122,11 @@ export function moduleName(file: string, workspaces: string[], files: string[], 
 }
 
 // The logical name of a workspace's folder as its project file says (the
-// generated one: logicalName), if it names it
+// generated one: logicalName), or those of its directories (a library's
+// -Q theories ExtLib), if it names some
 export function workspaceName(dir: string, files: string[], read: (name: string) => string) {
-  return loadPath(dir, files, read).find(([d]) => d === "")?.[1] ?? null;
+  const lp = loadPath(dir, files, read);
+  return lp.find(([d]) => d === "")?.[1] ?? (lp.map(([, n]) => n).join(", ") || null);
 }
 
 // The files of a workspace

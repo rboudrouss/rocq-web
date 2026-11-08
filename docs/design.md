@@ -109,6 +109,17 @@ user writes says itself what it sees (menu "Write its _RocqProject"
 starts from the generated one, with these lines). The root's files are in
 no workspace's load path.
 
+A library of Rocq files is added as a workspace (Files panel, "Add a
+library"; `app/src/lib/library.ts`): from a GitHub repository, its files
+fetched from jsDelivr (`data.jsdelivr.com` lists them,
+`cdn.jsdelivr.net/gh/OWNER/REPO@REF/` serves them; GitHub's archives,
+`codeload.github.com`, are not for other sites: CORS), from the URL of an
+archive whose server allows it, or from an archive on disk (zip, tar,
+tar.gz: `app/src/lib/archive.ts`). Its project file at its top is kept,
+with the `.v` of the directories it names. Its OCaml plugins
+(`Declare ML Module`) cannot be built in the browser: only the build's
+packages have theirs, which the app tells.
+
 Each workspace is a workspace folder of coq-lsp (`/workspace/DIR`, the
 root `/workspace` last: coq-lsp takes the first containing a file), the
 generated project files written in the worker. A project file that

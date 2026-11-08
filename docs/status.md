@@ -22,7 +22,9 @@ The app (`app/`):
   file requiring another (`Require Import A.`) is checked after it is
   compiled (`coq/saveVo`), again when it changed, and its errors shown if
   it does not compile, in its workspace or another (`From Lib Require`);
-  the `.vo` kept in the browser from one load to the next; `Load`; the files Rocq writes (`Extraction`), shown
+  the `.vo` kept in the browser from one load to the next; libraries of
+  Rocq files added from GitHub (through jsDelivr) or archives (zip,
+  tar.gz), workspaces of their own; `Load`; the files Rocq writes (`Extraction`), shown
   and downloaded; a link sharing a file (its text in the URL), downloads;
 - diagnostics, the Problems panel, hover, completion (identifiers,
   unicode input: `\forall`);
