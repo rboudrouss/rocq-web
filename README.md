@@ -30,11 +30,13 @@ scripts/build.sh full                  # and/or compat
 cd app && pnpm install && pnpm dev     # http://localhost:5173/
 ```
 
-The C that c_of_ocaml generates must come from c_of_ocaml bd0845e8 or
+The C that c_of_ocaml generates must come from c_of_ocaml 083e5706 or
 later (the applications to more arguments than the arity off emscripten's
-C stack, the asynchronous actions of allocations): `OCAML_EMCC_C_OF_OCAML`
-names it when the switch's is older. An older one builds a worker whose
-Ltac loops overflow the stack and whose reductions cannot be interrupted.
+C stack, the asynchronous actions of allocations, the loops of tail calls
+through closures): `OCAML_EMCC_C_OF_OCAML` names it when the switch's is
+older. An older one builds a worker whose Ltac loops overflow the stack,
+whose reductions cannot be interrupted, and whose compat build overflows
+on `Search` (Rocq's `Constr_matching.sub_match`).
 
 The static site, served cross-origin isolated (COOP and COEP: the
 interrupts of Rocq need it), with brotli:

@@ -103,19 +103,6 @@ Chromium, 18 to 24 s in Firefox (development server, no brotli).
 
 ### Known problems
 
-- `Search (_ + S _ = S (_ + _))` overflows the stack in the worker (JS
-  `Maximum call stack size exceeded`, the worker stops), as does the
-  Basics example: Rocq's `Constr_matching.sub_match`
-  (`try_sub_match_rec`, `try_aux`, `next`, closures) recurses about 2 000
-  deep from `main` without a CPS bounce (no `camlc_cps_depth` decrement in
-  its cycle), c_of_ocaml bd0845e8. Reproduced under node:
-  `OCAML_EMCC_STACK_MB=1 node tests/lsp.mjs out/compat/lsp_worker.js F.v`
-  with F.v the first 32 lines of `app/public/examples/Basics/Basics.v`
-  (`rocq repl` of the compat build runs the same `Search` without it).
 - Memory: 4 GB at most (a 32-bit memory).
 - Without cross-origin isolation the page cannot share memory with the
   worker, which then cannot receive messages: compat needs it.
-
-## Next
-
-- Compat: the stack overflow of `Search` (above), in c_of_ocaml.
