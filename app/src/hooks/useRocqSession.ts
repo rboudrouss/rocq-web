@@ -106,6 +106,8 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
           c.changeWorkspaces([workerDir(d)], []);
         }
       registered.current = want;
+      // (coq-lsp's caches keep the states of the former load paths)
+      c.notify("coq/trimCaches", {});
       project.current?.forget();
       log(`workspaces read again: ${[...changed, ...removed].map((d) => d || "(root)").join(", ")}`);
       events.current.workspacesChanged?.();

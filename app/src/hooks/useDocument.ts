@@ -131,8 +131,6 @@ export function useDocument({
     if (o && o.client === c && o.name === active) return;
     if (o && o.client === c && isRocq(o.name)) {
       c.close(workerUri(o.name));
-      // (what coq-lsp keeps of the file and of the states it went through)
-      c.notify("coq/trimCaches", {});
     }
     opened.current = { name: active, client: c };
     setGoals(null);

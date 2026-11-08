@@ -115,7 +115,10 @@ order: opened in coq-lsp, `coq/saveVo` writes their `.vo` (patched to
 refuse a document with errors), closed; then `coq/workspace_update` makes
 coq-lsp check again with them (patched so that documents opened later do
 not reuse what `Require` loaded before). Switching files closes the
-previous one and trims coq-lsp's caches (`coq/trimCaches`).
+previous one. coq-lsp's caches are kept, so going back to a file is
+quick. `coq/trimCaches` (two `Gc.full_major`, seconds before the worker
+checks the next file) is sent only when the workspaces are read again:
+the cached states have the former load paths.
 
 Checking up to the cursor is coq-lsp's `check_only_on_request`: a
 document is checked up to the points of requests, the goals' at the
