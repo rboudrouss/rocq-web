@@ -157,7 +157,14 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
     ready.current = false;
     setStatus("starting");
     const w = wsRef.current;
-    project.current = new Project(c, () => w.current.current.files, () => w.current.current.workspaces, w.read, log);
+    project.current = new Project(
+      c,
+      () => w.current.current.files,
+      () => w.current.current.workspaces,
+      w.read,
+      log,
+      (d) => registered.current.get(d),
+    );
     // the files, and the generated project files, before Rocq starts
     const { files, workspaces } = w.current.current;
     written.current = new Map(files.filter(isProject).map((f) => [f, w.read(f)]));

@@ -53,6 +53,9 @@ export class LspClient {
   private nextId = 1;
   private pending = new Map<number, { ok: (r: unknown) => void; fail: (e: Error) => void }>();
   private handlers: Handlers;
+  // The version of the worker's libraries (a hash of their files: the
+  // .vo kept by lib/project.ts were compiled against them)
+  readonly version: Promise<string>;
 
   // (the compat build: the page's messages through shared memory,
   // src/channel.ts, which needs a cross-origin isolated page)
@@ -60,11 +63,14 @@ export class LspClient {
 
   constructor(workerUrl: string, handlers: Handlers, options: { channel?: boolean } = {}) {
     this.handlers = handlers;
+    let gotVersion = (_: string) => {};
+    this.version = new Promise((ok) => (gotVersion = ok));
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = (e) => {
       if (typeof e.data === "string") this.receive(JSON.parse(e.data));
       else if (e.data?.rocqWebFetch) handlers.fetch?.(e.data.rocqWebFetch, e.data.size);
       else if (e.data?.rocqWebAbort) this.stopped(e.data.rocqWebAbort);
+      else if (e.data?.rocqWebVersion !== undefined) gotVersion(String(e.data.rocqWebVersion));
       else if (e.data?.rocqWebFsReply) {
         const { id, result, error } = e.data.rocqWebFsReply;
         const p = this.pending.get(id);

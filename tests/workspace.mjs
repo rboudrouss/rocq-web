@@ -2,7 +2,8 @@
 // folders, Load of a file, a required file that does not compile, a zip
 // archive of the files, a folder imported (a workspace of its own, its
 // project file then written by the user, read again by Rocq), a
-// _RocqProject at the root, workspaces requiring one another.
+// _RocqProject at the root, workspaces requiring one another, the .vo kept
+// from one load of the page to the next.
 //   node tests/workspace.mjs
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -117,7 +118,8 @@ await start();
 await page.waitForTimeout(1500);
 check((await problems()).length === 0, `E.v with MyLib: ${await problems()}`);
 
-// workspaces requiring one another (From Core Require)
+// workspaces requiring one another (From Core Require), and the .vo kept
+// from one load of the page to the next
 await page.evaluate(() => {
   localStorage.setItem("rocq-web:Core/Base2.v", "Definition core := 2.\n");
   localStorage.setItem("rocq-web:App/Main.v", "From Core Require Import Base2.\nCheck Core.Base2.core.\nCheck core.\n");
@@ -131,6 +133,11 @@ await page.waitForTimeout(1500);
 const log = () => page.locator(".log").textContent();
 check((await problems()).length === 0, `App/Main.v requiring Core.Base2: ${await problems()}`);
 check((await log()).includes("compiled Core/Base2.v"), "Core/Base2.v compiled");
+await page.reload();
+await start();
+await page.waitForTimeout(1500);
+check((await problems()).length === 0, `App/Main.v after a reload: ${await problems()}`);
+check((await log()).includes("Core/Base2.v not compiled again"), "the .vo of Core/Base2.v kept");
 
 await browser.close();
 console.log(`${failed} failed`);

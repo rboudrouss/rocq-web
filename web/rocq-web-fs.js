@@ -26,6 +26,11 @@ if (!(typeof process == "object" && process.versions && process.versions.node)) 
       });
     };
     var manifest = get(base + "files.json", "json");
+    // the version to the page (the .vo it keeps were compiled against
+    // these libraries: app/src/lib/project.ts)
+    manifest.then(function (m) {
+      if (typeof self.postMessage == "function") self.postMessage({ rocqWebVersion: m.version });
+    });
     // the version of the files (a hash of their contents) in their URLs,
     // which servers may then cache for good (scripts/serve.mjs)
     var version = function (m) {

@@ -2,8 +2,12 @@
 // it is checked: each one is opened in coq-lsp, saved (coq/saveVo writes
 // /workspace/PATH.vo, which the workspace's load path maps to its module)
 // and closed, its own dependencies first; then coq/workspace_update makes
-// coq-lsp check the documents again with them.
+// coq-lsp check the documents again with them. The .vo are kept in the
+// browser (lib/voCache.ts) by a key of what they were compiled from: the
+// libraries' version, the file's module, project and text, the .vo of its
+// dependencies; the next page load writes them instead of compiling.
 import type { LspClient } from "./lsp";
+import { digest, getVo, putVo } from "./voCache";
 import { filesOf, moduleName, root, visibleWorkspaces, workerUri, workspaceOf } from "./workspaces";
 
 // The text without its comments (nested) and strings
@@ -59,7 +63,8 @@ export function requires(
   return [...deps];
 }
 
-type Built = { text: string; at: number };
+// (digest: the .vo's, for the keys of the files requiring it)
+type Built = { text: string; key: string; digest: string; at: number };
 
 export class Project {
   private built = new Map<string, Built>();
@@ -73,6 +78,8 @@ export class Project {
     private workspaces: () => string[],
     private read: (name: string) => string,
     private log: (message: string) => void,
+    // the project file of a workspace as coq-lsp has it (its text)
+    private registered: (dir: string) => string | undefined,
   ) {}
 
   private requires(file: string) {
@@ -107,16 +114,41 @@ export class Project {
     return this.requires(name).every((d) => this.built.get(d)?.text === this.read(d));
   }
 
-  // The time [name] was compiled at, after its dependencies
+  // The libraries' version, "" from a worker that does not tell it (no
+  // .vo kept then)
+  private libraries: Promise<string> | null = null;
+  private keep = false;
+
+  // What [name]'s .vo is compiled from (its module: its path and its
+  // workspace's project file, as coq-lsp has it)
+  private async key(name: string, text: string, deps: string[], project: string) {
+    this.libraries ??= Promise.race([this.client.version, new Promise<string>((ok) => setTimeout(() => ok(""), 2000))]);
+    const version = await this.libraries;
+    this.keep = version !== "";
+    return digest(version, name, project, text, ...deps.map((d) => this.built.get(d)?.digest ?? ""));
+  }
+
+  // The time [name] was compiled at (or its .vo written), after its
+  // dependencies
   private async build(name: string, visiting: Set<string>): Promise<number> {
     if (visiting.has(name)) throw new Error(`${name} requires itself through other files`);
     visiting.add(name);
     const text = this.read(name);
-    let newest = 0;
-    for (const dep of this.requires(name)) newest = Math.max(newest, await this.build(dep, visiting));
+    const deps = this.requires(name);
+    for (const dep of deps) await this.build(dep, visiting);
     visiting.delete(name);
+    const dir = workspaceOf(name, this.workspaces());
+    const project = this.registered(dir) ?? "";
+    const key = await this.key(name, text, deps, project);
     const b = this.built.get(name);
-    if (b && b.text === text && b.at >= newest) return b.at;
+    if (b && b.key === key) return b.at;
+    const vo = `/workspace/${name.replace(/\.v$/, ".vo")}`;
+    const kept = this.keep ? await getVo(key) : null;
+    if (kept) {
+      await this.client.writeFile(vo, kept);
+      this.log(`${name} not compiled again, its .vo kept`);
+      return this.done(name, text, key, kept);
+    }
     const uri = workerUri(name);
     const version = this.version++;
     const t0 = performance.now();
@@ -134,8 +166,16 @@ export class Project {
       this.client.close(uri);
     }
     this.log(`compiled ${name} in ${Math.round(performance.now() - t0)} ms`);
+    const data = await this.client.readFile(vo);
+    // (not when the workspaces were read again meanwhile: compiled with
+    // which project is not sure)
+    if (this.keep && this.registered(dir) === project) await putVo(key, data);
+    return this.done(name, text, key, data);
+  }
+
+  private async done(name: string, text: string, key: string, vo: Uint8Array) {
     const at = ++this.clock;
-    this.built.set(name, { text, at });
+    this.built.set(name, { text, key, digest: await digest(vo), at });
     return at;
   }
 }

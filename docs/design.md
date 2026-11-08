@@ -135,6 +135,14 @@ quick. `coq/trimCaches` (two `Gc.full_major`, seconds before the worker
 checks the next file) is sent only when the workspaces are read again:
 the cached states have the former load paths.
 
+The `.vo` compiled are kept in the browser (IndexedDB, the most recently
+used up to 256 MB), by a SHA-256 of what they were compiled from: the
+version of the worker's libraries (the hash of their files, which the
+worker sends when it starts), the file's module, its workspace's project
+file (or its name, for the generated one), its text, and the `.vo` of the
+files it requires. The next load of the page writes them in the worker
+instead of compiling the files again.
+
 Checking up to the cursor is coq-lsp's `check_only_on_request`: a
 document is checked up to the points of requests, the goals' at the
 cursor on Alt+Enter, Alt+N, Alt+P (the sentences are found by the page,
