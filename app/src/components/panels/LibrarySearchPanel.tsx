@@ -71,7 +71,7 @@ export function LibrarySearchPanel({ url, open }: { url: string; open: (d: Decla
             </button>
           </li>
         ))}
-        {results.length > 200 && <li className="muted">{results.length - 200} more: refine the search</li>}
+        {results.length > 200 && <li className="muted">{results.length - 200} more, refine the search</li>}
       </ul>
     </div>
   );

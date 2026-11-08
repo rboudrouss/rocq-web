@@ -35,7 +35,7 @@ export function Header(p: Props) {
       <select
         value={p.toCursor ? "cursor" : "all"}
         onChange={(e) => p.changeMode(e.target.value === "cursor")}
-        title="When Rocq checks the file (up to the cursor: Alt+Enter)"
+        title="When Rocq checks the file (Alt+Enter checks up to the cursor)"
       >
         <option value="all">Check as you type</option>
         <option value="cursor">Check up to the cursor</option>

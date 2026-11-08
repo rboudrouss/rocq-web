@@ -176,7 +176,7 @@ export function useWorkspace(log: (message: string) => void) {
       const ws = listWorkspaces();
       if (ws.includes(folder)) setWorkspaces(ws.filter((w) => w !== folder));
       else if (canBeWorkspace(folder, ws)) setWorkspaces([...ws, folder]);
-      else return log(`${folder} cannot be a workspace: workspaces do not contain one another`);
+      else return log(`${folder} cannot be a workspace, workspaces do not contain one another`);
       refresh();
       mirror.current?.workspacesChanged();
     },
@@ -192,7 +192,7 @@ export function useWorkspace(log: (message: string) => void) {
         .map(({ path, text }) => ({ path: placedPath(path, into), text }))
         .filter(({ path }) => validName(path));
       if (placed.length === 0) {
-        log("nothing to import: no Rocq files (.v) nor project files");
+        log("nothing to import, no Rocq files (.v) nor project files");
         return [];
       }
       const mine = new Set(listFiles());

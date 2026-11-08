@@ -56,7 +56,7 @@ export function PackagesPanel({ packages, insert }: { packages: Package[] | null
                 </button>
               </li>
             ))}
-            {modules.length > 300 && <li className="muted">{modules.length - 300} more: refine the search</li>}
+            {modules.length > 300 && <li className="muted">{modules.length - 300} more, refine the search</li>}
           </ul>
         </details>
       ))}

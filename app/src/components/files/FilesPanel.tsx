@@ -221,7 +221,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
     }
     const found = await readDropped(e.dataTransfer.items);
     if (found.length) ws.importFiles(found, folder);
-    else log("nothing to import: no Rocq files (.v) nor project files");
+    else log("nothing to import, no Rocq files (.v) nor project files");
   };
 
   const here = workspaceOf(ws.active, ws.workspaces);
@@ -246,14 +246,14 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
         {canOpenFolder() && (
           <button
             className="icon-button"
-            title="Open a folder on disk: its files saved back to it"
+            title="Open a folder on disk, its files saved back to it"
             aria-label="Open folder on disk"
             onClick={() => fromDisk(root)}
           >
             <FolderSync size={16} />
           </button>
         )}
-        <button className="icon-button" title="Export zip: all the files" aria-label="Export zip" onClick={() => zipOf(root)}>
+        <button className="icon-button" title="Export all the files as a zip" aria-label="Export zip" onClick={() => zipOf(root)}>
           <Archive size={16} />
         </button>
         <button className="icon-button" title="Fold all the folders" aria-label="Fold all" onClick={() => setCollapsed(ws.folders)}>

@@ -113,7 +113,7 @@ export function FileTree(props: TreeProps & { depth?: number; parent?: string })
                 onContextMenu={(e) => props.menu(e, n)}
                 onClick={() => props.toggle(n.path)}
                 style={pad(depth)}
-                title={ws ? `Workspace: its files are the modules ${props.logical(n.path)}.*` : n.path}
+                title={ws ? `Workspace of the modules ${props.logical(n.path)}.*` : n.path}
               >
                 <span className="row-icon chevron">{folded ? <ChevronRight size={13} /> : <ChevronDown size={13} />}</span>
                 <span className="row-icon">{ws ? <Layers size={14} /> : folded ? <Folder size={14} /> : <FolderOpen size={14} />}</span>
