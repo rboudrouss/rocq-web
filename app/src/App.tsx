@@ -1,7 +1,7 @@
 // The page: the header, the panels on the left (chosen by the activity
 // bar), the editor, the goals and the panels on the right. The state is in
 // the hooks (hooks/), the views in the components (components/).
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HelpPopover } from "./components/dialogs/HelpPopover";
 import { Editor, type EditorHandle } from "./components/editor/Editor";
 import { ReadOnlyView } from "./components/editor/ReadOnlyView";
@@ -32,6 +32,9 @@ import { shareUrl } from "./lib/share";
 import { embedded } from "./lib/storage";
 import { root } from "./lib/workspaces";
 
+const compatWarning =
+  "This browser runs the compatibility build of Rocq (no WebAssembly JSPI or memory64), slower and limited to 4 GB of memory. Chrome or Edge 137 and later run the full build.";
+
 export function App() {
   const [build] = useState(pickBuild);
   const { lines, log } = useLog();
@@ -45,6 +48,11 @@ export function App() {
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
   const [help, setHelp] = useState(false);
   const [shared, setShared] = useState<string | null>(null);
+  // (the compatibility build: told once, in the log too)
+  const [compatSeen, setCompatSeen] = usePersistentState("compat-warning", false);
+  useEffect(() => {
+    if (build === "compat") log(compatWarning);
+  }, [build, log]);
   const active = ws.active;
 
   const share = async () => {
@@ -88,13 +96,17 @@ export function App() {
         toCursor={doc.toCursor}
         changeMode={doc.changeMode}
         embedded={embedded}
-        build={build}
         restart={session.restart}
         share={share}
         openFull={openFull}
         help={() => setHelp(!help)}
       />
       {help && <HelpPopover close={() => setHelp(false)} />}
+      {build === "compat" && !compatSeen && !embedded && (
+        <Banner kind="warning" close={() => setCompatSeen(true)}>
+          {compatWarning}
+        </Banner>
+      )}
       {shared && (
         <Banner close={() => setShared(null)}>
           Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />

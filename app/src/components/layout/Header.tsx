@@ -9,7 +9,6 @@ type Props = {
   toCursor: boolean;
   changeMode: (toCursor: boolean) => void;
   embedded: boolean;
-  build: string;
   restart: () => void;
   share: () => void;
   openFull: () => void;
@@ -55,7 +54,6 @@ export function Header(p: Props) {
       <button className="help-button" onClick={p.help} title="Keyboard shortcuts" aria-label="Keyboard shortcuts">
         <CircleHelp size={15} />
       </button>
-      {!p.embedded && <span className="muted">build: {p.build}</span>}
     </header>
   );
 }

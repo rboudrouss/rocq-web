@@ -98,6 +98,7 @@ pre.message, pre.error { font-size: 12px; }
 .shared { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 1rem; background: #eef6ee; font-size: 0.85rem; }
 .shared input { flex: 1; font-family: ui-monospace, monospace; font-size: 0.75rem; }
 .shared button { border: 0; background: none; }
+.shared.warning { background: #fdf3d7; }
 .fetching { font-size: 0.8rem; color: #555; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status[data-status="crashed"] { background: #fbd5d5; }
 
@@ -123,6 +124,7 @@ pre.message, pre.error { font-size: 12px; }
   header select, .help { background: #2b303b; border-color: #444b58; }
   .editor .cm-processing { background: #3d3720; }
   .shared { background: #1f3326; }
+  .shared.warning { background: #3a321c; }
   .kind { color: #c19ae6; }
   .diff-added { background: #24502b; }
   .hyp.diff-new { background: #1e3a24; }
