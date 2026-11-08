@@ -41,12 +41,16 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
   wsRef.current = ws;
   // the workspaces registered in coq-lsp, with the text of their project
   const registered = useRef(new Map<string, string>());
+  // The project files written to the worker (an edit is written once
+  // saved): Rocq reads those
+  const written = useRef(new Map<string, string>());
+  const readWritten = useCallback((name: string) => written.current.get(name) ?? wsRef.current.read(name), []);
 
   // The project files of the workspaces as Rocq reads them: [dir, text]
   const projects = useCallback(() => {
     const { files, workspaces } = wsRef.current.current.current;
-    return [...workspaces, root].map((d) => [d, projectOf(d, files, wsRef.current.read).text] as const);
-  }, []);
+    return [...workspaces, root].map((d) => [d, projectOf(d, files, readWritten).text] as const);
+  }, [readWritten]);
 
   // The generated project files in the worker (those the user did not
   // write: a _CoqProject of the user's without the generated _RocqProject
@@ -119,6 +123,10 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
     (path: string, text: string | null) => {
       const c = client.current;
       if (!c) return;
+      if (isProject(path)) {
+        if (text === null) written.current.delete(path);
+        else written.current.set(path, text);
+      }
       const done = text !== null ? c.writeFile(`/workspace/${path}`, text) : c.removeFile(`/workspace/${path}`);
       done.catch((e: Error) => log(`${path}: ${e.message}`));
       if (isProject(path)) syncWorkspaces();
@@ -152,6 +160,7 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
     project.current = new Project(c, () => w.current.current.files, () => w.current.current.workspaces, w.read, log);
     // the files, and the generated project files, before Rocq starts
     const { files, workspaces } = w.current.current;
+    written.current = new Map(files.filter(isProject).map((f) => [f, w.read(f)]));
     for (const f of files) c.writeFile(`/workspace/${f}`, w.read(f)).catch(() => {});
     const dirs = [...workspaces, root];
     writeGenerated(c, dirs);
