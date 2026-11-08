@@ -1,5 +1,5 @@
 // The examples (app/public/examples), each opened by its link
-// (?example=ID) and checked without problems, the menu, and the page
+// (?example=ID) and checked without problems, the Examples panel, and the page
 // embedded (?embed): its files not in the workspace (headless Chromium,
 // as tests/browser.mjs).
 //   node tests/examples.mjs [ID...]
@@ -41,12 +41,12 @@ for (const e of list) {
 
 await page.goto(url);
 await idle(page);
-await page.getByText("Examples", { exact: true }).click();
+await page.locator('nav.activity button[aria-label="Examples"]').click();
 await page.waitForSelector(".examples li");
-check((await page.locator(".examples li").count()) === list.length, "the menu lists the examples");
+check((await page.locator(".examples li").count()) === list.length, "the panel lists the examples");
 await page.locator(".examples li", { hasText: "Lists" }).click();
 await page.waitForTimeout(500);
-check((await page.locator("header .file").textContent()).startsWith("Lists"), "opened from the menu");
+check((await page.locator("header .file").textContent()).startsWith("Lists"), "opened from the panel");
 
 // embedded
 const keys = await page.evaluate(() => Object.keys(localStorage).length);

@@ -137,11 +137,8 @@ pre.message, pre.error { font-size: 12px; }
 .problems li.dep-error { font-size: 0.85rem; padding: 0.15rem 0.25rem; }
 
 /* Examples */
-.modal { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; }
-.examples { background: #fff; border-radius: 8px; padding: 1rem 1.25rem; max-width: 34rem; max-height: 80vh; overflow: auto; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); }
-.examples h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-.examples ul { list-style: none; padding: 0; margin: 0.5rem 0 1rem; }
-.examples li button { width: 100%; text-align: left; border: 0; background: none; padding: 0.4rem 0.5rem; border-radius: 4px; font-size: 0.9rem; color: inherit; }
+.examples ul { list-style: none; padding: 0; margin: 0.5rem 0; }
+.examples li button { width: 100%; text-align: left; border: 0; background: none; padding: 0.35rem 0.4rem; border-radius: 4px; font-size: 0.85rem; color: inherit; }
 .examples li button:hover { background: #eef1f6; }
 .examples li button div { font-size: 0.8rem; color: #666; }
 
@@ -167,7 +164,6 @@ pre.message, pre.error { font-size: 12px; }
   .app.embed main { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-color-scheme: dark) {
-  .examples { background: #282c34; }
   .examples li button:hover { background: #2f3542; }
   .examples li button div { color: #9198a5; }
 }

@@ -11,7 +11,6 @@ type Props = {
   embedded: boolean;
   build: string;
   restart: () => void;
-  examples: () => void;
   share: () => void;
   download: () => void;
   openFull: () => void;
@@ -48,9 +47,6 @@ export function Header(p: Props) {
         <>
           <button onClick={p.restart} title="Start Rocq again (a computation that does not stop)">
             Restart
-          </button>
-          <button onClick={p.examples} title="Examples and tutorials">
-            Examples
           </button>
           <button onClick={p.share} title="Copy a link to this file">
             Share

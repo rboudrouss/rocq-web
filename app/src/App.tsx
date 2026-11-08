@@ -2,7 +2,6 @@
 // bar), the editor, the goals and the panels on the right. The state is in
 // the hooks (hooks/), the views in the components (components/).
 import { useCallback, useRef, useState } from "react";
-import { ExamplesDialog } from "./components/dialogs/ExamplesDialog";
 import { HelpPopover } from "./components/dialogs/HelpPopover";
 import { Editor, type EditorHandle } from "./components/editor/Editor";
 import { ReadOnlyView } from "./components/editor/ReadOnlyView";
@@ -11,6 +10,7 @@ import { Goals } from "./components/goals/Goals";
 import { ActivityBar, type PanelId } from "./components/layout/ActivityBar";
 import { Banner } from "./components/layout/Banner";
 import { Header } from "./components/layout/Header";
+import { ExamplesPanel } from "./components/panels/ExamplesPanel";
 import { LibrarySearchPanel } from "./components/panels/LibrarySearchPanel";
 import { LogPanel } from "./components/panels/LogPanel";
 import { OutlinePanel } from "./components/panels/OutlinePanel";
@@ -27,7 +27,7 @@ import { useRocqSession } from "./hooks/useRocqSession";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { pickBuild } from "./lib/detect";
 import { saveBlob } from "./lib/download";
-import { type Example, exampleFiles, examples } from "./lib/examples";
+import { type Example, exampleFiles } from "./lib/examples";
 import { shareUrl } from "./lib/share";
 import { embedded } from "./lib/storage";
 import { root } from "./lib/workspaces";
@@ -45,7 +45,6 @@ export function App() {
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
   const [help, setHelp] = useState(false);
   const [shared, setShared] = useState<string | null>(null);
-  const [exampleList, setExampleList] = useState<Example[] | null>(null);
   const active = ws.active;
 
   const share = async () => {
@@ -61,7 +60,6 @@ export function App() {
     window.open(url.href, "_blank", "noopener");
   };
   const openExample = async (e: Example) => {
-    setExampleList(null);
     try {
       ws.importFiles(await exampleFiles(e), root);
     } catch (err) {
@@ -92,13 +90,11 @@ export function App() {
         embedded={embedded}
         build={build}
         restart={session.restart}
-        examples={() => examples().then(setExampleList, (e: Error) => log(`examples: ${e.message}`))}
         share={share}
         download={() => saveBlob(new Blob([ws.read(active)], { type: "text/plain" }), active.split("/").pop()!)}
         openFull={openFull}
         help={() => setHelp(!help)}
       />
-      {exampleList && <ExamplesDialog list={exampleList} open={openExample} close={() => setExampleList(null)} />}
       {help && <HelpPopover close={() => setHelp(false)} />}
       {shared && (
         <Banner close={() => setShared(null)}>
@@ -131,6 +127,9 @@ export function App() {
           </div>
           <div className="sidebar" hidden={panel !== "packages"}>
             <PackagesPanel packages={session.packages} insert={insertLine} />
+          </div>
+          <div className="sidebar" hidden={panel !== "examples"}>
+            <ExamplesPanel open={openExample} log={log} />
           </div>
         </aside>
         <section className="center">
