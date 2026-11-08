@@ -12,7 +12,6 @@ type Props = {
   build: string;
   restart: () => void;
   share: () => void;
-  download: () => void;
   openFull: () => void;
   help: () => void;
 };
@@ -50,9 +49,6 @@ export function Header(p: Props) {
           </button>
           <button onClick={p.share} title="Copy a link to this file">
             Share
-          </button>
-          <button onClick={p.download} title="Download the file">
-            Download
           </button>
         </>
       )}

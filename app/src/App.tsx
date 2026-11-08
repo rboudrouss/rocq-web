@@ -91,7 +91,6 @@ export function App() {
         build={build}
         restart={session.restart}
         share={share}
-        download={() => saveBlob(new Blob([ws.read(active)], { type: "text/plain" }), active.split("/").pop()!)}
         openFull={openFull}
         help={() => setHelp(!help)}
       />
