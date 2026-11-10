@@ -14,6 +14,7 @@ progress: see [docs/design.md](docs/design.md).
 | `scripts/byte-plugins.sh` | the bytecode of plugins opam installs native only (coq_makefile's) |
 | `scripts/dist.mjs`, `scripts/serve.mjs` | the static site (`dist/`, brotli), a server for it (COOP/COEP) |
 | `deploy/Dockerfile`, `scripts/deploy.sh` | its image, deployed to Coolify |
+| `scripts/cloudflare.mjs`, `scripts/r2-upload.sh`, `deploy/wrangler.jsonc` | the site on a Cloudflare Worker, its files over 25 MiB in R2 |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror): files, libraries, outline, packages, examples, goals, queries, coq-lsp client |
 | `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`, `search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`, `probe.mjs`), on another machine (`remote.sh`) |
@@ -58,3 +59,30 @@ and `Cross-Origin-Embedder-Policy: require-corp` (`dist/_headers` for
 Netlify and Cloudflare Pages), and `Content-Encoding: br` for `FILE.br`
 when it exists. On hosts without headers (GitHub Pages), a service worker
 (`coi.js`) adds them at the second load.
+
+On Cloudflare (the Worker `rocqweb`, its static assets only:
+`deploy/wrangler.jsonc`), which serves no file over 25 MiB, the
+`lsp_worker.wasm` of each build comes from the R2 bucket `rocqweb`:
+
+1. Once: connect the bucket to a custom domain, ASSETS_DOMAIN below (the
+   `r2.dev` URL is rate-limited, for development only), and give it a
+   CORS policy allowing the site's origin (Settings > CORS Policy):
+   ```json
+   [{ "AllowedOrigins": ["https://SITE_DOMAIN"], "AllowedMethods": ["GET", "HEAD"] }]
+   ```
+   and `npx wrangler login` (or `CLOUDFLARE_API_TOKEN`).
+2. Each deployment, once `out/full/web` and `out/compat/web` are built:
+   ```sh
+   node scripts/dist.mjs                                 # dist/
+   node scripts/cloudflare.mjs https://ASSETS_DOMAIN     # dist-cloudflare/, dist-r2/
+   scripts/r2-upload.sh rocqweb                          # dist-r2/ into the bucket
+   npx wrangler deploy -c deploy/wrangler.jsonc          # dist-cloudflare/ on the Worker
+   ```
+   (or, on Pages: `npx wrangler pages deploy dist-cloudflare --project-name rocqweb`)
+
+The big files go in a directory named after their hash
+(`rocqweb/HASH/rocq/BUILD/lsp_worker.wasm`, brotli compressed): they must
+match the `lsp_worker.js` of the page, so an upload replaces nothing a
+deployed page uses, and they are cached for good.
+`dist-cloudflare/rocq/worker.js` has their URLs. The directories of old
+builds stay in the bucket until deleted.

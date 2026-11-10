@@ -9,3 +9,6 @@ out/
 *.glob
 .*.aux
 dist/
+dist-cloudflare/
+dist-r2/
+.wrangler/
