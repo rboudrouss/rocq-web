@@ -23,7 +23,7 @@ case $build in
   # checked (an overflow aborts instead of writing over the static data
   # placed below it), at no measured cost. ROCQ_WEB_NO_TAIL_CALLS=1:
   # without wasm tail calls (--no-tail-calls, its plugins too), for the
-  # engines that lack them; coq-lsp then overflows the stack of a browser
+  # engines that lack them; a deep recursion then aborts the worker
   # (docs/status.md)
   compat)
     flags=(--target wasm64)
