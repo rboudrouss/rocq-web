@@ -5,7 +5,7 @@
 //   node scripts/dist.mjs [DIR]
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, readdirSync, rmSync, statSync, writeFileSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { brotliCompress, constants } from "node:zlib";
 import { promisify } from "node:util";
 
@@ -20,12 +20,13 @@ execFileSync("pnpm", ["exec", "vite", "build", "--outDir", join("..", dir), "--e
   stdio: "inherit",
 });
 // vite copied app/public, whose rocq/BUILD are links to out/BUILD/web in
-// development
+// development (without ocaml-emcc's work directory, .lsp_worker.ocaml-emcc)
 for (const build of ["full", "compat"]) {
   const to = join(dir, "rocq", build);
   rmSync(to, { recursive: true, force: true });
   const from = `out/${build}/web`;
-  if (existsSync(join(from, "files.json"))) cpSync(from, to, { recursive: true, dereference: true });
+  if (existsSync(join(from, "files.json")))
+    cpSync(from, to, { recursive: true, dereference: true, filter: (p) => !basename(p).startsWith(".") });
 }
 
 // The libraries of compat, the same .vo as full's (docs/design.md): served
