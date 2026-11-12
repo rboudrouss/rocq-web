@@ -18,6 +18,7 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
 await page.addInitScript((t) => {
   localStorage.clear();
   localStorage.setItem("rocq-web:scratch.v", t);
+  localStorage.setItem("rocq-web:diffs", "1");
 }, text);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 await page.goto(url);

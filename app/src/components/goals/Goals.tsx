@@ -113,7 +113,8 @@ const text = (m: Text | { level: number; text: Text }) => (typeof m === "object"
 // (hint: shown without goals)
 export function Goals({ result, before, hint }: { result: GoalsResult | null; before: GoalsResult | null; hint?: string }) {
   const [ref, width] = useColumns();
-  const [diffs, setDiffs] = useState(() => stored("rocq-web:diffs", true));
+  // (off by default, as in RocqIDE)
+  const [diffs, setDiffs] = useState(() => stored("rocq-web:diffs", false));
   const [folded, setFolded] = useState(new Set<string>());
   useEffect(() => localStorage.setItem("rocq-web:diffs", diffs ? "1" : "0"), [diffs]);
   const fold = (name: string) =>
