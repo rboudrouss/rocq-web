@@ -28,10 +28,14 @@ The app (`app/`):
   and downloaded; a link sharing a file (its text in the URL), downloads;
 - diagnostics, the Problems panel, hover, completion (identifiers,
   unicode input: `\forall`);
-- the goals at the cursor laid out for the panel's width, what the
-  sentence changed highlighted, hypotheses folded;
-- checking as you type, or up to the cursor (Alt+Enter); the next and
-  previous sentences (Alt+N, Alt+P) and problems (F8, Shift+F8);
+- the goals laid out for the panel's width, what the sentence changed
+  highlighted (off by default, as in RocqIDE), hypotheses folded;
+- checking step by step, RocqIDE's way and the default: the part checked
+  green, moved by Alt+↓, Alt+↑, Alt+→ (to the cursor), Alt+Home, Alt+End
+  (Ctrl+Cmd on macOS) or the header's buttons, stopped before an error,
+  the goals where it is; or checking as you type, the goals at the
+  cursor; the next and previous sentences (Alt+N, Alt+P) and problems
+  (F8, Shift+F8);
 - `Timeout`; `native_compute` (Rocq falls back to its VM, `vm_compute`:
   the same results, the VM's speed);
 - the panels on the left chosen (or closed) by an activity bar;

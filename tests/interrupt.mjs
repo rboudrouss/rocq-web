@@ -18,7 +18,10 @@ Abort.
 
 const browser = await launch();
 const page = await browser.newPage();
-await page.addInitScript((text) => localStorage.setItem("rocq-web:scratch.v", text), loop);
+await page.addInitScript((text) => {
+    localStorage.setItem("rocq-web:scratch.v", text);
+    localStorage.setItem("rocq-web:check", "all");
+  }, loop);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 await page.goto(url);
 console.log("isolated:", await page.evaluate(() => crossOriginIsolated));

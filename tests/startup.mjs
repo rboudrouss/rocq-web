@@ -19,7 +19,10 @@ const browser = await launch();
 const context = await browser.newContext();
 for (const run of ["cold", "warm"]) {
   const page = await context.newPage();
-  await page.addInitScript((text) => localStorage.setItem("rocq-web:scratch.v", text), doc);
+  await page.addInitScript((text) => {
+    localStorage.setItem("rocq-web:scratch.v", text);
+    localStorage.setItem("rocq-web:check", "all");
+  }, doc);
   const requests = new Map();
   page.on("requestfinished", async (r) => {
     const m = /\/rocq\/[^/]+(\/(coqlib|plugins)\/[^?]*)/.exec(r.url());

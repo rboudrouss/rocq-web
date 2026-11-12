@@ -27,6 +27,7 @@ import { useRocqSession } from "./hooks/useRocqSession";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { pickBuild } from "./lib/detect";
 import { saveBlob } from "./lib/download";
+import { navLabel } from "./lib/keys";
 import { type Example, exampleFiles } from "./lib/examples";
 import { shareUrl } from "./lib/share";
 import { embedded } from "./lib/storage";
@@ -93,8 +94,9 @@ export function App() {
         status={session.status}
         fetching={session.fetching}
         file={active}
-        toCursor={doc.toCursor}
+        stepByStep={doc.stepByStep}
         changeMode={doc.changeMode}
+        move={doc.move}
         embedded={embedded}
         restart={session.restart}
         share={share}
@@ -166,7 +168,12 @@ export function App() {
             <Goals
               result={doc.goals?.now ?? null}
               before={doc.goals?.before ?? null}
-              hint={doc.toCursor ? "Not checked yet. Alt+Enter checks up to the cursor." : undefined}
+              hint={
+                doc.stepByStep
+                  ? `Nothing checked yet. ${navLabel("ArrowDown")} checks the next sentence, ${navLabel("ArrowRight")} up to the cursor.`
+                  : undefined
+              }
+              error={doc.stopped}
             />
           </div>
           <Tabs

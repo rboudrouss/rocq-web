@@ -1,7 +1,10 @@
-// The keyboard shortcuts
+import { navLabel } from "../../lib/keys";
+
+// The keyboard shortcuts (the navigation's, RocqIDE's)
 const shortcuts = [
-  ["Alt+Enter, Ctrl+Enter", "Check up to the cursor"],
-  ["Alt+N, Alt+P", "Next or previous sentence (checked)"],
+  [`${navLabel("ArrowDown")}, ${navLabel("ArrowUp")}`, "Check the next sentence, back one"],
+  [`${navLabel("ArrowRight")}, Ctrl+Enter`, "Check up to the cursor"],
+  [`${navLabel("Home")}, ${navLabel("End")}`, "Back to the start, check up to the end"],
   ["F8, Shift+F8", "Next or previous error or warning"],
   ["F12, Ctrl+click", "Go to the definition"],
   ["Ctrl+Space", "Complete a name, or a symbol after a backslash (\\forall)"],

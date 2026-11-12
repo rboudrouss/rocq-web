@@ -158,10 +158,12 @@ file (or its name, for the generated one), its text, and the `.vo` of the
 files it requires. The next load of the page writes them in the worker
 instead of compiling the files again.
 
-Checking up to the cursor is coq-lsp's `check_only_on_request`: a
-document is checked up to the points of requests, the goals' at the
-cursor on Alt+Enter, Alt+N, Alt+P (the sentences are found by the page,
-`app/src/lib/sentences.ts`).
+Checking step by step is coq-lsp's `check_only_on_request`: a document
+is checked up to the points of requests, the goals' at the point the
+page moves a sentence at a time, to the cursor, the start or the end
+(the sentences are found by the page, `app/src/lib/sentences.ts`). The
+page stops it before the first error of the diagnostics (coq-lsp checks
+past errors) and moves it back before an edit.
 
 The goals are Rocq's documents (`pp_format` "Pp"), laid out for the
 panel's width by the page (`app/src/components/goals/Pp.tsx`, Format's boxes and breaks);

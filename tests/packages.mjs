@@ -14,6 +14,7 @@ const page = await browser.newPage();
 await page.addInitScript(() => {
   localStorage.clear();
   localStorage.setItem("rocq-web:scratch.v", "Check nat.\n");
+  localStorage.setItem("rocq-web:check", "all");
 });
 // a new worker for each package: coq-lsp keeps what it loaded
 const start = async () => {

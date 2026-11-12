@@ -11,7 +11,11 @@ const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:517
 
 const browser = await launch();
 const page = await browser.newPage({ colorScheme: process.env.COLOR_SCHEME ?? "light" });
-await page.addInitScript(() => localStorage.clear());
+await page.addInitScript(() => {
+  localStorage.clear();
+  // (checked as it changes, the goals at the cursor)
+  localStorage.setItem("rocq-web:check", "all");
+});
 page.on("console", (m) => console.log(`[console] ${m.text()}`));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 const t0 = Date.now();

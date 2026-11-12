@@ -35,8 +35,11 @@ aside h2 { font-size: 0.8rem; text-transform: uppercase; color: #777; margin: 0.
 .editor-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .editor { flex: 1; overflow: auto; }
 .editor .cm-editor { height: 100%; font-size: 14px; }
-.editor .cm-processing { background: #fff8d6; }
-.editor .cm-unchecked { opacity: 0.55; }
+/* RocqIDE's colors: checked green, being checked blue */
+.editor .cm-checked { background: #d9f5d9; }
+.editor .cm-processing { background: #d6e9fb; }
+header .nav { display: flex; gap: 0.15rem; }
+header .nav button { display: flex; padding: 0.15rem 0.35rem; }
 header select { font-size: 0.8rem; padding: 0.1rem 0.3rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: inherit; }
 .help { position: absolute; right: 1rem; top: 2.6rem; z-index: 10; background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 0.5rem 0.75rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); font-size: 0.85rem; }
 .help td { padding: 0.15rem 0.5rem; }
@@ -122,7 +125,8 @@ pre.message, pre.error { font-size: 12px; }
   .library-bar { background: #262b36; border-color: #353a45; }
   .library .cm-editor { background: #21252b; }
   header select, .help { background: #2b303b; border-color: #444b58; }
-  .editor .cm-processing { background: #3d3720; }
+  .editor .cm-checked { background: #1d3b25; }
+  .editor .cm-processing { background: #1e3350; }
   .shared { background: #1f3326; }
   .shared.warning { background: #3a321c; }
   .kind { color: #c19ae6; }

@@ -13,6 +13,7 @@ const page = await browser.newPage();
 await page.addInitScript((text) => {
   localStorage.clear();
   localStorage.setItem("rocq-web:scratch.v", text);
+  localStorage.setItem("rocq-web:check", "all");
 }, readFileSync(file, "utf8"));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 if (process.env.CONSOLE) {

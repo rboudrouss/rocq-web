@@ -1,4 +1,5 @@
-// CodeMirror: the document, its diagnostics, and the part being checked.
+// CodeMirror: the document, its diagnostics, the part checked (step by step)
+// and the part being checked.
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -16,8 +17,8 @@ const dark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 export type EditorHandle = {
   setDiagnostics: (d: Diagnostic[]) => void;
   setProcessing: (r: Range[]) => void;
-  // The text not checked from [p] on (null: none)
-  setUnchecked: (p: Position | null) => void;
+  // The text checked, up to [p] (null: not shown)
+  setChecked: (p: Position | null) => void;
   // Selects a range (its start when [r] is a position) and shows it (in
   // the middle of the editor, or scrolled just enough: center false)
   goTo: (r: Range | Position, center?: boolean) => void;
@@ -68,17 +69,16 @@ const processing = StateField.define({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-// The text not checked yet when Rocq checks up to the cursor
-const setUncheckedEffect = StateEffect.define<Position | null>();
-const unchecked = StateField.define({
+// The text checked when Rocq checks step by step
+const setCheckedEffect = StateEffect.define<Position | null>();
+const checked = StateField.define({
   create: () => Decoration.none,
   update(deco, tr) {
     deco = deco.map(tr.changes);
     for (const e of tr.effects)
-      if (e.is(setUncheckedEffect)) {
-        const doc = tr.state.doc;
-        const from = e.value ? offset(doc, e.value) : doc.length;
-        deco = from < doc.length ? Decoration.set([Decoration.mark({ class: "cm-unchecked" }).range(from, doc.length)]) : Decoration.none;
+      if (e.is(setCheckedEffect)) {
+        const to = e.value ? offset(tr.state.doc, e.value) : 0;
+        deco = to > 0 ? Decoration.set([Decoration.mark({ class: "cm-checked" }).range(0, to)]) : Decoration.none;
       }
     return deco;
   },
@@ -161,8 +161,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
           dark() ? oneDark : syntaxHighlighting(defaultHighlightStyle),
           rocq,
           lintGutter(),
+          // (the part being checked shown over the part checked: inside it)
+          checked,
           processing,
-          unchecked,
           autocompletion({ override: [complete] }),
           hoverTooltip(async (v, pos) => {
             const h = await callbacks.current.hover?.(position(v.state.doc, pos));
@@ -220,8 +221,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
     setProcessing(rs) {
       view.current?.dispatch({ effects: setProcessingEffect.of(rs) });
     },
-    setUnchecked(p) {
-      view.current?.dispatch({ effects: setUncheckedEffect.of(p) });
+    setChecked(p) {
+      view.current?.dispatch({ effects: setCheckedEffect.of(p) });
     },
     goTo(r, center = true) {
       const v = view.current;

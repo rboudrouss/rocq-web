@@ -109,9 +109,14 @@ function beforeOf(b: Goal[], n: number, i: number): Goal | undefined {
 
 const text = (m: Text | { level: number; text: Text }) => (typeof m === "object" && !Array.isArray(m) ? m.text : m);
 
-// [result]: the goals after the sentence at the cursor, [before]: before it
-// (hint: shown without goals)
-export function Goals({ result, before, hint }: { result: GoalsResult | null; before: GoalsResult | null; hint?: string }) {
+// [result]: the goals after a sentence, [before]: before it (hint: shown
+// without goals; error: the one the checking stopped before)
+export function Goals({ result, before, hint, error }: {
+  result: GoalsResult | null;
+  before: GoalsResult | null;
+  hint?: string;
+  error?: string | null;
+}) {
   const [ref, width] = useColumns();
   // (off by default, as in RocqIDE)
   const [diffs, setDiffs] = useState(() => stored("rocq-web:diffs", false));
@@ -129,7 +134,7 @@ export function Goals({ result, before, hint }: { result: GoalsResult | null; be
   return (
     <div className="goals-view" ref={ref}>
       {g && g.goals.length > 0 && (
-        <label className="diffs muted" title="Highlight what the sentence at the cursor changed">
+        <label className="diffs muted" title="Highlight what the last sentence changed">
           <input type="checkbox" checked={diffs} onChange={(e) => setDiffs(e.target.checked)} /> changes
         </label>
       )}
@@ -157,6 +162,7 @@ export function Goals({ result, before, hint }: { result: GoalsResult | null; be
       )}
       {g && g.shelf.length > 0 && <p className="muted">{g.shelf.length} shelved</p>}
       {g && g.given_up.length > 0 && <p className="muted">{g.given_up.length} given up</p>}
+      {error && <pre className="error" data-testid="stopped">{error}</pre>}
       {result?.error && (
         <pre className="error">
           <PpView text={result.error} width={width} />

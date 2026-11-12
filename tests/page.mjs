@@ -8,7 +8,10 @@ const [file, url = process.env.ROCQ_WEB_URL ?? "http://localhost:5173/"] = proce
 
 const browser = await launch();
 const page = await browser.newPage();
-await page.addInitScript((text) => localStorage.setItem("rocq-web:scratch.v", text), readFileSync(file, "utf8"));
+await page.addInitScript((text) => {
+    localStorage.setItem("rocq-web:scratch.v", text);
+    localStorage.setItem("rocq-web:check", "all");
+  }, readFileSync(file, "utf8"));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 const t0 = Date.now();
 await page.goto(url);

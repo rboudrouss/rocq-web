@@ -1,13 +1,25 @@
 // The page's header: Rocq's status (and the files it downloads), the file
-// open, when Rocq checks it, the actions on the page
-import { CircleHelp } from "lucide-react";
+// open, when Rocq checks it (step by step: RocqIDE's buttons), the actions
+// on the page
+import { ArrowDown, ArrowDownToLine, ArrowRightToLine, ArrowUp, ArrowUpToLine, CircleHelp } from "lucide-react";
+import type { Move } from "../../hooks/useDocument";
+import { navLabel } from "../../lib/keys";
+
+const moves: [Move, string, typeof ArrowDown, string][] = [
+  ["start", "Back to the start", ArrowUpToLine, "Home"],
+  ["previous", "Back one sentence", ArrowUp, "ArrowUp"],
+  ["next", "Check the next sentence", ArrowDown, "ArrowDown"],
+  ["cursor", "Check up to the cursor", ArrowRightToLine, "ArrowRight"],
+  ["end", "Check up to the end", ArrowDownToLine, "End"],
+];
 
 type Props = {
   status: string;
   fetching: { path: string; files: number; bytes: number } | null;
   file: string;
-  toCursor: boolean;
-  changeMode: (toCursor: boolean) => void;
+  stepByStep: boolean;
+  changeMode: (stepByStep: boolean) => void;
+  move: (where: Move) => void;
   embedded: boolean;
   restart: () => void;
   share: () => void;
@@ -30,13 +42,30 @@ export function Header(p: Props) {
       )}
       <span className="file">{p.file}</span>
       <select
-        value={p.toCursor ? "cursor" : "all"}
-        onChange={(e) => p.changeMode(e.target.value === "cursor")}
-        title="When Rocq checks the file (Alt+Enter checks up to the cursor)"
+        value={p.stepByStep ? "step" : "all"}
+        onChange={(e) => p.changeMode(e.target.value === "step")}
+        title="When Rocq checks the file: step by step as in RocqIDE, the goals where the checking is; or all of it as you type, the goals at the cursor"
       >
+        <option value="step">Step by step</option>
         <option value="all">Check as you type</option>
-        <option value="cursor">Check up to the cursor</option>
       </select>
+      {p.stepByStep && (
+        <span className="nav" role="toolbar" aria-label="Navigation">
+          {moves.map(([where, what, Icon, key]) => (
+            <button
+              key={where}
+              data-move={where}
+              // (the editor keeps the focus)
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => p.move(where)}
+              title={`${what} (${navLabel(key)})`}
+              aria-label={what}
+            >
+              <Icon size={15} />
+            </button>
+          ))}
+        </span>
+      )}
       {p.embedded ? (
         <button onClick={p.openFull} title="This file in rocq-web, in a new tab">
           Open in rocq-web ↗

@@ -29,6 +29,7 @@ await page.addInitScript((files) => {
   localStorage.clear();
   for (const [n, t] of Object.entries(files)) localStorage.setItem(`rocq-web:${n}`, t);
   localStorage.setItem("rocq-web:active", "D.v");
+  localStorage.setItem("rocq-web:check", "all");
 }, files);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 let failed = 0;

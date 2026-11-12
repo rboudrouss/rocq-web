@@ -24,6 +24,8 @@ const problems = (page) => page.locator(".problems li").allTextContents();
 
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
+// (checked as they change: their problems all known)
+await page.addInitScript(() => localStorage.setItem("rocq-web:check", "all"));
 await page.goto(url);
 const list = await page.evaluate(async () => (await fetch("examples/index.json")).json());
 for (const e of list) {

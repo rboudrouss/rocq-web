@@ -32,6 +32,7 @@ await page.addInitScript(
     localStorage.setItem("rocq-web:A.v", a);
     localStorage.setItem("rocq-web:B.v", b);
     localStorage.setItem("rocq-web:active", "B.v");
+    localStorage.setItem("rocq-web:check", "all");
   },
   [A, B],
 );
