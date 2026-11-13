@@ -74,8 +74,12 @@ export function gitHubRepository(spec: string): { owner: string; repo: string; r
   return null;
 }
 
-async function json<T>(url: string): Promise<T> {
+// (missing: the message of a 404)
+async function json<T>(url: string, missing: string): Promise<T> {
   const r = await fetch(url);
+  if (r.status === 404) throw new Error(missing);
+  if (r.status === 403 || r.status === 429)
+    throw new Error(`${url}: HTTP ${r.status}, too many requests for now (give a tag or a branch: owner/repo@ref)`);
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
   return r.json();
 }
@@ -86,9 +90,17 @@ export async function gitHubLibrary(
   { owner, repo, ref }: { owner: string; repo: string; ref: string | null },
   progress: (done: number, total: number) => void,
 ): Promise<Library> {
-  ref ??= (await json<{ default_branch: string }>(`https://api.github.com/repos/${owner}/${repo}`)).default_branch;
+  ref ??= (
+    await json<{ default_branch: string }>(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      `${owner}/${repo} is not a public GitHub repository`,
+    )
+  ).default_branch;
   const at = `${owner}/${repo}@${ref}`;
-  const listing = await json<{ files: { name: string }[] }>(`https://data.jsdelivr.com/v1/packages/gh/${at}?structure=flat`);
+  const listing = await json<{ files: { name: string }[] }>(
+    `https://data.jsdelivr.com/v1/packages/gh/${at}?structure=flat`,
+    `${at} not found: no public repository with this branch, tag or commit`,
+  );
   const paths = listing.files.map((f) => f.name.replace(/^\//, ""));
   const project = paths.find((p) => p === "_RocqProject") ?? paths.find((p) => p === "_CoqProject");
   const get = async (p: string) => {
