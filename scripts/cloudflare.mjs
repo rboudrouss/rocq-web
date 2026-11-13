@@ -1,13 +1,14 @@
-// The site of scripts/dist.mjs for Cloudflare (a Worker with static assets,
-// or Pages), which serves no file over 25 MiB: those (the lsp_worker.wasm of
-// the builds) are served by an R2 bucket at ASSETS_URL (a custom domain, its
+// The site of scripts/dist.mjs for Cloudflare Pages (or a Worker with
+// static assets), which serves no file over 25 MiB: those (the
+// lsp_worker.wasm of the builds) are served by an R2 bucket at ASSETS_URL
+// (a custom domain, its
 // CORS policy allowing the site's origin), in a directory named after their
 // hash (they must match the lsp_worker.js of the page: an upload replaces
 // nothing a deployed page uses, and they are cached for good), where
 // rocq/worker.js finds them:
 //   node scripts/cloudflare.mjs ASSETS_URL [DIST]
-// writes DIST-cloudflare/ (the site, for wrangler deploy, without the .br
-// files: Cloudflare compresses itself) and DIST-r2/HASH/ (the bucket's new
+// writes DIST-cloudflare/ (the site, for wrangler pages deploy, without
+// the .br files: Cloudflare compresses itself) and DIST-r2/HASH/ (the bucket's new
 // files, with their brotli compression, for scripts/r2-upload.sh).
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";

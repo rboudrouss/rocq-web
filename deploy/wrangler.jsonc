@@ -1,8 +1,0 @@
-// The Cloudflare Worker serving the site (its static assets only:
-// dist-cloudflare/, from scripts/cloudflare.mjs; _headers and _redirects
-// apply): npx wrangler deploy -c deploy/wrangler.jsonc
-{
-  "name": "rocqweb",
-  "compatibility_date": "2026-11-01",
-  "assets": { "directory": "../dist-cloudflare" }
-}
