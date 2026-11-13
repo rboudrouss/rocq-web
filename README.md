@@ -1,89 +1,76 @@
 # rocq-web
 
-Rocq in the browser, compiled to WebAssembly with
-[ocaml-emcc](https://github.com/rboudrouss/ocaml-emcc), with its plugins
-and libraries (mathcomp...) fetched when a document needs them. Work in
-progress: see [docs/design.md](docs/design.md).
+The [Rocq prover](https://rocq-prover.org) (formerly Coq) running entirely
+in the browser: Rocq 9.2 and its language server,
+[coq-lsp](https://github.com/ejgallego/coq-lsp), compiled to WebAssembly,
+in an editor made for proofs. No server checks anything: once the page is
+loaded, Rocq runs on your machine, and your files stay in your browser.
+
+It comes with the libraries most developments use, fetched only when a
+file requires them: the standard library, Mathematical Components (and
+analysis), Iris and stdpp, Equations, MetaRocq, Hierarchy-Builder and
+rocq-elpi, Flocq, Coquelicot, Interval, CoRN, ExtLib, ITree, Paco... 57
+packages in all, their plugins included.
+
+## What it does
+
+- **Proofs as in an IDE**: the goals at the cursor, what each step
+  changed, checking as you type or step by step (as RocqIDE), errors and
+  warnings, hover, completion, go to definition (into the libraries'
+  sources too), the outline of a file, queries (`Search`, `About`,
+  `Check`...).
+- **Several files and projects**: folders, a `_RocqProject`, files
+  requiring one another (compiled in the browser, their `.vo` kept),
+  folders imported or opened from disk, zip archives.
+- **Libraries**: the packages above, browsed with their modules and
+  searched by declaration; other Rocq libraries added from a GitHub
+  repository or an archive.
+- **Sharing**: a link with a file's text, examples and tutorials, the
+  page embedded in another (`?embed`).
+
+Its limits: Rocq's `native_compute` falls back to its VM (same results);
+a library added by hand cannot bring OCaml plugins, which cannot be built
+in the browser; the memory is the browser's (a heavy session may use
+several GB, Restart frees it).
+
+## Browsers
+
+| | build | |
+|-|-------|-|
+| Chrome, Edge 137+ | full (wasm64 with JSPI) | up to 16 GB of memory |
+| Firefox, older Chromium (Safari 18.2+: untested) | compat (the same code, a 32-bit memory) | slower to start, up to 4 GB |
+
+The page picks the build itself.
+
+## How it works
+
+The OCaml of Rocq and coq-lsp is compiled to C by c_of_ocaml, then to
+WebAssembly by emscripten, through
+[ocaml-emcc](https://github.com/rboudrouss/ocaml-emcc); Rocq's plugins are
+WebAssembly side modules loaded on `Declare ML Module`. The language
+server runs in a Web Worker, which reads the libraries' files from the
+site as Rocq opens them. The web app (React, CodeMirror) talks to it as an
+LSP client. [docs/design.md](docs/design.md) has the details.
+
+## Documentation
+
+| | |
+|-|-|
+| [docs/building.md](docs/building.md) | the toolchain, building the two builds, the app, the static site, the tests |
+| [docs/deploying.md](docs/deploying.md) | serving the site (cross-origin isolation, brotli): Docker, Cloudflare Pages and R2 |
+| [docs/design.md](docs/design.md) | the two builds, plugins, packages, workspaces and libraries, interrupts |
+| [docs/status.md](docs/status.md) | what works in each build, known problems |
+| [docs/native-compute.md](docs/native-compute.md) | thoughts on `native_compute` in the browser |
 
 ## Layout
 
 | path | what |
 |------|------|
-| `worker/` | the OCaml program: Rocq, with `Declare ML Module` loading wasm plugins |
-| `scripts/build.sh` | builds the worker and Rocq's plugins for the full or compat build |
-| `scripts/byte-plugins.sh` | the bytecode of plugins opam installs native only (coq_makefile's) |
-| `scripts/dist.mjs`, `scripts/serve.mjs` | the static site (`dist/`, brotli), a server for it (COOP/COEP) |
-| `deploy/Dockerfile`, `scripts/deploy.sh` | its image, deployed to Coolify |
-| `scripts/cloudflare.mjs`, `scripts/r2-upload.sh` | the site on Cloudflare Pages, its files over 25 MiB in R2 |
+| `worker/` | the OCaml programs: coq-lsp's server for a Web Worker, and Rocq, with `Declare ML Module` loading wasm plugins |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
-| `app/` | the web app (pnpm, Vite, React, CodeMirror): files, libraries, outline, packages, examples, goals, queries, coq-lsp client |
-| `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `libraries.mjs`, `examples.mjs`, `search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`, `probe.mjs`), on another machine (`remote.sh`) |
-| `docs/status.md` | where each build stands, blockers |
-| `docs/design.md` | the two builds (wasm64 + JSPI, wasm64 lowered to wasm32 + CPS stack), plugins, packages |
-
-## Running
-
-```sh
-scripts/vendor.sh                      # coq-lsp, patched
-. scripts/env.sh
-scripts/byte-plugins.sh                # once the switch's Rocq packages are installed
-scripts/build.sh full                  # and/or compat
-cd app && pnpm install && pnpm dev     # http://localhost:5173/
-```
-
-The C that c_of_ocaml generates must come from c_of_ocaml 083e5706 or
-later (the applications to more arguments than the arity off emscripten's
-C stack, the asynchronous actions of allocations, the loops of tail calls
-through closures): `OCAML_EMCC_C_OF_OCAML` names it when the switch's is
-older. An older one builds a worker whose Ltac loops overflow the stack,
-whose reductions cannot be interrupted, and whose compat build overflows
-on `Search` (Rocq's `Constr_matching.sub_match`).
-
-The static site, served cross-origin isolated (COOP and COEP: the
-interrupts of Rocq need it), with brotli:
-
-```sh
-node scripts/dist.mjs                  # dist/
-node scripts/serve.mjs dist 8080       # http://localhost:8080/
-```
-
-On a Coolify application of this machine (a Docker image, through a
-local registry):
-
-```sh
-node scripts/dist.mjs && scripts/deploy.sh APP_UUID
-```
-
-Elsewhere, the server must send `Cross-Origin-Opener-Policy: same-origin`
-and `Cross-Origin-Embedder-Policy: require-corp` (`dist/_headers` for
-Netlify and Cloudflare Pages), and `Content-Encoding: br` for `FILE.br`
-when it exists. On hosts without headers (GitHub Pages), a service worker
-(`coi.js`) adds them at the second load.
-
-On Cloudflare Pages (the project `rocqweb`), which serves no file over
-25 MiB, the `lsp_worker.wasm` of each build comes from the R2 bucket
-`rocqweb`:
-
-1. Once: connect the bucket to a custom domain, ASSETS_DOMAIN below (the
-   `r2.dev` URL is rate-limited, for development only), and give it a
-   CORS policy allowing the site's origin (Settings > CORS Policy):
-   ```json
-   [{ "AllowedOrigins": ["https://SITE_DOMAIN"], "AllowedMethods": ["GET", "HEAD"] }]
-   ```
-   and `npx wrangler login` (or `CLOUDFLARE_API_TOKEN`).
-2. Each deployment, once `out/full/web` and `out/compat/web` are built:
-   ```sh
-   node scripts/dist.mjs                                 # dist/
-   node scripts/cloudflare.mjs https://ASSETS_DOMAIN     # dist-cloudflare/, dist-r2/
-   scripts/r2-upload.sh rocqweb                          # dist-r2/ into the bucket
-   npx wrangler pages deploy dist-cloudflare --project-name rocqweb --branch main
-   ```
-   (`--branch main`: the production deployment, whatever the branch
-   checked out; another branch name gives a preview deployment)
-
-The big files go in a directory named after their hash
-(`rocqweb/HASH/rocq/BUILD/lsp_worker.wasm`, brotli compressed): they must
-match the `lsp_worker.js` of the page, so an upload replaces nothing a
-deployed page uses, and they are cached for good.
-`dist-cloudflare/rocq/worker.js` has their URLs. The directories of old
-builds stay in the bucket until deleted.
+| `app/` | the web app (pnpm, Vite, React, CodeMirror) |
+| `scripts/` | building (`build.sh`, `byte-plugins.sh`, `vendor.sh`, `env.sh`), the static site (`dist.mjs`, `serve.mjs`), deploying (`deploy.sh`, `cloudflare.mjs`, `r2-upload.sh`) |
+| `vendor/`, `patches/` | coq-lsp, and the patches applied to it |
+| `deploy/` | the Docker image of the site |
+| `tests/` | comparisons with the native Rocq, LSP over stdio, the app in headless Chromium |
+| `docs/` | the documentation above |
