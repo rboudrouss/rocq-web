@@ -121,10 +121,10 @@ a GitHub repository, its files
 fetched from jsDelivr (`data.jsdelivr.com` lists them,
 `cdn.jsdelivr.net/gh/OWNER/REPO@REF/` serves them; GitHub's archives,
 `codeload.github.com`, are not for other sites: CORS), from the URL of an
-archive whose server allows it, or from an archive on disk (zip, tar,
-tar.gz: `app/src/lib/archive.ts`). Its project file at its top is kept,
+archive whose server allows it, or from an archive (zip, tar, tar.gz:
+`app/src/lib/archive.ts`) or a folder on disk. Its project file at its top is kept,
 with the `.v` of the directories it names. Its OCaml plugins
-(`Declare ML Module`) cannot be built in the browser: only the build's
+(`Declare ML Module`) cannot be built in the browser yet: only the build's
 packages have theirs, which the app tells.
 
 Each workspace is a workspace folder of coq-lsp (`/workspace/DIR`, the

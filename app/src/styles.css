@@ -78,6 +78,7 @@ kbd { font-family: ui-monospace, monospace; font-size: 0.8rem; }
 .packages button.link:hover:not(:disabled) { text-decoration: underline; }
 .packages button.link.danger { color: #b00020; }
 .packages button:disabled { opacity: 0.5; cursor: default; }
+.add-library .from-disk { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.6rem; font-size: 0.78rem; }
 .library-actions { display: flex; gap: 0.75rem; margin-left: 1rem; }
 .modules li button { font-family: ui-monospace, monospace; font-size: 0.78rem; }
 

@@ -1,7 +1,7 @@
 // Packages: the libraries the user added (hooks/useLibraries.ts: from
-// GitHub or an archive, each a workspace of its own), a form to add one,
+// GitHub, an archive or a folder, each a workspace of its own), a form to add one,
 // and the build's packages (scripts/assets.mjs's packages.json)
-import { FolderOpen, PackagePlus, Trash2, Upload } from "lucide-react";
+import { FolderInput, FolderOpen, PackagePlus, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Libraries } from "../../hooks/useLibraries";
 
@@ -61,6 +61,8 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
   const [spec, setSpec] = useState("");
   const specInput = useRef<HTMLInputElement>(null);
   const archiveInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  useEffect(() => folderInput.current?.setAttribute("webkitdirectory", ""), []);
   useEffect(() => {
     if (focusAdd) specInput.current?.focus();
   }, [focusAdd]);
@@ -96,14 +98,20 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
             <PackagePlus size={14} /> Add
           </button>
         </form>
-        <button className="link" disabled={libs.progress !== null} onClick={() => archiveInput.current?.click()}>
-          <Upload size={12} /> or an archive on disk (.zip, .tar.gz)
-        </button>
+        <div className="from-disk">
+          <span className="muted">or from disk:</span>
+          <button className="link" disabled={libs.progress !== null} onClick={() => archiveInput.current?.click()}>
+            <Upload size={12} /> an archive (.zip, .tar.gz)
+          </button>
+          <button className="link" disabled={libs.progress !== null} onClick={() => folderInput.current?.click()}>
+            <FolderInput size={12} /> a folder
+          </button>
+        </div>
         {libs.progress && <p className="muted progress">{libs.progress}…</p>}
         {libs.error && <p className="error">{libs.error}</p>}
         <p className="muted">
-          Rocq files from GitHub or an archive, added to your files as a workspace of their own. Their OCaml plugins
-          cannot be built in the browser.
+          Rocq files from GitHub, an archive or a folder, added to your files as a workspace of their own. Their OCaml
+          plugins cannot be built in the browser yet.
         </p>
         <input
           ref={archiveInput}
@@ -113,6 +121,16 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) libs.fromArchive(file);
+            e.target.value = "";
+          }}
+        />
+        <input
+          ref={folderInput}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            if (e.target.files?.length) libs.fromFolder(e.target.files);
             e.target.value = "";
           }}
         />

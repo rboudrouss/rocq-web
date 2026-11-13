@@ -26,13 +26,13 @@ packages in all, their plugins included.
   folders imported or opened from disk, zip archives.
 - **Libraries**: the packages above, browsed with their modules and
   searched by declaration; other Rocq libraries added from a GitHub
-  repository or an archive.
+  repository, an archive or a folder.
 - **Sharing**: a link with a file's text, examples and tutorials, the
   page embedded in another (`?embed`).
 
 Its limits: Rocq's `native_compute` falls back to its VM (same results);
 a library added by hand cannot bring OCaml plugins, which cannot be built
-in the browser; the memory is the browser's (a heavy session may use
+in the browser yet; the memory is the browser's (a heavy session may use
 several GB, Restart frees it).
 
 ## Browsers

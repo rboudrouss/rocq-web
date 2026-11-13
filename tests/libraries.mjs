@@ -1,8 +1,8 @@
 // The libraries of the Packages panel (headless Chromium, as
 // tests/browser.mjs): the Files panel's button focusing its form, a GitHub
 // repository added (through jsDelivr: the network), its modules listed and
-// one required from a file, an error shown, an archive added from disk, the
-// filter, a library removed, the list kept after a reload.
+// one required from a file, an error shown, an archive and a folder added
+// from disk, the filter, a library removed, the list kept after a reload.
 //   node tests/libraries.mjs [URL]
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -68,10 +68,23 @@ mkdirSync(join(lib, "mini-1.0", "theories"), { recursive: true });
 writeFileSync(join(lib, "mini-1.0", "_CoqProject"), "-R theories Mini\n");
 writeFileSync(join(lib, "mini-1.0", "theories", "A.v"), "Definition mini := 1.\n");
 execFileSync("tar", ["czf", join(lib, "mini-1.0.tar.gz"), "-C", lib, "mini-1.0"]);
-await page.locator('.add-library input[type="file"]').setInputFiles(join(lib, "mini-1.0.tar.gz"));
+await page.locator('.add-library input[accept*=".tgz"]').setInputFiles(join(lib, "mini-1.0.tar.gz"));
 await page.waitForFunction(() => document.querySelectorAll(".library-entry").length === 2, null, { timeout: 30000 });
 check(true, "the archive's library listed");
 check(!(await page.locator(".add-library .error").count()), "the error cleared");
+
+// a folder on disk, from the panel (its hidden folders skipped)
+mkdirSync(join(lib, "Tiny", ".git"), { recursive: true });
+writeFileSync(join(lib, "Tiny", "_CoqProject"), "-R . Tiny\n");
+writeFileSync(join(lib, "Tiny", "B.v"), "Definition tiny := 2.\n");
+writeFileSync(join(lib, "Tiny", ".git", "C.v"), "Fail.\n");
+await page.locator(".add-library input[webkitdirectory]").setInputFiles(join(lib, "Tiny"));
+await page.waitForFunction(() => document.querySelectorAll(".library-entry").length === 3, null, { timeout: 30000 });
+const tiny = page.locator(".library-entry", { hasText: "Tiny" });
+check((await tiny.locator("summary").textContent()).includes("Tiny/"), "the folder's library listed");
+await tiny.locator("summary").click();
+const tinyMods = await tiny.locator(".modules button").allTextContents();
+check(tinyMods.join() === "Tiny.B", `its modules: ${tinyMods}`);
 
 // the filter reaches the libraries' modules
 await page.locator('.packages input[placeholder^="Search"]').fill("mini");
@@ -84,7 +97,7 @@ if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT
 await page.locator(".library-entry", { hasText: "mini-1.0" }).locator("summary").click();
 await page.locator(".library-entry", { hasText: "mini-1.0" }).locator("button", { hasText: "Remove" }).click();
 await page.waitForTimeout(500);
-check((await page.locator(".library-entry").count()) === 1, "mini-1.0 removed");
+check((await page.locator(".library-entry").count()) === 2, "mini-1.0 removed");
 await page.locator('.activity button[aria-label="Files"]').click();
 const titles = await page.locator(".files li button.name").evaluateAll((bs) => bs.map((b) => b.title));
 check(!titles.some((t) => t.startsWith("mini-1.0")), "its files gone");
@@ -93,7 +106,7 @@ check(!titles.some((t) => t.startsWith("mini-1.0")), "its files gone");
 await page.reload();
 await page.waitForFunction(() => document.querySelector(".log")?.textContent.includes("server ready"), null, { timeout: 120000 });
 await page.locator('.activity button[aria-label="Packages and libraries"]').click();
-check((await page.locator(".library-entry").count()) === 1, "still listed after a reload");
+check((await page.locator(".library-entry").count()) === 2, "still listed after a reload");
 await browser.close();
 console.log(`${failed} failed`);
 process.exit(failed ? 1 : 0);

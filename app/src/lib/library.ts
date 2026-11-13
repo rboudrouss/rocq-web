@@ -2,9 +2,10 @@
 // others require its modules by their qualified names): from a GitHub
 // repository, through jsDelivr (which serves a repository's files to other
 // sites, CORS, where GitHub's archives do not), from the URL of an archive,
-// or from an archive on disk. Its files: its project file and the .v of the
-// directories it names. Its OCaml plugins (Declare ML Module) cannot be
-// built in the browser: only those of the build's packages load.
+// or from an archive or a folder on disk. Its files: its project file and
+// the .v of the directories it names. Its OCaml plugins (Declare ML Module)
+// cannot be built in the browser yet: only those of the build's packages
+// load.
 import { readArchive } from "./archive";
 import type { DiskFile } from "./disk";
 
@@ -59,6 +60,16 @@ export async function archiveLibrary(fileName: string, data: Uint8Array): Promis
     .map((e) => ({ path: top ? e.path.slice(top.length + 1) : e.path, text: text.decode(e.data) }));
   const base = (top ?? fileName.split("/").pop()!).replace(/\.(zip|tar|tar\.gz|tgz)$/i, "");
   return libraryFiles(folderName(base), files);
+}
+
+// The files of a folder picked on disk (lib/disk.ts's readInput: their
+// paths start with the folder's name, which names the library)
+export function folderLibrary(found: DiskFile[]): Library {
+  const top = found[0]?.path.split("/")[0] ?? "library";
+  const files = found
+    .filter((f) => f.path.startsWith(`${top}/`))
+    .map((f) => ({ path: f.path.slice(top.length + 1), text: f.text }));
+  return libraryFiles(folderName(top), files);
 }
 
 // owner/repo, owner/repo@ref, https://github.com/owner/repo[/tree/ref], or

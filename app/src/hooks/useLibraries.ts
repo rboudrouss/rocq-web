@@ -1,9 +1,10 @@
 // The libraries of Rocq files the user added (lib/library.ts), each a
 // workspace of its own: added from the Packages panel (a GitHub repository,
-// an archive's URL or one on disk) or from the Files panel (archives
+// an archive's URL, an archive or a folder on disk) or from the Files panel (archives
 // imported), listed with their modules and where they came from.
 import { useCallback, useRef, useState } from "react";
-import { archiveLibrary, fetchLibrary, type Library } from "../lib/library";
+import { readInput } from "../lib/disk";
+import { archiveLibrary, fetchLibrary, folderLibrary, type Library } from "../lib/library";
 import { isRocq } from "../lib/storage";
 import { isLibraryName, moduleName, root } from "../lib/workspaces";
 import type { Workspace } from "./useWorkspace";
@@ -42,7 +43,7 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
         if (hidden.length)
           log(`${lib.name} has modules ${hidden.join(", ")} as a library of the build does, Rocq may load either`);
         if (lib.plugins)
-          log(`${lib.name} declares OCaml plugins (Declare ML Module), which only the build's packages have in the browser`);
+          log(`${lib.name} declares OCaml plugins (Declare ML Module), which cannot be built in the browser yet: only the build's packages have theirs`);
         log(`added the library ${lib.name}`);
         return true;
       } catch (e) {
@@ -73,6 +74,12 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
     (file: File) => add(file.name, async () => archiveLibrary(file.name, new Uint8Array(await file.arrayBuffer()))),
     [add],
   );
+  // (the files of an <input webkitdirectory>)
+  const fromFolder = useCallback(
+    (list: FileList) =>
+      add(`${list[0]?.webkitRelativePath.split("/")[0] ?? "a folder"}/`, async () => folderLibrary(await readInput(list))),
+    [add],
+  );
 
   // (those still in the files, a library's folder deleted there too)
   const libraries: AddedLibrary[] = added
@@ -92,7 +99,7 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
     setAdded(latest.current.filter((l) => l.folder !== folder));
   };
 
-  return { libraries, progress, error, fromSpec, fromArchive, remove };
+  return { libraries, progress, error, fromSpec, fromArchive, fromFolder, remove };
 }
 
 export type Libraries = ReturnType<typeof useLibraries>;

@@ -23,8 +23,8 @@ The app (`app/`):
   compiled (`coq/saveVo`), again when it changed, and its errors shown if
   it does not compile, in its workspace or another (`From Lib Require`);
   the `.vo` kept in the browser from one load to the next; libraries of
-  Rocq files added from GitHub (through jsDelivr) or archives (zip,
-  tar.gz), workspaces of their own, listed with their modules in the
+  Rocq files added from GitHub (through jsDelivr), archives (zip,
+  tar.gz) or folders, workspaces of their own, listed with their modules in the
   Packages panel; `Load`; the files Rocq writes (`Extraction`), shown
   and downloaded; a link sharing a file (its text in the URL), downloads;
 - diagnostics, the Problems panel, hover, completion (identifiers,
