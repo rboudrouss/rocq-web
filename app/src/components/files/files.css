@@ -22,7 +22,6 @@
 .file-form { width: 100%; }
 .file-form input { font-family: ui-monospace, monospace; font-size: 0.82rem; padding: 0.1rem 0.3rem; }
 .files h3 { font-size: 0.75rem; text-transform: uppercase; color: #777; margin: 0.75rem 0 0.25rem; }
-.files-help { margin: 0.25rem 0.2rem; }
 .produced { list-style: none; margin: 0; padding: 0; }
 .produced li { display: flex; align-items: center; gap: 0.3rem; }
 .produced li button { border: 0; background: none; padding: 0.2rem 0.3rem; color: inherit; }

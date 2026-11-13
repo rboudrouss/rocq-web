@@ -109,10 +109,7 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
         </div>
         {libs.progress && <p className="muted progress">{libs.progress}…</p>}
         {libs.error && <p className="error">{libs.error}</p>}
-        <p className="muted">
-          Rocq files from GitHub, an archive or a folder, added to your files as a workspace of their own. Their OCaml
-          plugins cannot be built in the browser yet.
-        </p>
+        <p className="muted">OCaml plugins cannot be built in the browser yet.</p>
         <input
           ref={archiveInput}
           type="file"
@@ -158,7 +155,7 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
               {modules.length ? (
                 <Modules modules={modules} insert={insert} />
               ) : (
-                <p className="muted">No module: its project file names none of its files.</p>
+                <p className="muted">No modules.</p>
               )}
             </details>
           ))}
@@ -170,10 +167,6 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
         <p className="muted">Loading…</p>
       ) : (
         <>
-          <p className="muted">
-            {packages.length} packages. Click a module to insert its <code>Require</code>. Its files are downloaded when
-            Rocq loads it.
-          </p>
           {shown.map(({ p, modules, open }) => (
             <details key={p.name} open={open || undefined}>
               <summary>

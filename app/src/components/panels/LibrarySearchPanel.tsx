@@ -56,11 +56,6 @@ export function LibrarySearchPanel({ url, open }: { url: string; open: (d: Decla
         onChange={(e) => (load(), setQuery(e.target.value))}
       />
       {loading && <p className="muted">{loading}</p>}
-      {index && !query && (
-        <p className="muted">
-          {index.length} declarations of the libraries' sources, by name and statement. Click one to read its source.
-        </p>
-      )}
       {index && query.trim().length >= 2 && results.length === 0 && <p className="muted">Nothing found.</p>}
       <ul>
         {results.slice(0, 200).map((d, i) => (

@@ -23,7 +23,7 @@ import { type DragEvent, type MouseEvent, useEffect, useMemo, useRef, useState }
 import { saveBlob, saveZip } from "../../lib/download";
 import { canOpenFolder, openFolder, readDropped, readInput } from "../../lib/disk";
 import { basename, dirname, isProject, isRocq, projectFile, validFolder, validName, within } from "../../lib/storage";
-import { canBeWorkspace, customProject, generatedProject, root, workspaceName, workspaceOf } from "../../lib/workspaces";
+import { canBeWorkspace, customProject, generatedProject, root, workspaceName } from "../../lib/workspaces";
 import type { Libraries } from "../../hooks/useLibraries";
 import type { Workspace } from "../../hooks/useWorkspace";
 import { usePersistentState } from "../../hooks/usePersistentState";
@@ -230,7 +230,6 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log, 
     else log("nothing to import, no Rocq files (.v) nor project files");
   };
 
-  const here = workspaceOf(ws.active, ws.workspaces);
   return (
     <div className="files" onContextMenu={(e) => menuFor(e, null)}>
       <div className="files-toolbar">
@@ -301,27 +300,6 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log, 
           />
         </ul>
       </div>
-      <p className="muted files-help">
-        {here === root ? (
-          customProject(root, ws.files) ? (
-            <>
-              <code>{projectFile}</code> names the modules of the files outside the workspaces.
-            </>
-          ) : (
-            <>
-              A file outside the workspaces is the module <code>Workspace.NAME</code> (<code>Workspace.DIR.NAME</code> in a
-              folder).
-            </>
-          )
-        ) : (
-          <>
-            {ws.active} is in the workspace <b>{here}</b>: its files are the modules{" "}
-            <code>{nameOf(here)}.*</code>
-            {customProject(here, ws.files) ? ", as its project file says" : ""}.
-          </>
-        )}{" "}
-        <code>Require Import NAME.</code> compiles the file first. Right click for more.
-      </p>
       {produced.length > 0 && (
         <>
           <h3>Written by Rocq</h3>

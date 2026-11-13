@@ -21,10 +21,6 @@ export function ExamplesPanel({ open, log }: { open: (e: Example) => void; log: 
           </li>
         ))}
       </ul>
-      <p className="muted">
-        An example's files are copied into a workspace of their own, a folder of your files. A link with{" "}
-        <code>?example=Basics</code> opens one directly, and <code>?embed</code> shows it in another page (an iframe).
-      </p>
     </div>
   );
 }
