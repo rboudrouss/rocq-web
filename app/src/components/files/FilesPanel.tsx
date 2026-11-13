@@ -22,17 +22,9 @@ import {
 import { type DragEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { saveBlob, saveZip } from "../../lib/download";
 import { canOpenFolder, openFolder, readDropped, readInput } from "../../lib/disk";
-import { archiveLibrary, fetchLibrary, type Library } from "../../lib/library";
 import { basename, dirname, isProject, isRocq, projectFile, validFolder, validName, within } from "../../lib/storage";
-import {
-  canBeWorkspace,
-  customProject,
-  generatedProject,
-  isLibraryName,
-  root,
-  workspaceName,
-  workspaceOf,
-} from "../../lib/workspaces";
+import { canBeWorkspace, customProject, generatedProject, root, workspaceName, workspaceOf } from "../../lib/workspaces";
+import type { Libraries } from "../../hooks/useLibraries";
 import type { Workspace } from "../../hooks/useWorkspace";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import { ContextMenu, type MenuItem } from "../ui/ContextMenu";
@@ -47,11 +39,14 @@ type Props = {
   viewProduced: (path: string) => void;
   downloadProduced: (path: string) => void;
   log: (m: string) => void;
+  // (archives imported: libraries; addLibrary: the Packages panel's form)
+  libs: Libraries;
+  addLibrary: () => void;
 };
 
 const dragType = "application/x-rocq-web-path";
 
-export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }: Props) {
+export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log, libs, addLibrary }: Props) {
   const [collapsedList, setCollapsed] = usePersistentState<string[]>("collapsed", []);
   const collapsed = useMemo(() => new Set(collapsedList), [collapsedList]);
   const [editing, setEditing] = useState<Editing>(null);
@@ -121,39 +116,6 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
   const importFiles = (into: string) => {
     importInto.current = into;
     fileInput.current?.click();
-  };
-  // A library (lib/library.ts): a workspace of its own
-  const addLibrary = async (get: () => Promise<Library>) => {
-    try {
-      const lib = await get();
-      if (!lib.files.some((f) => isRocq(f.path))) return log(`${lib.name} has no Rocq files (.v)`);
-      const written = ws.importFiles(
-        lib.files.map((f) => ({ path: `${lib.name}/${f.path}`, text: f.text })),
-        root,
-      );
-      if (!written.length) return;
-      const hidden = lib.names.filter(isLibraryName);
-      if (hidden.length)
-        log(`${lib.name} has modules ${hidden.join(", ")} as a library of the build does, Rocq may load either`);
-      if (lib.plugins)
-        log(`${lib.name} declares OCaml plugins (Declare ML Module), which only the build's packages have in the browser`);
-    } catch (e) {
-      log((e as Error).message);
-    }
-  };
-  const libraryFromUrl = () => {
-    const spec = prompt(
-      "A GitHub repository (owner/repo, owner/repo@tag, its URL) or the URL of a .zip or .tar.gz archive, added as a library",
-    )?.trim();
-    if (!spec) return;
-    log(`fetching ${spec}`);
-    let shown = 0;
-    addLibrary(() =>
-      fetchLibrary(spec, (done, total) => {
-        // (every quarter)
-        if (done === total || done >= shown + total / 4) log(`fetched ${(shown = done)} of the ${total} files of ${spec}`);
-      }),
-    );
   };
   const fromDisk = (into: string) =>
     openFolder(into).then(
@@ -232,7 +194,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
         custom
           ? { label: `Open ${projectFile}`, icon: <FileCog size={14} />, action: () => ws.select(custom) }
           : { label: `Write the root's ${projectFile}`, icon: <FileCog size={14} />, action: () => ws.customizeProject(root) },
-        { label: "Add a library…", icon: <PackagePlus size={14} />, action: libraryFromUrl },
+        { label: "Add a library…", icon: <PackagePlus size={14} />, action: addLibrary },
         { label: "Export all as zip", icon: <Archive size={14} />, action: () => zipOf(root) },
       );
     }
@@ -299,9 +261,9 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
         )}
         <button
           className="icon-button"
-          title="Add a library, from GitHub or an archive (.zip, .tar.gz), a workspace of its own"
+          title="Add a library, from GitHub or an archive (.zip, .tar.gz), in the Packages panel"
           aria-label="Add a library"
-          onClick={libraryFromUrl}
+          onClick={addLibrary}
         >
           <PackagePlus size={16} />
         </button>
@@ -400,7 +362,7 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log }
           // (archives: libraries)
           const isArchive = (f: File) => /\.(zip|tar|tar\.gz|tgz)$/i.test(f.name);
           for (const f of all.filter(isArchive))
-            await addLibrary(async () => archiveLibrary(f.name, new Uint8Array(await f.arrayBuffer())));
+            await libs.fromArchive(f);
           const dt = new DataTransfer();
           for (const f of all.filter((f) => !isArchive(f))) dt.items.add(f);
           const list = dt.files.length ? dt.files : null;

@@ -67,6 +67,18 @@ kbd { font-family: ui-monospace, monospace; font-size: 0.8rem; }
 .packages summary { cursor: pointer; font-size: 0.85rem; }
 .packages .synopsis { color: #666; font-size: 0.78rem; margin-left: 1rem; }
 .packages a { font-size: 0.75rem; word-break: break-all; }
+.packages h3 { font-size: 0.75rem; text-transform: uppercase; color: #777; margin: 0.75rem 0 0.25rem; }
+.add-library { border-bottom: 1px solid #eee; padding-bottom: 0.4rem; margin-bottom: 0.5rem; }
+.add-library h3 { margin-top: 0.25rem; }
+.add-library form { display: flex; gap: 0.3rem; }
+.add-library form input { flex: 1; min-width: 0; margin: 0; }
+.add-library form .button { display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.add-library p { font-size: 0.78rem; margin: 0.3rem 0; }
+.packages button.link { display: inline-flex; align-items: center; gap: 0.25rem; border: 0; background: none; padding: 0.2rem 0; font-size: 0.78rem; color: #3b6fd8; }
+.packages button.link:hover:not(:disabled) { text-decoration: underline; }
+.packages button.link.danger { color: #b00020; }
+.packages button:disabled { opacity: 0.5; cursor: default; }
+.library-actions { display: flex; gap: 0.75rem; margin-left: 1rem; }
 .modules li button { font-family: ui-monospace, monospace; font-size: 0.78rem; }
 
 .goals { flex: 3; overflow: auto; font-family: ui-monospace, monospace; font-size: 13px; min-height: 6rem; }
@@ -120,6 +132,10 @@ pre.message, pre.error { font-size: 12px; }
     .outline li button:hover, .modules li button:hover, .problems li button:hover { background: #2b303b; }
   .outline li button, .modules li button, .problems li button,   .packages details, .result { border-color: #353a45; }
   .packages .synopsis, .log { color: #9198a5; }
+  .packages h3 { color: #9198a5; }
+  .add-library { border-color: #353a45; }
+  .packages button.link { color: #7aa5ff; }
+  .packages button.link.danger { color: #ff7b7b; }
   .error, .sev-1, .badge { color: #ff7b7b; }
   .sev-2 { color: #e5b567; }
   .library-bar { background: #262b36; border-color: #353a45; }

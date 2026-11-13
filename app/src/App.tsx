@@ -19,6 +19,7 @@ import { ProblemsPanel } from "./components/panels/ProblemsPanel";
 import { QueryPanel } from "./components/panels/QueryPanel";
 import { Tabs } from "./components/panels/Tabs";
 import { useDocument } from "./hooks/useDocument";
+import { useLibraries } from "./hooks/useLibraries";
 import { useLog } from "./hooks/useLog";
 import { useNavigation } from "./hooks/useNavigation";
 import { usePersistentState } from "./hooks/usePersistentState";
@@ -45,9 +46,22 @@ export function App() {
   const doc = useDocument({ session, ws, editor, log });
   const nav = useNavigation({ session, ws, doc, editor, packages: session.packages, log });
   const queries = useQueries({ session, ws, doc });
+  const libs = useLibraries(ws, log);
 
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
   const [help, setHelp] = useState(false);
+  // (the Packages panel's form focused: the Files panel's "Add a library")
+  const [focusAdd, setFocusAdd] = useState(0);
+  const addLibrary = () => {
+    setPanel("packages");
+    setFocusAdd((n) => n + 1);
+  };
+  // A library's folder: its first file opened in the Files panel
+  const showFolder = (folder: string) => {
+    setPanel("files");
+    const first = ws.files.find((f) => f.startsWith(`${folder}/`) && f.endsWith(".v"));
+    if (first) ws.select(first);
+  };
   const [shared, setShared] = useState<string | null>(null);
   // (the compatibility build: told once, in the log too)
   const [compatSeen, setCompatSeen] = usePersistentState("compat-warning", false);
@@ -124,6 +138,8 @@ export function App() {
               viewProduced={nav.viewProduced}
               downloadProduced={downloadProduced}
               log={log}
+              libs={libs}
+              addLibrary={addLibrary}
             />
           </div>
           <div className="sidebar" hidden={panel !== "outline"}>
@@ -139,7 +155,13 @@ export function App() {
             />
           </div>
           <div className="sidebar" hidden={panel !== "packages"}>
-            <PackagesPanel packages={session.packages} insert={insertLine} />
+            <PackagesPanel
+              packages={session.packages}
+              libs={libs}
+              insert={insertLine}
+              showFolder={showFolder}
+              focusAdd={focusAdd}
+            />
           </div>
           <div className="sidebar" hidden={panel !== "examples"}>
             <ExamplesPanel open={openExample} log={log} />

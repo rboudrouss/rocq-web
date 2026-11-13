@@ -113,8 +113,11 @@ user writes says itself what it sees (menu "Write its _RocqProject"
 starts from the generated one, with these lines). The root's files are in
 no workspace's load path.
 
-A library of Rocq files is added as a workspace (Files panel, "Add a
-library"; `app/src/lib/library.ts`): from a GitHub repository, its files
+A library of Rocq files is added as a workspace (Packages panel, "Add a
+library", which lists those added with their modules;
+`app/src/hooks/useLibraries.ts`, `app/src/lib/library.ts`; the Files
+panel's button leads there, its archives imported become libraries): from
+a GitHub repository, its files
 fetched from jsDelivr (`data.jsdelivr.com` lists them,
 `cdn.jsdelivr.net/gh/OWNER/REPO@REF/` serves them; GitHub's archives,
 `codeload.github.com`, are not for other sites: CORS), from the URL of an

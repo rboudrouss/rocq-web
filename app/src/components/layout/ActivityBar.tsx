@@ -10,7 +10,7 @@ export const panels: { id: PanelId; title: string; icon: ReactNode }[] = [
   { id: "files", title: "Files", icon: <Files size={20} /> },
   { id: "outline", title: "Outline", icon: <ListTree size={20} /> },
   { id: "search", title: "Search", icon: <Search size={20} /> },
-  { id: "packages", title: "Packages", icon: <Package size={20} /> },
+  { id: "packages", title: "Packages and libraries", icon: <Package size={20} /> },
   { id: "examples", title: "Examples", icon: <BookOpen size={20} /> },
 ];
 

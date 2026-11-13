@@ -185,9 +185,10 @@ export function useWorkspace(log: (message: string) => void) {
 
   // Files from disk, under the folder [into] (the root: ""): each folder
   // imported at the root becomes a workspace. Files that differ from those
-  // of the same path replace them once confirmed. The paths written.
+  // of the same path replace them once confirmed. The first Rocq file is
+  // opened (unless select: false). The paths written.
   const importFiles = useCallback(
-    (found: DiskFile[], into: string, options: { workspaces?: boolean } = {}) => {
+    (found: DiskFile[], into: string, options: { workspaces?: boolean; select?: boolean } = {}) => {
       const placed = found
         .map(({ path, text }) => ({ path: placedPath(path, into), text }))
         .filter(({ path }) => validName(path));
@@ -210,7 +211,7 @@ export function useWorkspace(log: (message: string) => void) {
       mirror.current?.workspacesChanged();
       log(`imported ${placed.length} files${into ? ` into ${into}` : ""}`);
       const first = placed.find(({ path }) => isRocq(path));
-      if (first) select(first.path);
+      if (first && (options.select ?? true)) select(first.path);
       return placed.map(({ path }) => path);
     },
     [flush, log, read, refresh, select],

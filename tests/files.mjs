@@ -123,7 +123,7 @@ check("B.v fails after A.v changed", errs.length > 0, errs.join(" | ").slice(0, 
   check("at the lemma", /pred_succ/.test(line), line.trim().slice(0, 80));
 }
 
-await tab("Packages");
+await tab("Packages and libraries");
 const packages = await page.locator(".packages details").count();
 check("packages", packages > 5, `${packages} packages`);
 if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT });

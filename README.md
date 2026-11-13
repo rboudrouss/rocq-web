@@ -17,7 +17,7 @@ progress: see [docs/design.md](docs/design.md).
 | `scripts/cloudflare.mjs`, `scripts/r2-upload.sh`, `deploy/wrangler.jsonc` | the site on a Cloudflare Worker, its files over 25 MiB in R2 |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror): files, libraries, outline, packages, examples, goals, queries, coq-lsp client |
-| `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`, `search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`, `probe.mjs`), on another machine (`remote.sh`) |
+| `tests/` | native comparison (`compare.sh`, `packages.sh`), LSP over stdio (`lsp.mjs`), headless Chromium (`browser.mjs`, `files.mjs`, `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `libraries.mjs`, `examples.mjs`, `search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs`, `packages.mjs`, `probe.mjs`), on another machine (`remote.sh`) |
 | `docs/status.md` | where each build stands, blockers |
 | `docs/design.md` | the two builds (wasm64 + JSPI, wasm64 lowered to wasm32 + CPS stack), plugins, packages |
 
