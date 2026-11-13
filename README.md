@@ -6,6 +6,8 @@ in the browser: Rocq 9.2 and its language server,
 in an editor made for proofs. No server checks anything: once the page is
 loaded, Rocq runs on your machine, and your files stay in your browser.
 
+**Try it: [rocq.rboud.com](https://rocq.rboud.com/)**
+
 It comes with the libraries most developments use, fetched only when a
 file requires them: the standard library, Mathematical Components (and
 analysis), Iris and stdpp, Equations, MetaRocq, Hierarchy-Builder and

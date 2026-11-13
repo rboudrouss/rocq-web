@@ -37,7 +37,8 @@ node scripts/dist.mjs && scripts/deploy.sh APP_UUID
 
 Cloudflare serves no file over 25 MiB: the `lsp_worker.wasm` of each build
 is served by an R2 bucket instead (`rocqweb`), the rest of the site by the
-Pages project `rocqweb`.
+Pages project `rocqweb` ([rocq.rboud.com](https://rocq.rboud.com/), its
+files over 25 MiB at `rocq-wasm.rboud.com`).
 
 Once:
 
