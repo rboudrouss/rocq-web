@@ -59,7 +59,7 @@ LSP client. [docs/design.md](docs/design.md) has the details.
 | | |
 |-|-|
 | [docs/building.md](docs/building.md) | the toolchain, building the two builds, the app, the static site, the tests |
-| [docs/deploying.md](docs/deploying.md) | serving the site (cross-origin isolation, brotli): Docker, Cloudflare Pages and R2 |
+| [docs/deploying.md](docs/deploying.md) | serving the site (cross-origin isolation, brotli), on Cloudflare Pages and R2 |
 | [docs/design.md](docs/design.md) | the two builds, plugins, packages, workspaces and libraries, interrupts |
 | [docs/status.md](docs/status.md) | what works in each build, known problems |
 | [docs/native-compute.md](docs/native-compute.md) | thoughts on `native_compute` in the browser |
@@ -71,8 +71,7 @@ LSP client. [docs/design.md](docs/design.md) has the details.
 | `worker/` | the OCaml programs: coq-lsp's server for a Web Worker, and Rocq, with `Declare ML Module` loading wasm plugins |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror) |
-| `scripts/` | building (`build.sh`, `byte-plugins.sh`, `vendor.sh`, `env.sh`), the static site (`dist.mjs`, `serve.mjs`), deploying (`deploy.sh`, `cloudflare.mjs`, `r2-upload.sh`) |
+| `scripts/` | building (`build.sh`, `byte-plugins.sh`, `vendor.sh`, `env.sh`), the static site (`dist.mjs`, `serve.mjs`), deploying (`cloudflare.mjs`, `r2-upload.sh`) |
 | `vendor/`, `patches/` | coq-lsp, and the patches applied to it |
-| `deploy/` | the Docker image of the site |
 | `tests/` | comparisons with the native Rocq, LSP over stdio, the app in headless Chromium |
 | `docs/` | the documentation above |

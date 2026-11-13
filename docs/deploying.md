@@ -16,23 +16,6 @@ are made ([building.md](building.md)). A host must:
 `scripts/serve.mjs` does both, with caching: `node scripts/serve.mjs dist
 PORT`.
 
-## Docker (Coolify)
-
-`deploy/Dockerfile` is node and `scripts/serve.mjs` serving `dist/`:
-
-```sh
-docker build -f deploy/Dockerfile -t rocq-web .
-```
-
-`scripts/deploy.sh APP_UUID` builds it, tags it with the commit, pushes it
-to a registry of this machine (`REGISTRY`, default `localhost:5000`, a
-`registry:2` container started if missing) and deploys it to the Coolify
-application `APP_UUID`:
-
-```sh
-node scripts/dist.mjs && scripts/deploy.sh APP_UUID
-```
-
 ## Cloudflare Pages
 
 Cloudflare serves no file over 25 MiB: the `lsp_worker.wasm` of each build
