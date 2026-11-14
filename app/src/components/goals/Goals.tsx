@@ -64,16 +64,20 @@ function HypView({ hyp, before, width, diffs, folded, fold }: {
   );
 }
 
-function GoalView({ goal, before, index, width, diffs, folded, fold }: {
+// (open: its hypotheses shown at first, as RocqIDE those of the first goal
+// only)
+function GoalView({ goal, before, index, total, open: opened, width, diffs, folded, fold }: {
   goal: Goal;
   before?: Goal;
   index: number;
+  total: number;
+  open: boolean;
   width: number;
   diffs: boolean;
   folded: Set<string>;
   fold: (name: string) => void;
 }) {
-  const [open, setOpen] = useState(index === 0);
+  const [open, setOpen] = useState(opened);
   const prev = new Map((before?.hyps ?? []).flatMap((h) => h.names.map((n) => [n, h] as const)));
   return (
     <div className="goal">
@@ -90,8 +94,8 @@ function GoalView({ goal, before, index, width, diffs, folded, fold }: {
           />
         ))}
       <button className="bar" onClick={() => setOpen(!open)} title={open ? "Hide its hypotheses" : "Show its hypotheses"}>
-        {index === 0 ? "" : `goal ${index + 1}`}
-        {!open && ` (${goal.hyps.length} hypotheses)`}
+        ({index + 1}/{total})
+        {!open && goal.hyps.length > 0 && ` ${goal.hyps.length} hypotheses`}
       </button>
       <div className="concl">
         <PpView text={goal.ty} width={width} highlight={diffs && before ? added(before.ty, goal.ty) : undefined} />
@@ -130,7 +134,23 @@ export function Goals({ result, before, hint, error }: {
     });
   const g = result?.goals;
   const b = before?.goals?.goals;
-  const pending = g ? g.stack.reduce((n, [l, r]) => n + l.length + r.length, 0) : 0;
+  // the unfocused goals, as RocqIDE: those of the innermost focus first
+  const unfocused = g ? g.stack.flatMap(([l, r]) => [...l, ...r]) : [];
+  const view = (goals: Goal[], focused: boolean) =>
+    goals.map((goal, i) => (
+      <GoalView
+        key={(focused ? "focused " : "unfocused ") + i}
+        goal={goal}
+        before={focused && b ? beforeOf(b, goals.length, i) : undefined}
+        index={i}
+        total={goals.length}
+        open={focused && i === 0}
+        width={width}
+        diffs={diffs && focused}
+        folded={folded}
+        fold={fold}
+      />
+    ));
   return (
     <div className="goals-view" ref={ref}>
       {g && g.goals.length > 0 && (
@@ -142,20 +162,19 @@ export function Goals({ result, before, hint, error }: {
         <p className="muted">{hint ?? "Move the cursor into a proof."}</p>
       ) : g ? (
         g.goals.length > 0 ? (
-          g.goals.map((goal, i) => (
-            <GoalView
-              key={i}
-              goal={goal}
-              before={b && beforeOf(b, g.goals.length, i)}
-              index={i}
-              width={width}
-              diffs={diffs}
-              folded={folded}
-              fold={fold}
-            />
-          ))
+          <>
+            <p className="muted goals-count">
+              {g.goals.length} goal{g.goals.length > 1 && "s"}
+            </p>
+            {view(g.goals, true)}
+          </>
+        ) : unfocused.length > 0 ? (
+          <>
+            <p className="muted goals-count">This subproof is complete, but there are some unfocused goals:</p>
+            {view(unfocused, false)}
+          </>
         ) : (
-          <p className="muted">No goals{pending > 0 && `, ${pending} unfocused`}.</p>
+          <p className="muted">No more goals.</p>
         )
       ) : (
         <p className="muted">Not in a proof.</p>

@@ -89,6 +89,7 @@ aside.right .tabs { flex: 2; }
 .concl, .hyp { white-space: pre; }
 .goals-view { position: relative; }
 .goals-view .diffs { position: absolute; right: 0; top: 0; font-family: system-ui, sans-serif; font-size: 0.75rem; }
+.goals-count { margin: 0 0 0.25rem; font-size: 0.75rem; }
 .goals-view .diffs input { width: auto; margin: 0; vertical-align: middle; }
 .hyp-name { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit; }
 .diff-added { background: #d4f5d4; border-radius: 2px; }
