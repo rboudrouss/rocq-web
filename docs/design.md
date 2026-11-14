@@ -73,11 +73,26 @@ bytecode from the package's sources.
 A package (opam package, e.g. rocq-mathcomp-ssreflect) is, per build:
 `.vo`/`.glob` files, `.v` sources (go to definition), plugins, and an entry
 of a JSON manifest (logical paths, dependencies). In the worker the files
-are lazy entries of emscripten's file system, fetched with a synchronous
-request on first read (allowed in a worker), then cached. The files Rocq
-reads when it starts (the prelude's `.vo`, findlib's META files) come in
-one request instead, `boot.bin`, fetched while the worker's WebAssembly
-compiles (`web/boot-files.txt`, recorded by `tests/startup.mjs --record`).
+are lazy entries of emscripten's file system, fetched on first read, then
+kept. The files Rocq reads when it starts (the prelude's `.vo`, findlib's
+META files) come in one request instead, `boot.bin`, fetched while the
+worker's WebAssembly compiles (`web/boot-files.txt`, recorded by
+`tests/startup.mjs --record`).
+
+A `Require` reads a `.vo`, then the libraries it requires, then theirs:
+hundreds of files for a large library (406 for MetaRocq's
+`Common.EnvironmentReflect`), which a synchronous request each (allowed in
+a worker) fetches one after the other, a round trip each. The manifest
+says what each file needs instead (`scripts/assets.mjs`): a `.vo`, the
+libraries of its summary (`scripts/vo-deps.ml`) and the plugins it
+declares; a plugin, those findlib loads before it. The first read of a
+file starts the download of all it needs not there yet, 16 at a time, by
+a worker of `web/rocq-web-fs.js`'s that writes them in shared memory
+(`SharedArrayBuffer`, the page being cross-origin isolated); each read
+then waits for its file (`Atomics.wait`). A file outside the manifest's
+dependencies, or one whose download failed, is fetched with a synchronous
+request. The files are fetched with their version (`?v=`), cached by the
+browser for good.
 
 The app's package browser lists the opam packages with Rocq libraries
 (`packages.json`, from the switch's metadata) and their modules.

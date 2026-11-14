@@ -14,12 +14,13 @@
 //   listed in web/boot-files.txt (those Rocq reads when it starts, written
 //   by tests/startup.mjs --record), in one request;
 // - files.json: the manifest web/rocq-web-fs.js creates the file system
-//   from (directories, files with their sizes, environment, the version of
-//   the files).
+//   from (directories, files with their sizes, what each needs,
+//   environment, the version of the files).
 // Run with the switch's environment (scripts/env.sh): ocamlfind.
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { searchIndex } from "./search-index.mjs";
 
@@ -110,6 +111,57 @@ for (const p of packages) p.depends = p.depends.filter((d) => names.has(d));
 writeFileSync(join(out, "packages.json"), JSON.stringify(packages));
 writeFileSync(join(out, "search.tsv"), searchIndex(join(out, "coqlib")));
 
+// What each file needs once read, which the worker then downloads at once
+// (web/rocq-web-fs.js): a .vo, the libraries it requires (its summary,
+// scripts/vo-deps.ml) and the plugins it declares (their names in it, as
+// OCaml marshals a string: its length then its bytes); a plugin, those
+// findlib loads before it (worker/plugins/plugins.ml)
+const index = new Map(files.map((f, i) => [f[0], i]));
+const tool = join(tmpdir(), `rocq-web-vo-deps-${process.pid}`);
+mkdirSync(tool, { recursive: true });
+cpSync("scripts/vo-deps.ml", join(tool, "vo_deps.ml"));
+execFileSync("ocamlfind", ["ocamlopt", "-package", "rocq-runtime.lib", "-linkpkg", "vo_deps.ml", "-o", "vo-deps"], {
+  cwd: tool,
+});
+const vos = files.map((f) => f[0]).filter((p) => p.endsWith(".vo"));
+const summaries = execFileSync(join(tool, "vo-deps"), {
+  input: vos.map((p) => join(out, p.slice(1))).join("\n") + "\n",
+  encoding: "utf8",
+  maxBuffer: 1 << 28,
+})
+  .trim()
+  .split("\n")
+  .map((l) => l.split(" "));
+rmSync(tool, { recursive: true, force: true });
+const library = new Map(summaries.map(([file, name]) => [name, "/" + relative(out, file)]));
+const pluginIndex = (p) => index.get(`/plugins/${p}.wasm`);
+// (as worker/lsp_worker.ml: Rocq's plugins through serlib's)
+const serlib = (p) => {
+  const m = /^rocq-runtime\.plugins\.(.+)$/.exec(p);
+  return m && pluginIndex(`coq-lsp.serlib.${m[1]}`) !== undefined ? `coq-lsp.serlib.${m[1]}` : p;
+};
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const declared = new RegExp([...pkgs].sort((a, b) => b.length - a.length).map(esc).join("|"), "g");
+const deps = [];
+for (const [file, , ...required] of summaries) {
+  const own = required.map((n) => index.get(library.get(n))).filter((i) => i !== undefined);
+  const s = readFileSync(file).toString("latin1");
+  for (const m of s.matchAll(declared)) {
+    const n = m[0].length, at = m.index;
+    if (n < 32 ? s.charCodeAt(at - 1) === (0x20 | n) : s.charCodeAt(at - 2) === 9 && s.charCodeAt(at - 1) === n)
+      own.push(pluginIndex(serlib(m[0])));
+  }
+  if (own.length) deps.push([index.get("/" + relative(out, file)), ...new Set(own)]);
+}
+for (const p of pkgs) {
+  const before = ocamlfind("query", "-r", "-format", "%p", p)
+    .split("\n")
+    .filter((q) => q !== p)
+    .map(pluginIndex)
+    .filter((i) => i !== undefined);
+  if (before.length) deps.push([pluginIndex(p), ...before]);
+}
+
 // boot.bin
 const bootList = "web/boot-files.txt";
 const bootFiles = new Set(existsSync(bootList) ? readFileSync(bootList, "utf8").split("\n").filter(Boolean) : []);
@@ -137,6 +189,8 @@ writeFileSync(
     dirs: sorted,
     files,
     boot: "boot.bin",
+    // [file, what it needs...], by their indices in files
+    deps,
     version,
     // OCAMLRUNPARAM: a minor heap of 32 MB (Rocq sets 256 MB unless it is
     // given, which takes 130 ms to clear when it starts, for no faster

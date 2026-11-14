@@ -89,7 +89,7 @@ interrupts of Rocq need it) and compressed. To put it online:
 | `tests/compare.sh [full\|compat]` | each `tests/*.v` with the native Rocq and with the worker under node, their outputs compared |
 | `tests/packages.sh` | the switch's packages loaded under node |
 | `tests/lsp.mjs` | coq-lsp over stdio |
-| `tests/*.mjs` (`browser`, `files`, `goals`, `navigation`, `workspace`, `libraries`, `examples`, `search`, `interrupt`, `startup`, `page`, `packages`, `probe`) | the app in headless Chromium: `node tests/NAME.mjs [URL]` (default `http://localhost:5173/`) |
+| `tests/*.mjs` (`browser`, `files`, `goals`, `navigation`, `workspace`, `libraries`, `examples`, `search`, `interrupt`, `startup`, `downloads`, `page`, `packages`, `probe`) | the app in headless Chromium: `node tests/NAME.mjs [URL]` (default `http://localhost:5173/`) |
 | `tests/remote.sh [-p PORT] HOST TEST.mjs` | one of those on another machine, which reaches the app served here through ssh |
 
 The tests in a browser take playwright from `PLAYWRIGHT_DIR` (default
