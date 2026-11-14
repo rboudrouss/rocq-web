@@ -50,10 +50,17 @@ const rewrites = [];
 writeFileSync(join(dir, "_redirects"), rewrites.map((r) => r + "\n").join(""));
 
 // The servers that cannot set headers: COOP and COEP (scripts/serve.mjs
-// sets them itself) for Netlify and Cloudflare Pages
+// sets them itself) for Netlify and Cloudflare Pages, and the files cached
+// for good: vite's, named by their hash, and Rocq's, fetched with theirs
+// (?v=, web/rocq-web-fs.js), else revalidated at each visit, one request
+// each
+const forGood = "  Cache-Control: public, max-age=31536000, immutable\n";
 writeFileSync(
   join(dir, "_headers"),
-  "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n",
+  "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n" +
+    ["/assets/*", "/rocq/:build/coqlib/*", "/rocq/:build/plugins/*", "/rocq/:build/boot.bin"]
+      .map((p) => p + "\n" + forGood)
+      .join(""),
 );
 
 function walk(d, f) {

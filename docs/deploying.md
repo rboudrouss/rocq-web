@@ -11,9 +11,13 @@ are made ([building.md](building.md)). A host must:
   Pages), a service worker (`coi.js`) adds them at the second load;
 - serve `FILE.br`, when it exists, for `FILE` with `Content-Encoding: br`
   (or compress itself): the full build's libraries are 816 MB, 290 MB
-  compressed, fetched file by file when a document needs them.
+  compressed, fetched file by file when a document needs them;
+- preferably, serve HTTP/2 (the worker fetches 16 files at a time) and let
+  the browser keep Rocq's files for good: they are fetched with their
+  version (`?v=`), and else revalidated at each visit, a request each.
+  `dist/_headers` says so (`Cache-Control: immutable`).
 
-`scripts/serve.mjs` does both, with caching: `node scripts/serve.mjs dist
+`scripts/serve.mjs` does all but HTTP/2: `node scripts/serve.mjs dist
 PORT`.
 
 ## Cloudflare Pages

@@ -112,7 +112,9 @@ export function useNavigation({
         return;
       }
       const path = target.path!;
-      const res = await fetch(assets + path);
+      // (with the version of the files, as the worker: cached for good)
+      const version = client.current ? `?v=${await client.current.version}` : "";
+      const res = await fetch(assets + path + version);
       if (!res.ok) return log(`cannot download ${path} (HTTP ${res.status})`);
       const text = await res.text();
       setReadOnly({
@@ -122,7 +124,7 @@ export function useNavigation({
         range: find(text, range, name),
       });
     },
-    [assets, goTo, log, ws],
+    [assets, client, goTo, log, ws],
   );
 
   const definition = useCallback(
