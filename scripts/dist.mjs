@@ -1,6 +1,6 @@
 // The static site, in DIR (default dist/): the app (vite build) and, in
 // rocq/BUILD/, the worker and Rocq's files of each build made
-// (out/BUILD/web, scripts/build.sh), each file with its brotli
+// (out/BUILD/web, make full or compat), each file with its brotli
 // compression next to it (FILE.br), which scripts/serve.mjs serves:
 //   node scripts/dist.mjs [DIR]
 import { execFileSync } from "node:child_process";

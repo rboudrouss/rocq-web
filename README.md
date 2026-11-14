@@ -71,7 +71,8 @@ LSP client. [docs/design.md](docs/design.md) has the details.
 | `worker/` | the OCaml programs: coq-lsp's server for a Web Worker, and Rocq, with `Declare ML Module` loading wasm plugins |
 | `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror) |
-| `scripts/` | building (`build.sh`, `byte-plugins.sh`, `vendor.sh`, `env.sh`), the static site (`dist.mjs`, `serve.mjs`), deploying (`cloudflare.mjs`, `r2-upload.sh`) |
+| `Makefile` | building, from the toolchain to the site: an example of a large OCaml program built with ocaml-emcc |
+| `scripts/` | the files of the web worker (`assets.mjs`, `vo-deps.ml`), the static site (`dist.mjs`, `serve.mjs`), Cloudflare (`cloudflare.mjs`) |
 | `vendor/`, `patches/` | coq-lsp, and the patches applied to it |
 | `tests/` | comparisons with the native Rocq, LSP over stdio, the app in headless Chromium |
 | `docs/` | the documentation above |

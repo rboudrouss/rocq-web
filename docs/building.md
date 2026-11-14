@@ -4,7 +4,7 @@ rocq-web is Rocq 9.2 and coq-lsp compiled to WebAssembly by
 [ocaml-emcc](https://github.com/rboudrouss/ocaml-emcc) (c_of_ocaml, then
 emscripten), and a web app (`app/`) that runs them in a Web Worker. A
 build takes a while (the worker, then each plugin of the switch's
-packages): a machine with many cores helps, `ROCQ_WEB_JOBS` below.
+packages): a machine with many cores helps, `JOBS` below.
 
 ## Prerequisites
 
@@ -14,31 +14,40 @@ packages): a machine with many cores helps, `ROCQ_WEB_JOBS` below.
   lists them), `js_of_ocaml` and `ocaml-emcc` (pinned from its
   repository).
 - c_of_ocaml 083e5706 or later, built apart (ocaml-emcc's README): in
-  `~/C_of_ocaml`, which `scripts/env.sh` finds, or named by
-  `OCAML_EMCC_C_OF_OCAML`. An older one builds a worker whose Ltac loops
-  overflow the stack, whose reductions cannot be interrupted, and whose
-  compat build overflows on `Search`.
-- emscripten (emsdk) in `~/tools/emsdk`, or `EMSDK`.
-- node 24 or later (wasm64 and JSPI, for the tests under node), and pnpm
-  for the app.
+  `~/C_of_ocaml`, or named by `C_OF_OCAML=...`. An older one builds a
+  worker whose Ltac loops overflow the stack, whose reductions cannot be
+  interrupted, and whose compat build overflows on `Search`.
+- emscripten (emsdk) in `~/tools/emsdk`, or `EMSDK=...`.
+- node 24 or later (wasm64 and JSPI, for the tests under node), from nvm
+  if there (`NODE_DIR=...`), and pnpm for the app.
 
-`scripts/env.sh` sets them up in a shell: emsdk, the switch, c_of_ocaml,
-node from nvm.
+The `Makefile` sets up this environment for what it runs (the switch:
+`SWITCH=...`); `eval "$(make -s env)"` sets it up in a shell.
 
 ## The worker and the plugins
 
 ```sh
-scripts/vendor.sh                      # vendor/coq-lsp, patches/ applied
-. scripts/env.sh
-scripts/byte-plugins.sh                # once the switch's Rocq packages are installed
-scripts/build.sh full                  # and/or compat
+make full                              # and/or compat; make: both, then the site
 ```
 
-`scripts/byte-plugins.sh` compiles to bytecode the plugins opam installs
-native only (coq_makefile's), which ocaml-emcc needs. `scripts/build.sh`
-writes `out/BUILD/`: `lsp_worker.js` (coq-lsp) and `rocq_web.js` (`rocq
-compile`, for the tests under node), their `.wasm`, the plugins as side
-modules, and `web/`, what the page serves (the worker and Rocq's files).
+The `Makefile` is also an example of a large OCaml program built with
+ocaml-emcc, commented step by step:
+
+1. `vendor/coq-lsp`, with `patches/` applied;
+2. the programs, three at a time, each a dune executable that ocaml-emcc
+   compiles to C, then to WebAssembly: `rocq_web.js` (`rocq compile`,
+   for the tests under node), `lsp_worker.js` (coq-lsp, under node, and
+   the program the plugins are linked against), `web/lsp_worker.js`
+   (coq-lsp for a Web Worker);
+3. the plugins, side modules: those the switch's libraries declare
+   (`Declare ML Module`), coq-lsp's for each, and the packages they need
+   that the worker does not link (findlib says which), each compiled from
+   its bytecode archive by `ocaml-emcc plugin`. Opam installs those of
+   coq_makefile native only: their bytecode is compiled from the
+   package's sources first (`_build/byte-plugins/`);
+4. `web/`, what the page serves: the worker and Rocq's files
+   (`scripts/assets.mjs`).
+
 The two builds (`docs/design.md`):
 
 | build | for | |
@@ -49,15 +58,18 @@ The two builds (`docs/design.md`):
 The page picks one at startup (`?build=full` or `?build=compat` in its URL
 forces it).
 
-Environment variables of `scripts/build.sh`:
+Variables of the build (`make full VAR=...`):
 
 | variable | |
 |----------|-|
-| `ROCQ_WEB_JOBS` | plugins compiled at a time (default: half the cores, for the memory) |
-| `OCAML_EMCC_JOBS` | ocaml-emcc's parallel compilation of the C |
-| `ROCQ_WEB_PLUGINS_ONLY=1` | the plugins only, the worker already built (packages added to the switch) |
-| `ROCQ_WEB_STACK` | emscripten's C stack (compat: 64MB by default) |
-| `ROCQ_WEB_NO_TAIL_CALLS=1` | compat without wasm tail calls (`docs/status.md`: a deep recursion then aborts the worker) |
+| `JOBS` | plugins compiled at a time (default: half the cores, for the memory) |
+| `STACK` | emscripten's C stack (compat: 64MB by default) |
+| `NO_TAIL_CALLS=1` | compat without wasm tail calls (`docs/status.md`: a deep recursion then aborts the worker) |
+| `OCAML_EMCC_JOBS` (environment) | ocaml-emcc's parallel compilation of the C |
+
+`make plugins BUILD=full` builds the plugins only, the worker already
+built (packages added to the switch); `make -k` goes on past a plugin
+that fails.
 
 ## The app
 
@@ -74,8 +86,8 @@ The app built and each build's files, with their brotli compression
 (`FILE.br`):
 
 ```sh
-node scripts/dist.mjs                  # dist/
-node scripts/serve.mjs dist 8080       # http://localhost:8080/
+make dist                              # dist/
+make serve                             # http://localhost:8080/ (PORT=...)
 ```
 
 `scripts/serve.mjs` serves it as it must be: cross-origin isolated (the

@@ -88,8 +88,8 @@ Chromium, local server, a loaded machine).
 - Starting: V8 compiles c_of_ocaml's function initialising every module
   (1.5 million lines of wasm text) when it is called, which takes a large
   part of the start (0.8 s in a profile under node, on a loaded machine).
-- Opam packages built with coq_makefile install no bytecode:
-  `scripts/byte-plugins.sh` compiles their plugins from the sources.
+- Opam packages built with coq_makefile install no bytecode: the
+  `Makefile` compiles their plugins from the sources.
 - Not available for Rocq 9.2 in opam: unicoq, mtac2, paramcoq, itauto,
   smpl, waterproof, QuickChick, graph-theory, algebra-tactics; failing to
   build: reduction-effects, categories.
@@ -112,7 +112,7 @@ Chromium, 18 to 24 s in Firefox (development server, no brotli).
 ### Known problems
 
 - Memory: 4 GB at most (a 32-bit memory).
-- Without wasm tail calls (`ROCQ_WEB_NO_TAIL_CALLS=1`, ocaml-emcc's
+- Without wasm tail calls (`make compat NO_TAIL_CALLS=1`, ocaml-emcc's
   `--no-tail-calls`; c_of_ocaml 006e2612), the tests of the browser pass
   in Chromium, but a deep recursion aborts the worker (`Eval compute in
   Nat.even (Nat.pow 3 11)`: "Fatal error: c_of_ocaml: arity 0", under node

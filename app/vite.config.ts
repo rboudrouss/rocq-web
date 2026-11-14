@@ -8,7 +8,7 @@ import { defineConfig, type Plugin } from "vite";
 // interrupts Rocq (src/lsp.ts)
 const headers = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 
-// In development, rocq/BUILD/ is the build of scripts/build.sh,
+// In development, rocq/BUILD/ is the build of make full or compat,
 // out/BUILD/web (scripts/dist.mjs copies it into the site), or
 // $ROCQ_WEB_BUILDS/BUILD (dist/rocq: the site's, while a build runs)
 const types: Record<string, string> = { ".wasm": "application/wasm", ".js": "text/javascript", ".json": "application/json" };

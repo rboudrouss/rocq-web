@@ -6,7 +6,7 @@
 #   tests/packages.sh [full|compat] [PACKAGE...]
 set -u
 cd "$(dirname "$0")/.."
-. scripts/env.sh >/dev/null
+eval "$(make -s env)"
 build=${1:-full}; shift || true
 out=$PWD/out/$build
 export ROCQ_WEB_PLUGINS=$out/plugins ROCQLIB=$OPAM_SWITCH_PREFIX/lib/coq

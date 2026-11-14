@@ -39,9 +39,9 @@ functions), which is then the limit: 64 MB, checked
 (`-sSTACK_OVERFLOW_CHECK=2`: an overflow aborts the worker instead of
 writing over the static data below the stack; no measured cost). It
 keeps the wasm tail calls, so it needs an engine that has them (Safari
-18.2, Firefox 121, Chrome 112 and later): without them
-(`ROCQ_WEB_NO_TAIL_CALLS=1`, `--no-tail-calls`, which makes them ordinary
-calls) a deep recursion aborts the worker, in c_of_ocaml (docs/status.md).
+18.2, Firefox 121, Chrome 112 and later): without them (`make compat
+NO_TAIL_CALLS=1`, `--no-tail-calls`, which makes them ordinary calls) a
+deep recursion aborts the worker, in c_of_ocaml (docs/status.md).
 
 CPS does not cover callbacks from C or JavaScript, so the worker's loop
 stays in `main` there too, and, without JSPI to suspend it while it waits
@@ -65,8 +65,8 @@ the program. A plugin may use the libraries of the plugins loaded before
 it (elpi, then rocq-elpi).
 
 Opam installs the plugins built by coq_makefile native only (it builds a
-`.cma` only with `make byte`): `scripts/byte-plugins.sh` compiles their
-bytecode from the package's sources.
+`.cma` only with `make byte`): the `Makefile` compiles their bytecode
+from the package's sources (`_build/byte-plugins/`).
 
 ## Packages
 

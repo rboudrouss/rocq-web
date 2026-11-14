@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Compiles each tests/*.v with the native Rocq and with the worker of a
-# build (scripts/build.sh), under node, and compares their outputs:
+# build (make full or compat), under node, and compares their outputs:
 #   tests/compare.sh [full|compat] [FILE.v...]
 set -u
 cd "$(dirname "$0")"
-. ../scripts/env.sh
+eval "$(make -s -C .. env)"
 build=${1:-full}; shift || true
 out=$PWD/../out/$build
 files=("$@"); [ ${#files[@]} -gt 0 ] || files=(*.v)

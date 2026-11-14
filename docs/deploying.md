@@ -1,7 +1,7 @@
 # Deploying
 
-The site is static: `dist/`, from `node scripts/dist.mjs` once the builds
-are made ([building.md](building.md)). A host must:
+The site is static: `dist/`, from `make dist` once the builds are made
+([building.md](building.md)). A host must:
 
 - send `Cross-Origin-Opener-Policy: same-origin` and
   `Cross-Origin-Embedder-Policy: require-corp` (cross-origin isolation:
@@ -17,8 +17,7 @@ are made ([building.md](building.md)). A host must:
   version (`?v=`), and else revalidated at each visit, a request each.
   `dist/_headers` says so (`Cache-Control: immutable`).
 
-`scripts/serve.mjs` does all but HTTP/2: `node scripts/serve.mjs dist
-PORT`.
+`scripts/serve.mjs` does all but HTTP/2: `make serve` (`PORT=...`).
 
 ## Cloudflare Pages
 
@@ -29,7 +28,7 @@ files over 25 MiB at `rocq-wasm.rboud.com`).
 
 Once:
 
-1. Connect the bucket to a custom domain, ASSETS_DOMAIN below (the
+1. Connect the bucket to a custom domain, that of `ASSETS_URL` below (the
    `r2.dev` URL is rate-limited, for development only), and give it a
    CORS policy allowing the site's origin (Settings > CORS Policy):
    ```json
@@ -40,21 +39,31 @@ Once:
 Each deployment, once `out/full/web` and `out/compat/web` are built:
 
 ```sh
-node scripts/dist.mjs                                 # dist/
-node scripts/cloudflare.mjs https://ASSETS_DOMAIN     # dist-cloudflare/, dist-r2/
-scripts/r2-upload.sh rocqweb                          # dist-r2/ into the bucket
-npx wrangler pages deploy dist-cloudflare --project-name rocqweb --branch main
+make deploy
 ```
 
-- `scripts/cloudflare.mjs` writes the site without the big files (and
-  without the `.br`: Cloudflare compresses itself) in `dist-cloudflare/`,
-  and the big files in `dist-r2/HASH/`. They must match the
-  `lsp_worker.js` of the page: their directory is named after their hash,
-  so an upload replaces nothing a deployed page uses, and they are cached
-  for good. `dist-cloudflare/rocq/worker.js` has their URLs.
-- `scripts/r2-upload.sh` can be skipped when the workers did not change
-  (only the app did): `dist-r2/` then has the same `HASH` as the last
-  upload. The directories of old builds stay in the bucket until deleted.
-- `--branch main` makes it the production deployment whatever the branch
-  checked out, if `main` is the project's production branch (Settings >
-  Builds & deployments); another name gives a preview deployment.
+which is, step by step (`ASSETS_URL`, default
+`https://rocq-wasm.rboud.com`; `BUCKET` and `PROJECT`, default
+`rocqweb`):
+
+```sh
+make dist          # dist/
+make cloudflare    # dist-cloudflare/, dist-r2/
+make r2            # dist-r2/ into the bucket
+make pages         # dist-cloudflare/ on Pages
+```
+
+- `make cloudflare` (`scripts/cloudflare.mjs`) writes the site without
+  the big files (and without the `.br`: Cloudflare compresses itself) in
+  `dist-cloudflare/`, and the big files in `dist-r2/HASH/`. They must
+  match the `lsp_worker.js` of the page: their directory is named after
+  their hash, so an upload replaces nothing a deployed page uses, and
+  they are cached for good. `dist-cloudflare/rocq/worker.js` has their
+  URLs.
+- `make r2` can be skipped when the workers did not change (only the app
+  did): `dist-r2/` then has the same `HASH` as the last upload. The
+  directories of old builds stay in the bucket until deleted.
+- `make pages` deploys with `--branch main`, which makes it the
+  production deployment whatever the branch checked out, if `main` is the
+  project's production branch (Settings > Builds & deployments); another
+  name gives a preview deployment.

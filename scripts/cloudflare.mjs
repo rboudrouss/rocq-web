@@ -8,8 +8,7 @@
 //   node scripts/cloudflare.mjs ASSETS_URL [DIST]
 // writes DIST-cloudflare/ (the site, for wrangler pages deploy, without
 // the .br files: Cloudflare compresses itself) and DIST-r2/HASH/ (the
-// bucket's new files, with their brotli compression, for
-// scripts/r2-upload.sh).
+// bucket's new files, with their brotli compression, for make r2).
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";

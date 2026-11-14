@@ -16,7 +16,7 @@
 // - files.json: the manifest web/rocq-web-fs.js creates the file system
 //   from (directories, files with their sizes, what each needs,
 //   environment, the version of the files).
-// Run with the switch's environment (scripts/env.sh): ocamlfind.
+// Run by make (Makefile), in the switch's environment: ocamlfind.
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -27,7 +27,7 @@ import { searchIndex } from "./search-index.mjs";
 const build = process.argv[2] ?? "full";
 const out = process.argv[3] ?? `out/${build}/web`;
 const prefix = process.env.OPAM_SWITCH_PREFIX;
-if (!prefix) throw new Error("OPAM_SWITCH_PREFIX: source scripts/env.sh");
+if (!prefix) throw new Error("OPAM_SWITCH_PREFIX: run it by make (make full), or eval \"$(make -s env)\" first");
 
 const ocamlfind = (...args) => execFileSync("ocamlfind", args, { encoding: "utf8" }).trim();
 

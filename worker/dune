@@ -1,5 +1,5 @@
 ; coq-lsp's server, for a Web Worker. Its libraries are linked in, the
-; other plugins are side modules (scripts/build.sh reads this list): the
+; other plugins are side modules (the Makefile reads this list): the
 ; plugins Corelib's prelude loads, with their serlib, start faster linked.
 (executable
  (name lsp_worker)
