@@ -20,6 +20,14 @@ if (import.meta.env.PROD && !crossOriginIsolated && "serviceWorker" in navigator
   });
 }
 
+// iOS zooms in on a field focused whose text is smaller than 16px (the
+// editor's, on a phone): not with maximum-scale, which on iOS does not stop
+// the zoom of the fingers
+if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+  const meta = document.querySelector('meta[name="viewport"]');
+  meta?.setAttribute("content", `${meta.getAttribute("content")}, maximum-scale=1`);
+}
+
 // An example of a link (?example=ID, its file ?file=NAME active)
 async function openExample() {
   const params = new URLSearchParams(location.search);

@@ -4,7 +4,7 @@
 
 Works in Chromium (headless: `tests/browser.mjs`, `files.mjs`,
 `goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`,
-`search.mjs`, `interrupt.mjs`, `startup.mjs`, `page.mjs` (with
+`search.mjs`, `interrupt.mjs`, `startup.mjs`, `mobile.mjs`, `page.mjs` (with
 `support.v`, `packages_plugins.v`), `packages.mjs`; also from
 another machine through ssh, `tests/remote.sh`) and under node
 (`tests/compare.sh`, `packages.sh`, `lsp.mjs`), Rocq 9.2 with coq-lsp
@@ -56,7 +56,11 @@ The app (`app/`):
   starts a new worker (a computation of the VM, which nothing interrupts);
   a worker that stopped is shown;
 - the libraries' files being downloaded are shown;
-- the system's dark mode.
+- the system's dark mode;
+- a phone's layout (narrower than 760 pixels): the editor over the goals,
+  the moves between them (a drag shares the height), a line's number
+  touched checks up to it; the keyboard open, the goals on a line over it
+  with the moves and Rocq's symbols; the panels over the page.
 
 Libraries are fetched when required. The switch has the opam packages
 with Rocq libraries for 9.2: Stdlib, mathcomp (ssreflect, algebra, field,

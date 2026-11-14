@@ -24,6 +24,8 @@ export type EditorHandle = {
   goTo: (r: Range | Position, center?: boolean) => void;
   // Inserts a line before the cursor's
   insertLine: (text: string) => void;
+  // Types [text] at the cursor (over the selection)
+  insert: (text: string) => void;
 };
 
 type Props = {
@@ -37,6 +39,12 @@ type Props = {
   complete?: (p: Position) => Promise<CompletionItem[]>;
   // F12 or Ctrl+click
   definition?: (p: Position) => void;
+  // A click on a line's number, the end of the line given (the cursor put
+  // there, without the focus)
+  lineClick?: (p: Position) => void;
+  // (false: goTo moves the cursor without focusing the editor, unless it
+  // has the focus: on a phone, that opens the keyboard)
+  focusOnGoTo?: boolean;
   // commands of keys (CodeMirror's names: "Alt-Enter"), the cursor's
   // position given
   keys?: Record<string, (p: Position) => void>;
@@ -123,7 +131,18 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
       state: EditorState.create({
         doc: callbacks.current.initial,
         extensions: [
-          lineNumbers(),
+          lineNumbers({
+            domEventHandlers: {
+              mousedown: (v, line, e) => {
+                if (!callbacks.current.lineClick) return false;
+                const end = v.state.doc.lineAt(line.from).to;
+                v.dispatch({ selection: { anchor: end } });
+                callbacks.current.lineClick(position(v.state.doc, end));
+                e.preventDefault();
+                return true;
+              },
+            },
+          }),
           // (long lines wrapped: the editor's column is narrow next to the panels)
           EditorView.lineWrapping,
           history(),
@@ -231,13 +250,19 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
       const from = offset(v.state.doc, range.start);
       const to = offset(v.state.doc, range.end);
       v.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: center ? "center" : "nearest" }) });
-      v.focus();
+      if (callbacks.current.focusOnGoTo !== false || v.hasFocus) v.focus();
     },
     insertLine(text) {
       const v = view.current;
       if (!v) return;
       const line = v.state.doc.lineAt(v.state.selection.main.head);
       v.dispatch({ changes: { from: line.from, insert: text + "\n" } });
+      v.focus();
+    },
+    insert(text) {
+      const v = view.current;
+      if (!v) return;
+      v.dispatch(v.state.replaceSelection(text), { scrollIntoView: true });
       v.focus();
     },
   }));

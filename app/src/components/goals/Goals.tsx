@@ -106,7 +106,7 @@ function GoalView({ goal, before, index, total, open: opened, width, diffs, fold
 
 // The goal before the sentence that goal [i] of [n] comes from: the first
 // solved, the next ones the same; or the first split into several
-function beforeOf(b: Goal[], n: number, i: number): Goal | undefined {
+export function beforeOf(b: Goal[], n: number, i: number): Goal | undefined {
   const d = n - b.length;
   return d >= 0 ? b[Math.max(0, i - d)] : b[i - d];
 }

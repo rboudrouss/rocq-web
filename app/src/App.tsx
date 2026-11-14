@@ -1,7 +1,10 @@
 // The page: the header, the panels on the left (chosen by the activity
-// bar), the editor, the goals and the panels on the right. The state is in
-// the hooks (hooks/), the views in the components (components/).
-import { useCallback, useEffect, useRef, useState } from "react";
+// bar), the editor, the goals and the panels on the right. On a phone, the
+// panels on the left over the page (the header's button), the editor over
+// the goals, the moves between them; the keyboard open, the goals on a line
+// over it. The state is in the hooks (hooks/), the views in the components
+// (components/).
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { HelpPopover } from "./components/dialogs/HelpPopover";
 import { Editor, type EditorHandle } from "./components/editor/Editor";
 import { ReadOnlyView } from "./components/editor/ReadOnlyView";
@@ -10,6 +13,8 @@ import { Goals } from "./components/goals/Goals";
 import { ActivityBar, type PanelId } from "./components/layout/ActivityBar";
 import { Banner } from "./components/layout/Banner";
 import { Header } from "./components/layout/Header";
+import { KeyboardBar } from "./components/layout/KeyboardBar";
+import { StepBar } from "./components/layout/StepBar";
 import { ExamplesPanel } from "./components/panels/ExamplesPanel";
 import { LibrarySearchPanel } from "./components/panels/LibrarySearchPanel";
 import { LogPanel } from "./components/panels/LogPanel";
@@ -21,6 +26,7 @@ import { Tabs } from "./components/panels/Tabs";
 import { useDocument } from "./hooks/useDocument";
 import { useLibraries } from "./hooks/useLibraries";
 import { useLog } from "./hooks/useLog";
+import { useKeyboard, useMobile } from "./hooks/useMobile";
 import { useNavigation } from "./hooks/useNavigation";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useQueries } from "./hooks/useQueries";
@@ -49,6 +55,20 @@ export function App() {
   const libs = useLibraries(ws, log);
 
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
+  const mobile = useMobile();
+  const keyboard = useKeyboard(mobile);
+  // (a phone) the panels shown, over the page; the editor's part of the height
+  const [drawer, setDrawer] = useState(false);
+  const [split, setSplit] = usePersistentState("split", 0.55);
+  const main = useRef<HTMLElement>(null);
+  const shown = mobile ? (panel ?? "files") : panel;
+  // (a phone) the panels closed once they did their work
+  const closing =
+    <A extends unknown[]>(f: (...a: A) => void) =>
+    (...a: A) => {
+      setDrawer(false);
+      f(...a);
+    };
   const [help, setHelp] = useState(false);
   // (the Packages panel's form focused: the Files panel's "Add a library")
   const [focusAdd, setFocusAdd] = useState(0);
@@ -69,6 +89,7 @@ export function App() {
     if (build === "compat") log(compatWarning);
   }, [build, log]);
   const active = ws.active;
+  useEffect(() => setDrawer(false), [active, nav.readOnly]);
 
   const share = async () => {
     const url = await shareUrl(active, ws.read(active));
@@ -102,8 +123,27 @@ export function App() {
   };
 
   const problemsBadge = doc.depError || doc.diagnostics.some((d) => d.severity === 1);
+  const hint = doc.stepByStep
+    ? mobile
+      ? "Nothing checked yet. ↓ checks the next sentence, a line's number up to it."
+      : `Nothing checked yet. ${navLabel("ArrowDown")} checks the next sentence, ${navLabel("ArrowRight")} up to the cursor.`
+    : undefined;
+  const goals = (
+    <div className="goals" data-testid="goals">
+      <Goals result={doc.goals?.now ?? null} before={doc.goals?.before ?? null} hint={hint} error={doc.stopped} />
+    </div>
+  );
+  const problems = <ProblemsPanel diagnostics={doc.diagnostics} goTo={nav.goTo} depError={doc.depError} />;
+  const problemsLabel = (
+    <>
+      Problems
+      {problemsBadge && <span className="badge"> •</span>}
+    </>
+  );
+  const query = <QueryPanel results={queries.results} run={queries.run} />;
+  const logPanel = <LogPanel lines={lines} />;
   return (
-    <div className={embedded ? "app embed" : "app"}>
+    <div className={["app", embedded && "embed", mobile && "mobile", keyboard && "keyboard"].filter(Boolean).join(" ")}>
       <Header
         status={session.status}
         fetching={session.fetching}
@@ -116,6 +156,8 @@ export function App() {
         share={share}
         openFull={openFull}
         help={() => setHelp(!help)}
+        mobile={mobile}
+        panels={embedded ? undefined : () => setDrawer(!drawer)}
       />
       {help && <HelpPopover close={() => setHelp(false)} />}
       {build === "compat" && !compatSeen && !embedded && (
@@ -128,10 +170,15 @@ export function App() {
           Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
         </Banner>
       )}
-      <main className={panel && !embedded ? "with-sidebar" : ""}>
-        {!embedded && <ActivityBar shown={panel} show={setPanel} />}
-        <aside className="left" hidden={embedded || panel === null}>
-          <div className="sidebar" hidden={panel !== "files"}>
+      <main
+        ref={main}
+        className={panel && !embedded && !mobile ? "with-sidebar" : ""}
+        style={mobile ? ({ "--split": `${split * 100}%` } as CSSProperties) : undefined}
+      >
+        {!embedded && !mobile && <ActivityBar shown={panel} show={setPanel} />}
+        <aside className="left" hidden={embedded || (mobile ? !drawer : panel === null)}>
+          {mobile && <ActivityBar shown={shown} show={(p) => p && setPanel(p)} />}
+          <div className="sidebar" hidden={shown !== "files"}>
             <FilesPanel
               ws={ws}
               produced={doc.produced}
@@ -142,31 +189,32 @@ export function App() {
               addLibrary={addLibrary}
             />
           </div>
-          <div className="sidebar" hidden={panel !== "outline"}>
-            <OutlinePanel symbols={doc.symbols} goTo={nav.goTo} />
+          <div className="sidebar" hidden={shown !== "outline"}>
+            <OutlinePanel symbols={doc.symbols} goTo={closing(nav.goTo)} />
           </div>
-          <div className="sidebar" hidden={panel !== "search"}>
+          <div className="sidebar" hidden={shown !== "search"}>
             <LibrarySearchPanel
               url={`${session.assets}search.tsv`}
-              open={(d) => {
+              open={closing((d) => {
                 const at = { line: d.line - 1, character: 0 };
                 nav.showLocation({ path: d.path }, { start: at, end: at }, d.name);
-              }}
+              })}
             />
           </div>
-          <div className="sidebar" hidden={panel !== "packages"}>
+          <div className="sidebar" hidden={shown !== "packages"}>
             <PackagesPanel
               packages={session.packages}
               libs={libs}
-              insert={insertLine}
+              insert={closing(insertLine)}
               showFolder={showFolder}
               focusAdd={focusAdd}
             />
           </div>
-          <div className="sidebar" hidden={panel !== "examples"}>
-            <ExamplesPanel open={openExample} log={log} />
+          <div className="sidebar" hidden={shown !== "examples"}>
+            <ExamplesPanel open={closing(openExample)} log={log} />
           </div>
         </aside>
+        {mobile && drawer && <div className="scrim" onClick={() => setDrawer(false)} />}
         <section className="center">
           <div className="editor-wrap" hidden={nav.readOnly !== null}>
             <Editor
@@ -180,39 +228,47 @@ export function App() {
               complete={doc.complete}
               definition={nav.definition}
               keys={doc.keys}
+              lineClick={mobile ? (p) => doc.move("cursor", p) : undefined}
+              focusOnGoTo={!mobile}
             />
           </div>
           {nav.readOnly && <ReadOnlyView file={nav.readOnly} back={nav.closeReadOnly} backTo={active} />}
         </section>
+        {mobile && !keyboard && <StepBar move={doc.move} main={main} split={setSplit} />}
         <aside className="right">
-          <h2>Goals</h2>
-          <div className="goals" data-testid="goals">
-            <Goals
-              result={doc.goals?.now ?? null}
-              before={doc.goals?.before ?? null}
-              hint={
-                doc.stepByStep
-                  ? `Nothing checked yet. ${navLabel("ArrowDown")} checks the next sentence, ${navLabel("ArrowRight")} up to the cursor.`
-                  : undefined
-              }
-              error={doc.stopped}
+          {mobile ? (
+            <Tabs
+              tabs={[
+                ["Goals", goals],
+                ["Problems", problems, problemsLabel],
+                ["Query", query],
+                ["Log", logPanel],
+              ]}
             />
-          </div>
-          <Tabs
-            tabs={[
-              [
-                "Problems",
-                <ProblemsPanel diagnostics={doc.diagnostics} goTo={nav.goTo} depError={doc.depError} />,
-                <>
-                  Problems
-                  {problemsBadge && <span className="badge"> •</span>}
-                </>,
-              ],
-              ["Query", <QueryPanel results={queries.results} run={queries.run} />],
-              ["Log", <LogPanel lines={lines} />],
-            ]}
-          />
+          ) : (
+            <>
+              <h2>Goals</h2>
+              {goals}
+              <Tabs
+                tabs={[
+                  ["Problems", problems, problemsLabel],
+                  ["Query", query],
+                  ["Log", logPanel],
+                ]}
+              />
+            </>
+          )}
         </aside>
+        {mobile && keyboard && (
+          <KeyboardBar
+            result={doc.goals?.now ?? null}
+            before={doc.goals?.before ?? null}
+            error={doc.stopped}
+            hint={doc.stepByStep ? "Nothing checked yet" : "Move the cursor into a proof"}
+            move={doc.move}
+            insert={(t) => editor.current?.insert(t)}
+          />
+        )}
       </main>
     </div>
   );
