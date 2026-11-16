@@ -1,12 +1,12 @@
-// Serves the static site (scripts/dist.mjs) as it must be served:
-// - cross-origin isolated (COOP and COEP), for the memory the page shares
-//   with the worker to interrupt Rocq;
-// - the brotli compression of a file (FILE.br) when the browser takes it;
-// - the rewrites of DIR/_redirects (FROM/* TO/:splat 200, as Netlify's);
-// - the files of vite (assets/, named by their hash) and those of Rocq
-//   fetched with their version (?v=, web/rocq-web-fs.js) cached for good,
-//   the others revalidated (ETag).
-//   node scripts/serve.mjs [DIR] [PORT]   (default dist, 8080)
+// Serves the static site of scripts/dist.mjs the way it must be served.
+//   node scripts/serve.mjs [DIR] [PORT]   (dist and 8080 by default)
+//
+// The site is cross-origin isolated (COOP and COEP), since the page shares
+// memory with the worker to interrupt Rocq. FILE.br is sent when the browser
+// accepts brotli. DIR/_redirects rewrites (FROM/* TO/:splat 200) are
+// followed as on Netlify. vite's files (assets/, named by their hash) and
+// Rocq's files fetched with their version (?v=, web/rocq-web-fs.js) are
+// cached for good, and the others revalidated with an ETag.
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
@@ -65,7 +65,7 @@ createServer((req, res) => {
   const br = /\bbr\b/.test(req.headers["accept-encoding"] ?? "") && stat(file + ".br");
   const etag = `"${s.size.toString(36)}-${s.mtimeMs.toString(36)}${br ? "-br" : ""}"`;
   headers.ETag = etag;
-  // (a proxy recompressing the file, as Cloudflare, sends it back weak: W/)
+  // (a proxy that recompresses the file, like Cloudflare, sends it back weak, W/)
   const match = (req.headers["if-none-match"] ?? "").split(",").map((t) => t.trim().replace(/^W\//, ""));
   if (match.includes(etag)) return res.writeHead(304, headers).end();
   if (br) {

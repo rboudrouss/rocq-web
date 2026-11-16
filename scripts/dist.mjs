@@ -1,8 +1,8 @@
-// The static site, in DIR (default dist/): the app (vite build) and, in
-// rocq/BUILD/, the worker and Rocq's files of each build made
-// (out/BUILD/web, make full or compat), each file with its brotli
-// compression next to it (FILE.br), which scripts/serve.mjs serves:
+// Writes the static site to DIR (dist/ by default).
 //   node scripts/dist.mjs [DIR]
+// It holds the app built by vite and, in rocq/BUILD/, the worker and Rocq's
+// files of each build made (out/BUILD/web). Each file gets a brotli copy
+// FILE.br next to it, which scripts/serve.mjs serves.
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, readdirSync, rmSync, statSync, writeFileSync, readFileSync } from "node:fs";
 import { basename, join, relative } from "node:path";
@@ -19,8 +19,9 @@ execFileSync("pnpm", ["exec", "vite", "build", "--outDir", join("..", dir), "--e
   cwd: "app",
   stdio: "inherit",
 });
-// vite copied app/public, whose rocq/BUILD are links to out/BUILD/web in
-// development (without ocaml-emcc's work directory, .lsp_worker.ocaml-emcc)
+// vite copied app/public, where rocq/BUILD are links to out/BUILD/web for
+// development. They are replaced by real copies, without ocaml-emcc's work
+// directory (.lsp_worker.ocaml-emcc).
 for (const build of ["full", "compat"]) {
   const to = join(dir, "rocq", build);
   rmSync(to, { recursive: true, force: true });
@@ -29,9 +30,9 @@ for (const build of ["full", "compat"]) {
     cpSync(from, to, { recursive: true, dereference: true, filter: (p) => !basename(p).startsWith(".") });
 }
 
-// The libraries of compat, the same .vo as full's (docs/design.md): served
-// from full's (a rewrite of _redirects, which scripts/serve.mjs, Netlify
-// and Cloudflare Pages follow) when every file is the same
+// compat uses the same .vo as full (docs/design.md). When every file is
+// identical, compat's libraries are served from full's through a rewrite in
+// _redirects, which scripts/serve.mjs, Netlify and Cloudflare Pages follow.
 const rewrites = [];
 {
   const full = join(dir, "rocq/full/coqlib"), compat = join(dir, "rocq/compat/coqlib");
@@ -49,11 +50,11 @@ const rewrites = [];
 }
 writeFileSync(join(dir, "_redirects"), rewrites.map((r) => r + "\n").join(""));
 
-// The servers that cannot set headers: COOP and COEP (scripts/serve.mjs
-// sets them itself) for Netlify and Cloudflare Pages, and the files cached
-// for good: vite's, named by their hash, and Rocq's, fetched with theirs
-// (?v=, web/rocq-web-fs.js), else revalidated at each visit, one request
-// each
+// _headers, for Netlify and Cloudflare Pages (scripts/serve.mjs sets the
+// same headers itself). It sets COOP and COEP, and caches for good vite's
+// files, named by their hash, and Rocq's, fetched with theirs (?v=,
+// web/rocq-web-fs.js). Without it every file would be revalidated on each
+// visit, one request each.
 const forGood = "  Cache-Control: public, max-age=31536000, immutable\n";
 writeFileSync(
   join(dir, "_headers"),

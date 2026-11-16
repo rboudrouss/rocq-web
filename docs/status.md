@@ -1,126 +1,150 @@
 # Status
 
-## Full build (wasm64 + JSPI)
+Rocq 9.2 with coq-lsp 0.2.5 (its v9.2 branch).
 
-Works in Chromium (headless: `tests/browser.mjs`, `files.mjs`,
-`goals.mjs`, `navigation.mjs`, `workspace.mjs`, `examples.mjs`,
-`search.mjs`, `interrupt.mjs`, `startup.mjs`, `mobile.mjs`, `page.mjs` (with
-`support.v`, `packages_plugins.v`), `packages.mjs`; also from
-another machine through ssh, `tests/remote.sh`) and under node
-(`tests/compare.sh`, `packages.sh`, `lsp.mjs`), Rocq 9.2 with coq-lsp
-0.2.5 (its v9.2 branch), from the development server and from the static
-site (`scripts/dist.mjs`, `scripts/serve.mjs`).
+## Full build (wasm64 and JSPI)
 
-The app (`app/`):
+Tested in headless Chromium by the browser tests (`tests/*.mjs`, also run
+from another machine through `tests/remote.sh`) and under node by
+`tests/compare.sh`, `packages.sh` and `lsp.mjs`, from both the development
+server and the static site. Firefox 153+ picks this build too but is not
+covered by the tests yet.
 
-- several files in folders (a tree: folded folders, a menu on a right
-  click, rows dragged onto a folder), kept in the browser; folders
-  imported (picked, dropped from disk, or opened on disk with Chrome's
-  File System Access API, edits written back), each a workspace with its
-  generated or own project file, read again when it changes; a
-  `_RocqProject` at the root; zip archives of the files or a folder; a
-  file requiring another (`Require Import A.`) is checked after it is
-  compiled (`coq/saveVo`), again when it changed, and its errors shown if
-  it does not compile, in its workspace or another (`From Lib Require`);
-  the `.vo` kept in the browser from one load to the next; libraries of
-  Rocq files added from GitHub (through jsDelivr), archives (zip,
-  tar.gz) or folders, workspaces of their own, listed with their modules in the
-  Packages panel; `Load`; the files Rocq writes (`Extraction`), shown
-  and downloaded; a link sharing a file (its text in the URL), downloads;
-- diagnostics, the Problems panel, hover, completion (identifiers,
-  unicode input: `\forall`);
-- the goals laid out for the panel's width, what the sentence changed
-  highlighted (off by default, as in RocqIDE), hypotheses folded;
-- checking step by step, RocqIDE's way and the default: the part checked
-  green, moved by Alt+↓, Alt+↑, Alt+→ (to the cursor), Alt+Home, Alt+End
-  (Ctrl+Cmd on macOS) or the header's buttons, stopped before an error,
-  the goals where it is; or checking as you type, the goals at the
-  cursor; the next and previous sentences (Alt+N, Alt+P) and problems
-  (F8, Shift+F8);
-- `Timeout`; `native_compute` (Rocq falls back to its VM, `vm_compute`:
-  the same results, the VM's speed);
-- the panels on the left chosen (or closed) by an activity bar;
-- the outline of the file (documentSymbol), queries at the cursor
-  (`Search`, `About`, `Check`... through petanque, the document
-  unchanged);
-- go to definition (F12, Ctrl+click) in the files and in the sources of
-  the libraries, shown read only;
-- the package browser: the opam packages with their modules, a click
-  inserts the `Require`; the search of the declarations of the libraries'
-  sources;
-- examples, from a panel or a link (`?example=Basics`), and the page
-  embedded in another (`?embed`: its files in memory only; without
-  cross-origin isolation in an iframe, edits do not interrupt Rocq);
-- edits interrupt the command being checked, reductions included
-  (`Eval compute`: Rocq is idle again a second after the edit); Restart
-  starts a new worker (a computation of the VM, which nothing interrupts);
-  a worker that stopped is shown;
-- the libraries' files being downloaded are shown;
-- the system's dark mode;
-- a phone's layout (narrower than 760 pixels): the editor over the goals,
-  the moves between them (a drag shares the height), a line's number
-  touched checks up to it; the keyboard open, the goals on a line over it
-  with the moves and Rocq's symbols; the panels over the page.
+### The app
 
-Libraries are fetched when required. The switch has the opam packages
-with Rocq libraries for 9.2: Stdlib, mathcomp (ssreflect, algebra, field,
-character, solvable, finmap, multinomials, zify, classical, analysis,
-reals...), Hierarchy-Builder and rocq-elpi, Equations, MetaRocq
-(template), Iris and stdpp, Flocq, Coquelicot, Interval, CoRN,
-math-classes, ExtLib, ITree, Paco, AAC tactics, relation-algebra,
-bignums, coqprime, hammer's tactics, four colour, infotheo, monae,
-autosubst, deriving, extructures, TLC, LibHyps...; their plugins are side
-modules (the prelude's are linked in the worker). `tests/packages.mjs`
-requires three modules of each package, a worker for each package: all
-load (157 modules of 57 packages); `tests/packages_plugins.v` uses a
-plugin of each (Equations, AAC, hammer's `sauto`, MetaRocq's quoting,
-bignums, relation-algebra, coinduction, Iris's proof mode, Interval), in
-20 s from a cold start in the app.
+**Files.** Files live in folders in the browser, shown as a tree with
+folding, a context menu and drag and drop. Folders can be picked, dropped
+from disk, or opened on disk with Chrome's File System Access API (edits are
+written back). Each imported folder is a workspace with a generated or
+hand-written project file, read again when it changes, and the root can have
+a `_RocqProject` too. Files and folders export as zip archives. `Load`
+works, and files Rocq writes (`Extraction`) are shown and downloadable. A
+file can be shared as a link with its text in the URL.
 
-| | size (brotli) |
-|-|------|
-| `lsp_worker.wasm` | 36 MB (5.8 MB) |
-| `boot.bin`, the files read when Rocq starts | 1 MB (0.35 MB) |
-| libraries and plugins (`dist/rocq/full`) | 816 MB (290 MB), fetched file by file, in parallel |
+**Dependencies.** A file that requires another (`Require Import A.`) is
+checked once that file is compiled with `coq/saveVo`, and again when it
+changes. If the dependency does not compile, its errors are shown. This
+works within a workspace and across workspaces (`From Lib Require`). The
+compiled `.vo` are kept in the browser between page loads.
 
-The first load transfers about 6.6 MB; Rocq is ready about 1.5 s after
-the page loads and has checked a first sentence at about 1.9 s (headless
-Chromium, local server, a loaded machine).
+**Libraries.** Libraries of Rocq files can be added from GitHub (through
+jsDelivr), from archives (zip, tar.gz) or from folders. Each becomes a
+workspace and is listed with its modules in the Packages panel. The package
+browser lists the opam packages with their modules, and clicking one
+inserts its `Require`. The declarations of the libraries' sources can be
+searched.
+
+**Checking.** By default the file is checked step by step as in RocqIDE.
+The checked part is green, checking stops before an error, and the goals
+are those at that point. The other mode checks as you type and shows the
+goals at the cursor. Diagnostics, the Problems panel, hover and completion
+(identifiers and unicode input like `\forall`) work in both. `Timeout`
+works, and `native_compute` falls back to Rocq's VM with the same results.
+
+| key | action |
+|-----|--------|
+| Alt+↓ or Alt+N, Alt+↑ or Alt+P | check the next sentence, step back one |
+| Alt+→, Alt+Enter, Ctrl+Enter | check up to the cursor |
+| Alt+Home, Alt+End | check up to the start, the end |
+| F8, Shift+F8 | next, previous problem |
+| F12, Ctrl+click | go to definition |
+
+On macOS, Ctrl+Cmd replaces Alt in the arrow, Home and End keys. The header
+has buttons for the same moves.
+
+**Goals.** Goals are laid out for the panel's width, with foldable
+hypotheses. What the last sentence changed can be highlighted (off by
+default, as in RocqIDE).
+
+**Navigation.** The file outline comes from documentSymbol. Queries at the
+cursor (`Search`, `About`, `Check`...) go through petanque and leave the
+document unchanged. Go to definition works in the user's files and in the
+libraries' sources, which open read only.
+
+**Interrupts.** An edit interrupts the command being checked, reductions
+included. After `Eval compute`, Rocq is idle again about a second after the
+edit. Restart starts a new worker, for the VM's computations that nothing
+interrupts. A worker that stopped is shown as such.
+
+**Interface.** An activity bar picks the panel on the left or closes it.
+Library downloads in progress are shown. The page follows the system's dark
+mode. Examples open from a panel or a link (`?example=Basics`). The page
+can be embedded in another with `?embed`, its files then kept in memory
+only. In an iframe without cross-origin isolation, edits do not interrupt
+Rocq.
+
+**Phones.** Below 760 pixels wide, the editor sits above the goals and a
+drag shares the height between them. Touching a line number checks up to
+that line. With the keyboard open, the goals fit on one line above it, with
+the moves and Rocq's symbols. Panels open over the page.
+
+### Packages
+
+Libraries are fetched when required. The switch has the opam packages with
+Rocq libraries for 9.2, among them Stdlib, mathcomp (ssreflect, algebra,
+field, analysis, reals, finmap...), Hierarchy-Builder and rocq-elpi,
+Equations, MetaRocq, Iris and stdpp, Flocq, Coquelicot, Interval, CoRN,
+math-classes, ExtLib, ITree, Paco, AAC tactics, relation-algebra, bignums,
+hammer's tactics and the four colour theorem. Their plugins are side
+modules, except the prelude's, which are linked into the worker.
+
+`tests/packages.mjs` requires three modules of each package, in a fresh
+worker per package. All 157 modules of the 57 packages load.
+`tests/packages_plugins.v` uses a plugin from each of Equations, AAC,
+hammer's `sauto`, MetaRocq's quoting, bignums, relation-algebra,
+coinduction, Iris's proof mode and Interval. It checks in 20 s from a cold
+start in the app.
+
+### Size and startup
+
+| | size | with brotli |
+|-|------|-------------|
+| `lsp_worker.wasm` | 36 MB | 5.8 MB |
+| `boot.bin`, the files Rocq reads at startup | 1 MB | 0.35 MB |
+| libraries and plugins (`dist/rocq/full`), fetched file by file | 816 MB | 290 MB |
+
+The first load transfers about 6.6 MB. Rocq is ready about 1.5 s after the
+page loads and has checked a first sentence at about 1.9 s (headless
+Chromium, local server, busy machine).
 
 ### Known problems
 
-- Starting: V8 compiles c_of_ocaml's function initialising every module
-  (1.5 million lines of wasm text) when it is called, which takes a large
-  part of the start (0.8 s in a profile under node, on a loaded machine).
-- Opam packages built with coq_makefile install no bytecode: the
-  `Makefile` compiles their plugins from the sources.
-- Not available for Rocq 9.2 in opam: unicoq, mtac2, paramcoq, itauto,
-  smpl, waterproof, QuickChick, graph-theory, algebra-tactics; failing to
+- V8 compiles c_of_ocaml's function that initialises every module (1.5
+  million lines of wasm text) when it is first called. This is a large part
+  of the startup time, 0.8 s in a profile under node on a busy machine.
+- Opam packages built with coq_makefile install no bytecode, so the
+  `Makefile` compiles their plugins from source.
+- Not available in opam for Rocq 9.2: unicoq, mtac2, paramcoq, itauto,
+  smpl, waterproof, QuickChick, graph-theory, algebra-tactics. Failing to
   build: reduction-effects, categories.
-- Memory: coq-lsp keeps what it loaded; a worker that required 110
-  modules of 37 packages in turn used 9.5 GB (Restart frees it).
-- An interrupt from a Memprof callback is an exception at any allocation
-  in Rocq (as with memprof-limits in native coq-lsp): a lazy value being
-  forced then raises it again later. Only once the command has not
-  checked for interrupts for half a second.
+- coq-lsp keeps everything it loaded. A worker that required 110 modules of
+  37 packages in turn used 9.5 GB. Restart frees it.
+- An interrupt from the Memprof callback is an exception raised at any
+  allocation in Rocq, as with memprof-limits in native coq-lsp. A lazy value
+  being forced at that moment raises it again later. This only happens when
+  a command has not checked for interrupts for half a second.
 
-## Compat build (wasm64 lowered to wasm32 + CPS stack)
+## Compat build (wasm64 lowered to wasm32, CPS stack)
 
-Works (docs/design.md): `tests/*.mjs` with `ROCQ_WEB_BUILD=compat` in
-Chromium (JSPI hidden from the page) and Firefox (JSPI disabled): goals,
-navigation, workspace, search, files, interrupts (Ltac and reductions),
-`support.v`; `rocq_web.js` under node gives the native outputs. Its
-`.wasm` is about 100 MB (36 MB for full: CPS versions), checked in 3 s in
-Chromium, 18 to 24 s in Firefox (development server, no brotli).
+The browser tests pass with `ROCQ_WEB_BUILD=compat` in Chromium (JSPI hidden
+from the page) and in Firefox with JSPI disabled. This covers goals,
+navigation, workspaces, search, files, interrupts (Ltac and reductions) and
+`support.v`. Under node, `rocq_web.js` gives the same outputs as native
+Rocq.
+
+Its `.wasm` is about 100 MB, against 36 MB for full, because of the CPS
+versions of the functions. It compiles in 3 s in Chromium and 18 to 24 s in
+Firefox (development server, no brotli).
 
 ### Known problems
 
-- Memory: 4 GB at most (a 32-bit memory).
+- Memory is limited to 4 GB.
 - Without wasm tail calls (`make compat NO_TAIL_CALLS=1`, ocaml-emcc's
-  `--no-tail-calls`; c_of_ocaml 006e2612), the tests of the browser pass
-  in Chromium, but a deep recursion aborts the worker (`Eval compute in
-  Nat.even (Nat.pow 3 11)`: "Fatal error: c_of_ocaml: arity 0", under node
-  too), which it computes with them: compat keeps them, and needs an
-  engine that has them (Safari 18.2, Firefox 121, Chrome 112).
+  `--no-tail-calls`, c_of_ocaml 006e2612), the browser tests pass in
+  Chromium but a deep recursion aborts the worker.
+  `Eval compute in Nat.even (Nat.pow 3 11)` fails with "Fatal error:
+  c_of_ocaml: arity 0", under node too, while it works with tail calls.
+  Compat therefore keeps them and needs an engine that has them (Safari
+  18.2, Firefox 121, Chrome 112).
 - Without cross-origin isolation the page cannot share memory with the
-  worker, which then cannot receive messages: compat needs it.
+  worker, which then cannot receive messages at all.

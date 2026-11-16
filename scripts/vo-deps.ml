@@ -1,13 +1,15 @@
-(* The libraries each .vo requires, from its summary (Rocq's
-   vernac/library.ml, whose first two fields this record matches): for each
-   .vo named on stdin, a line "FILE NAME DEP...", the libraries by their
-   logical names, in the order Rocq loads them. Built and run by
-   scripts/assets.mjs. *)
+(* Prints the libraries each .vo requires, read from its summary segment.
+   For each .vo path on stdin it prints a line "FILE NAME DEP...", with the
+   libraries by logical name, in the order Rocq loads them.
+   scripts/assets.mjs builds and runs it.
+
+   The record below matches the first two fields of the summary in Rocq's
+   vernac/library.ml. *)
 type summary = { md_name : string list; md_deps : (string list * Obj.t) array }
 
 let segment : summary ObjFile.id = ObjFile.make_id "summary"
 
-(* (a DirPath.t: its identifiers, last first) *)
+(* A DirPath.t holds its identifiers last first *)
 let name l = String.concat "." (List.rev l)
 
 let () =

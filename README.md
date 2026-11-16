@@ -1,78 +1,74 @@
 # rocq-web
 
-The [Rocq prover](https://rocq-prover.org) (formerly Coq) running entirely
-in the browser: Rocq 9.2 and its language server,
-[coq-lsp](https://github.com/ejgallego/coq-lsp), compiled to WebAssembly,
-in an editor made for proofs. No server checks anything: once the page is
-loaded, Rocq runs on your machine, and your files stay in your browser.
+The [Rocq prover](https://rocq-prover.org) in the browser, with no server.
 
-**Try it: [rocq.rboud.com](https://rocq.rboud.com/)**
+**[rocq.rboud.com](https://rocq.rboud.com/)**
 
-It comes with the libraries most developments use, fetched only when a
-file requires them: the standard library, Mathematical Components (and
-analysis), Iris and stdpp, Equations, MetaRocq, Hierarchy-Builder and
-rocq-elpi, Flocq, Coquelicot, Interval, CoRN, ExtLib, ITree, Paco... 57
-packages in all, their plugins included.
+Rocq 9.2 and its language server [coq-lsp](https://github.com/ejgallego/coq-lsp)
+are compiled to WebAssembly and run on your machine. Your files stay in your
+browser.
 
-## What it does
+## Features
 
-- **Proofs as in an IDE**: the goals at the cursor, what each step
-  changed, checking as you type or step by step (as RocqIDE), errors and
-  warnings, hover, completion, go to definition (into the libraries'
-  sources too), the outline of a file, queries (`Search`, `About`,
-  `Check`...).
-- **Several files and projects**: folders, a `_RocqProject`, files
-  requiring one another (compiled in the browser, their `.vo` kept),
-  folders imported or opened from disk, zip archives.
-- **Libraries**: the packages above, browsed with their modules and
-  searched by declaration; other Rocq libraries added from a GitHub
-  repository, an archive or a folder.
-- **Sharing**: a link with a file's text, examples and tutorials, the
-  page embedded in another (`?embed`).
+The editor shows the goals at the cursor and what each tactic changed. It
+checks the file as you type, or step by step like RocqIDE. Errors, hover,
+completion, go to definition (into library sources too), the outline and
+queries like `Search` or `About` work as in a desktop IDE.
 
-Its limits: Rocq's `native_compute` falls back to its VM (same results);
-a library added by hand cannot bring OCaml plugins, which cannot be built
-in the browser yet; the memory is the browser's (a heavy session may use
-several GB, Restart frees it).
+A project can have several files and folders and a `_RocqProject`. Files
+that require one another are compiled in the browser. Projects can be opened
+from a folder on disk or a zip archive.
+
+57 packages are available and downloaded only when a file requires them,
+among them the standard library, Mathematical Components, Iris, Equations,
+MetaRocq and Flocq. Other libraries can be added from a GitHub repository,
+an archive or a folder.
+
+A file can be shared as a link, and the page can be embedded in another one
+with `?embed`.
+
+## Limitations
+
+- `native_compute` falls back to the VM, with the same results.
+- A library added by hand cannot bring OCaml plugins, since these cannot be
+  built in the browser yet.
+- A heavy session can use several GB of memory. Restart frees it.
 
 ## Browsers
 
-| | build | |
-|-|-------|-|
-| Chrome, Edge 137+ | full (wasm64 with JSPI) | up to 16 GB of memory |
-| Firefox, older Chromium (Safari 18.2+: untested) | compat (the same code, a 32-bit memory) | slower to start, up to 4 GB |
-
-The page picks the build itself.
+Chrome and Edge 137+ and Firefox 153+ run the full build (wasm64 with JSPI),
+which can use up to 16 GB of memory. Older browsers run the compat build, the
+same code with a 32-bit memory. It starts slower and is limited to 4 GB.
+Safari 18.2+ should work but is untested. The page picks the build by itself.
 
 ## How it works
 
-The OCaml of Rocq and coq-lsp is compiled to C by c_of_ocaml, then to
-WebAssembly by emscripten, through
-[ocaml-emcc](https://github.com/rboudrouss/ocaml-emcc); Rocq's plugins are
-WebAssembly side modules loaded on `Declare ML Module`. The language
-server runs in a Web Worker, which reads the libraries' files from the
-site as Rocq opens them. The web app (React, CodeMirror) talks to it as an
-LSP client. [docs/design.md](docs/design.md) has the details.
+Rocq and coq-lsp are compiled from OCaml to C by c_of_ocaml, then to
+WebAssembly by emscripten, using [ocaml-emcc](https://github.com/rboudrouss/ocaml-emcc).
+Rocq plugins become WebAssembly side modules, loaded on `Declare ML Module`.
+
+The language server runs in a Web Worker and fetches library files from the
+site as Rocq opens them. The web app (React and CodeMirror) talks to it over
+LSP.
+
+More in [docs/design.md](docs/design.md).
 
 ## Documentation
 
-| | |
-|-|-|
-| [docs/building.md](docs/building.md) | the toolchain, building the two builds, the app, the static site, the tests |
-| [docs/deploying.md](docs/deploying.md) | serving the site (cross-origin isolation, brotli), on Cloudflare Pages and R2 |
-| [docs/design.md](docs/design.md) | the two builds, plugins, packages, workspaces and libraries, interrupts |
-| [docs/status.md](docs/status.md) | what works in each build, known problems |
-| [docs/native-compute.md](docs/native-compute.md) | thoughts on `native_compute` in the browser |
+- [docs/building.md](docs/building.md) to build the worker, the app and the site, and run the tests
+- [docs/deploying.md](docs/deploying.md) to serve the site, on Cloudflare Pages and R2 or elsewhere
+- [docs/design.md](docs/design.md) for the two builds, plugins, packages and interrupts
+- [docs/status.md](docs/status.md) for what works in each build and known problems
 
-## Layout
+## Repository layout
 
-| path | what |
-|------|------|
-| `worker/` | the OCaml programs: coq-lsp's server for a Web Worker, and Rocq, with `Declare ML Module` loading wasm plugins |
-| `web/` | JavaScript linked in the worker: its messages (`rocq-web-io.js`), its files (`rocq-web-fs.js`) |
+| path | contents |
+|------|----------|
+| `worker/` | the OCaml programs, coq-lsp's server for a Web Worker and Rocq |
+| `web/` | JavaScript linked into the worker for its messages and files |
 | `app/` | the web app (pnpm, Vite, React, CodeMirror) |
-| `Makefile` | building, from the toolchain to the site: an example of a large OCaml program built with ocaml-emcc |
-| `scripts/` | the files of the web worker (`assets.mjs`, `vo-deps.ml`), the static site (`dist.mjs`, `serve.mjs`), Cloudflare (`cloudflare.mjs`) |
-| `vendor/`, `patches/` | coq-lsp, and the patches applied to it |
-| `tests/` | comparisons with the native Rocq, LSP over stdio, the app in headless Chromium |
+| `Makefile` | the whole build, from the toolchain to the site |
+| `scripts/` | worker assets, the static site, Cloudflare deployment |
+| `vendor/`, `patches/` | coq-lsp and the patches applied to it |
+| `tests/` | comparisons with native Rocq, LSP tests, browser tests |
 | `docs/` | the documentation above |

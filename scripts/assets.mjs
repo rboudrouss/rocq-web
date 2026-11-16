@@ -1,22 +1,22 @@
-// The files of the web worker, into OUT (default out/full/web):
+// Gathers the files the web worker reads into OUT (out/full/web by default).
 //   node scripts/assets.mjs [BUILD] [OUT]
-// - coqlib/: Rocq's libraries from the switch (lib/coq): Corelib and those
-//   of user-contrib (.vo, .glob, .v, .elpi);
-// - plugins/: the build's plugins (out/BUILD/plugins/*.wasm);
-// - findlib/: findlib.conf and the META files of the packages the plugins
-//   need, as findlib resolves plugins' dependencies;
-// - packages.json: the opam packages of these libraries (name, version,
-//   synopsis, homepage, the packages it depends on, its modules), for the
-//   app's package browser;
-// - search.tsv: the declarations of the libraries' sources, for the app's
-//   search (scripts/search-index.mjs);
-// - boot.bin: findlib's files (it reads them all when it starts) and those
-//   listed in web/boot-files.txt (those Rocq reads when it starts, written
-//   by tests/startup.mjs --record), in one request;
-// - files.json: the manifest web/rocq-web-fs.js creates the file system
-//   from (directories, files with their sizes, what each needs,
-//   environment, the version of the files).
-// Run by make (Makefile), in the switch's environment: ocamlfind.
+// make runs it in the switch's environment, which it needs for ocamlfind.
+//
+// coqlib/        Rocq's libraries from the switch's lib/coq, Corelib and
+//                user-contrib (.vo, .glob, .v, .elpi)
+// plugins/       the build's plugins, out/BUILD/plugins/*.wasm
+// findlib/       findlib.conf and the META files of the packages the plugins
+//                need, so findlib can resolve their dependencies
+// packages.json  the opam packages of these libraries with their modules,
+//                for the app's package browser
+// search.tsv     the declarations of the libraries' sources, for the app's
+//                search (scripts/search-index.mjs)
+// boot.bin       the files read at startup in a single request, findlib's
+//                and those listed in web/boot-files.txt (recorded by
+//                tests/startup.mjs --record)
+// files.json     the manifest web/rocq-web-fs.js builds the file system
+//                from, with directories, file sizes, what each file needs,
+//                the environment and the version of the files
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -52,9 +52,9 @@ function walk(dir, f) {
 // (the worker itself, lsp_worker.js and .wasm, is built in OUT too)
 for (const d of ["coqlib", "plugins", "findlib", "files.json", "packages.json", "search.tsv", "boot.bin"]) rmSync(join(out, d), { recursive: true, force: true });
 
-// Rocq's libraries: Corelib (theories) and every library installed in
-// user-contrib (Ltac2, Stdlib, mathcomp...), with their sources and
-// globalization files (go to definition), and elpi's programs
+// Rocq's libraries, Corelib (theories) and every library installed in
+// user-contrib (Ltac2, Stdlib, mathcomp...). Their sources and .glob files
+// are kept for go to definition, as well as elpi's programs.
 const coqlib = join(prefix, "lib/coq");
 for (const sub of ["theories", "user-contrib"])
   walk(join(coqlib, sub), (p) => {
@@ -65,7 +65,7 @@ for (const sub of ["theories", "user-contrib"])
 const plugins = readdirSync(`out/${build}/plugins`).filter((f) => f.endsWith(".wasm"));
 for (const f of plugins) add(join(`out/${build}/plugins`, f), join("plugins", f));
 
-// findlib: the packages of the plugins and those they require
+// findlib's META files for the plugins' packages and their dependencies
 const pkgs = plugins.map((f) => f.replace(/\.wasm$/, ""));
 const needed = new Set(ocamlfind("query", "-r", "-format", "%p", ...pkgs).split("\n"));
 const tops = new Set([...needed].map((p) => p.split(".")[0]));
@@ -111,11 +111,15 @@ for (const p of packages) p.depends = p.depends.filter((d) => names.has(d));
 writeFileSync(join(out, "packages.json"), JSON.stringify(packages));
 writeFileSync(join(out, "search.tsv"), searchIndex(join(out, "coqlib")));
 
-// What each file needs once read, which the worker then downloads at once
-// (web/rocq-web-fs.js): a .vo, the libraries it requires (its summary,
-// scripts/vo-deps.ml) and the plugins it declares (their names in it, as
-// OCaml marshals a string: its length then its bytes); a plugin, those
-// findlib loads before it (worker/plugins/plugins.ml)
+// What each file needs once read, so the worker can download it all at once
+// (web/rocq-web-fs.js).
+//
+// A .vo needs the libraries it requires, read from its summary by
+// scripts/vo-deps.ml, and the plugins it declares. Plugin names are found
+// in the .vo as OCaml marshals a string, its length followed by its bytes.
+//
+// A plugin needs the packages findlib loads before it
+// (worker/plugins/plugins.ml).
 const index = new Map(files.map((f, i) => [f[0], i]));
 const tool = join(tmpdir(), `rocq-web-vo-deps-${process.pid}`);
 mkdirSync(tool, { recursive: true });
@@ -135,7 +139,7 @@ const summaries = execFileSync(join(tool, "vo-deps"), {
 rmSync(tool, { recursive: true, force: true });
 const library = new Map(summaries.map(([file, name]) => [name, "/" + relative(out, file)]));
 const pluginIndex = (p) => index.get(`/plugins/${p}.wasm`);
-// (as worker/lsp_worker.ml: Rocq's plugins through serlib's)
+// Rocq's plugins are loaded through serlib's, as in worker/lsp_worker.ml
 const serlib = (p) => {
   const m = /^rocq-runtime\.plugins\.(.+)$/.exec(p);
   return m && pluginIndex(`coq-lsp.serlib.${m[1]}`) !== undefined ? `coq-lsp.serlib.${m[1]}` : p;
@@ -162,7 +166,7 @@ for (const p of pkgs) {
   if (before.length) deps.push([pluginIndex(p), ...before]);
 }
 
-// boot.bin
+// boot.bin, the files read at startup concatenated
 const bootList = "web/boot-files.txt";
 const bootFiles = new Set(existsSync(bootList) ? readFileSync(bootList, "utf8").split("\n").filter(Boolean) : []);
 const chunks = [];
@@ -175,8 +179,8 @@ for (const f of files)
   }
 writeFileSync(join(out, "boot.bin"), Buffer.concat(chunks));
 
-// The version of these files, a hash of their contents: in the URLs the
-// worker fetches them at (?v=), which a server may then cache for good
+// The version of these files, a hash of their contents. The worker adds it
+// to their URLs (?v=), so a server can let browsers cache them for good.
 const hash = createHash("sha256");
 for (const [path] of files) hash.update(path).update(readFileSync(join(out, path.slice(1))));
 hash.update(readFileSync(join(out, "boot.bin")));
@@ -192,9 +196,8 @@ writeFileSync(
     // [file, what it needs...], by their indices in files
     deps,
     version,
-    // OCAMLRUNPARAM: a minor heap of 32 MB (Rocq sets 256 MB unless it is
-    // given, which takes 130 ms to clear when it starts, for no faster
-    // proofs)
+    // OCAMLRUNPARAM sets a minor heap of 32 MB. Otherwise Rocq sets 256 MB,
+    // which takes 130 ms to clear at startup and makes no proof faster.
     env: {
       ROCQLIB: "/coqlib",
       ROCQ_WEB_PLUGINS: "/plugins",

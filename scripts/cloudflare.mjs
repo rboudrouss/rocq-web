@@ -1,14 +1,16 @@
-// The site of scripts/dist.mjs for Cloudflare Pages (or a Worker with
-// static assets), which serves no file over 25 MiB: those (the
-// lsp_worker.wasm of the builds) are served by an R2 bucket at ASSETS_URL
-// (a custom domain, its CORS policy allowing the site's origin), in a
-// directory named after their hash (they must match the lsp_worker.js of
-// the page: an upload replaces nothing a deployed page uses, and they are
-// cached for good), where rocq/worker.js finds them:
+// Splits the site of scripts/dist.mjs for Cloudflare Pages (or a Worker with
+// static assets), which serves no file over 25 MiB.
 //   node scripts/cloudflare.mjs ASSETS_URL [DIST]
-// writes DIST-cloudflare/ (the site, for wrangler pages deploy, without
-// the .br files: Cloudflare compresses itself) and DIST-r2/HASH/ (the
-// bucket's new files, with their brotli compression, for make r2).
+//
+// DIST-cloudflare/ gets the site for wrangler pages deploy, without the .br
+// files since Cloudflare compresses by itself. DIST-r2/HASH/ gets the big
+// files (each build's lsp_worker.wasm) with their brotli copies, for make r2.
+// They are served from an R2 bucket at ASSETS_URL, a custom domain whose
+// CORS policy allows the site's origin, and rocq/worker.js points to them.
+//
+// The big files must match the page's lsp_worker.js, so their directory is
+// named after their hash. An upload then never replaces a file a deployed
+// page uses, and the files can be cached for good.
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -44,8 +46,8 @@ walk(site, (p) => {
   if (statSync(p).size > limit) big.push(relative(site, p).split(sep).join("/"));
 });
 big.sort();
-// rocq/worker.js gives emscripten their URL (locateFile): files of a build's
-// directory only
+// rocq/worker.js gives emscripten their URL through locateFile, only for
+// files of a build's directory
 for (const f of big)
   if (!/^rocq\/[^/]+\/[^/]+$/.test(f)) {
     console.error(`${f}: over 25 MiB, outside rocq/BUILD/ (rocq/worker.js finds only those elsewhere)`);
