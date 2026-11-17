@@ -13,7 +13,7 @@ cores helps (see `JOBS` below).
 ## Prerequisites
 
 - An opam switch named `rocq-web` with OCaml 5.4.1, `rocq-core` 9.2.0,
-  `js_of_ocaml`, `ocaml-emcc` (pinned from its repository, 9b35258 or
+  `js_of_ocaml`, `ocaml-emcc` (pinned from its repository, 45e4b43 or
   later, for coq-lsp's recipe) and the Rocq packages the site should
   offer. The build ships every package of the switch.
   [status.md](status.md) lists the current ones.
