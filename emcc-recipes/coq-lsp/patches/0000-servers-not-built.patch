@@ -1,0 +1,7 @@
+The servers of coq-lsp not built, only its libraries: rocq-web has its own
+(worker/), and these do not build for wasm ((modes native), js_of_ocaml).
+
+--- /dev/null
++++ b/lsp-server/dune
+@@
++(data_only_dirs wasm jsoo native)

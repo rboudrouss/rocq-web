@@ -13,9 +13,10 @@ cores helps (see `JOBS` below).
 ## Prerequisites
 
 - An opam switch named `rocq-web` with OCaml 5.4.1, `rocq-core` 9.2.0,
-  `js_of_ocaml`, `ocaml-emcc` (pinned from its repository) and the Rocq
-  packages the site should offer. The build ships every package of the
-  switch. [status.md](status.md) lists the current ones.
+  `js_of_ocaml`, `ocaml-emcc` (pinned from its repository, 9b35258 or
+  later, for coq-lsp's recipe) and the Rocq packages the site should
+  offer. The build ships every package of the switch.
+  [status.md](status.md) lists the current ones.
 - c_of_ocaml 083e5706 or later, built separately as described in
   ocaml-emcc's README. It is looked up in `~/C_of_ocaml`, or set
   `C_OF_OCAML=...`. With an older one, Ltac loops overflow the stack and
@@ -33,7 +34,11 @@ The `Makefile` sets up this environment by itself. To get it in a shell, run
 `Makefile` is commented step by step and doubles as an example of a large
 OCaml program built with ocaml-emcc.
 
-1. `vendor/coq-lsp` is checked out and `patches/` applied.
+1. ocaml-emcc builds coq-lsp's OCaml libraries for WebAssembly, into its
+   sysroot, from the recipe `emcc-recipes/coq-lsp/`. opam has no coq-lsp
+   for Rocq 9.2, so the recipe names its sources (a commit of the v9.2
+   branch), and its `patches/` change what rocq-web needs (see each
+   patch). This happens once, and again when the recipe changes.
 2. ocaml-emcc compiles three dune executables to C, then to WebAssembly.
    `rocq_web.js` is `rocq compile`, used by the tests under node.
    `lsp_worker.js` is coq-lsp under node, and the program the plugins are

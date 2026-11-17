@@ -30,7 +30,7 @@ SHELL := bash
 # Each recipe runs as a single script
 .ONESHELL:
 .DELETE_ON_ERROR:
-.PHONY: all full compat build plugins side-modules vendor dist serve cloudflare r2 pages deploy env FORCE
+.PHONY: all full compat build plugins side-modules dist serve cloudflare r2 pages deploy env FORCE
 
 all: full compat dist
 
@@ -92,10 +92,13 @@ else
 $(error BUILD: full or compat)
 endif
 
-# dune's context for the target. coq-lsp's packages are installed there,
-# where findlib finds them.
-CTX := default.wasm64
-export OCAMLPATH := $(CURDIR)/_build/install/$(CTX)/lib
+# coq-lsp for Rocq 9.2 is not in opam. Its recipe, emcc-recipes/coq-lsp/,
+# names its sources and the patches rocq-web needs (see each patch).
+# ocaml-emcc builds its OCaml libraries for the target from them, before
+# the programs, into the sysroot's findlib directory, where the toolchain
+# finds them before the switch's packages.
+SYSROOT = $(eval SYSROOT := $$(shell $(OCAML_EMCC) $(TARGET) env --sysroot))$(SYSROOT)
+OCAMLFIND = OCAMLFIND_CONF=$(SYSROOT)/findlib.conf ocamlfind -toolchain wasm64
 
 full compat:
 	$(MAKE) build BUILD=$@
@@ -103,20 +106,10 @@ full compat:
 # out/BUILD/ holds the programs (built three at a time), the plugins, and
 # web/, what the page serves (the worker and Rocq's files, see
 # scripts/assets.mjs)
-build: vendor
+build:
 	$(MAKE) -j3 $(OUT)/rocq_web.js $(OUT)/lsp_worker.js $(OUT)/web/lsp_worker.js
 	$(MAKE) plugins
 	node scripts/assets.mjs $(BUILD) $(OUT)/web
-
-# coq-lsp in vendor/, with patches/coq-lsp/ applied. A patch already applied
-# is skipped.
-vendor:
-	git submodule update --init
-	for p in patches/coq-lsp/*.patch; do
-	  if git -C vendor/coq-lsp apply --reverse --check "$(CURDIR)/$$p" 2>/dev/null; then continue; fi
-	  git -C vendor/coq-lsp apply "$(CURDIR)/$$p"
-	  echo "applied $$p"
-	done
 
 ### The programs. ocaml-emcc builds a dune executable (--exe) into FILE.js
 ### and FILE.wasm. These targets always run, since dune and ocaml-emcc know
@@ -147,33 +140,31 @@ $(OUT)/web/lsp_worker.js: FORCE
 ### plugin (coq-lsp.serlib.PLUGIN) is coq-lsp's serialization of a plugin's
 ### syntax. It is loaded instead of the plugin, and requires it.
 
-# First coq-lsp's serlib plugins with dune, then each plugin. The plugins
-# run in a separate make, because listing them needs the serlib META files.
-plugins: vendor
-	$(OCAML_EMCC) $(TARGET) dune @vendor/coq-lsp/serlib/plugins/all _build/install/$(CTX)/lib/coq-lsp/META
+# The packages are those of the target's toolchain (OCAMLFIND), whose
+# coq-lsp is the recipe's. The plugins run in a separate make, which lists
+# them once the programs are built.
+plugins:
 	$(MAKE) -j$(JOBS) side-modules
 
 ifeq ($(MAKECMDGOALS),side-modules)
 COQLIB := $(OPAM_SWITCH_PREFIX)/lib/coq
 DECLARED := $(shell grep -rhoE 'Declare ML Module "[^"]+"' $(COQLIB) | sed 's/.*"\(.*\)"/\1/')
-SERLIB := $(shell ocamlfind list 2>/dev/null | awk '$$1 ~ /^coq-lsp\.serlib\./ { print $$1 }')
+SERLIB := $(shell $(OCAMLFIND) list 2>/dev/null | awk '$$1 ~ /^coq-lsp\.serlib\./ { print $$1 }')
 # The plugins and the packages they need, dependencies first
-NEEDED := $(shell ocamlfind query -r -format '%p' $(sort $(DECLARED) $(SERLIB)) | awk '!seen[$$0]++')
+NEEDED := $(shell $(OCAMLFIND) query -r -format '%p' $(sort $(DECLARED) $(SERLIB)) | awk '!seen[$$0]++')
 # The packages linked into the worker, the libraries of lsp_worker
 # (worker/dune) and their dependencies
 libraries = sed -n '/(name lsp_worker)/,/^$$/p' worker/dune | sed -n '/(libraries/,$$p' | tr -d '()'
 WORKER_LIBS := $(filter-out libraries rocq_web_plugins lsp_io,$(shell $(libraries)))
-LINKED := $(shell ocamlfind query -r -format '%p' $(WORKER_LIBS) findlib ocaml-emcc.dynlink)
+LINKED := $(shell $(OCAMLFIND) query -r -format '%p' $(WORKER_LIBS) findlib ocaml-emcc.dynlink)
 # The others that have OCaml code, meaning a bytecode archive (fake.cma
 # means none)
-archive-name = $(shell ocamlfind query -predicates byte -format %a $(1))
+archive-name = $(shell $(OCAMLFIND) query -predicates byte -format %a $(1))
 PLUGINS := $(foreach p,$(filter-out $(LINKED),$(NEEDED)),$(if $(filter-out fake.cma,$(call archive-name,$(p))),$(p)))
 
-# A package's bytecode archive. coq-lsp's are in _build, the others in the
-# switch, or built below when opam installed them as native code only.
-archive = $(if $(filter coq-lsp.%,$(1)), \
-  $(firstword $(shell find _build/$(CTX)/vendor/coq-lsp -name $(call archive-name,$(1)))), \
-  $(call installed-or-byte,$(shell ocamlfind query -predicates byte -format %d/%a $(1))))
+# A package's bytecode archive, in the sysroot or the switch, or built
+# below when opam installed it as native code only
+archive = $(call installed-or-byte,$(shell $(OCAMLFIND) query -predicates byte -format %d/%a $(1)))
 installed-or-byte = $(if $(wildcard $(1)),$(1),_build/byte-plugins/$(notdir $(patsubst %/,%,$(dir $(1))))/$(notdir $(1)))
 
 side-modules: $(PLUGINS:%=$(OUT)/plugins/%.wasm)

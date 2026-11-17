@@ -29,7 +29,16 @@ const out = process.argv[3] ?? `out/${build}/web`;
 const prefix = process.env.OPAM_SWITCH_PREFIX;
 if (!prefix) throw new Error("OPAM_SWITCH_PREFIX: run it by make (make full), or eval \"$(make -s env)\" first");
 
-const ocamlfind = (...args) => execFileSync("ocamlfind", args, { encoding: "utf8" }).trim();
+// The packages of the target's toolchain, whose coq-lsp is built by
+// ocaml-emcc from emcc-recipes/coq-lsp in its sysroot
+const sysroot = execFileSync(process.env.OCAML_EMCC ?? "ocaml-emcc", ["--target", "wasm64", "env", "--sysroot"], {
+  encoding: "utf8",
+}).trim();
+const ocamlfind = (...args) =>
+  execFileSync("ocamlfind", ["-toolchain", "wasm64", ...args], {
+    encoding: "utf8",
+    env: { ...process.env, OCAMLFIND_CONF: join(sysroot, "findlib.conf") },
+  }).trim();
 
 const files = [];
 const dirs = new Set();

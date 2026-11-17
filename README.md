@@ -69,6 +69,6 @@ More in [docs/design.md](docs/design.md).
 | `app/` | the web app (pnpm, Vite, React, CodeMirror) |
 | `Makefile` | the whole build, from the toolchain to the site |
 | `scripts/` | worker assets, the static site, Cloudflare deployment |
-| `vendor/`, `patches/` | coq-lsp and the patches applied to it |
+| `emcc-recipes/` | coq-lsp's sources and the patches applied to it, an ocaml-emcc recipe |
 | `tests/` | comparisons with native Rocq, LSP tests, browser tests |
 | `docs/` | the documentation above |
