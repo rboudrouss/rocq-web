@@ -7,9 +7,9 @@
 //   with it (app/src/channel.ts), which carries the page's messages and its
 //   operations on the files then; to postMessage.
 // - Under node, LSP over stdin and stdout (Content-Length headers), for
-//   tests and editors. ocaml-emcc runs compiled programs in a worker thread
-//   there (a large stack), which is where stdin is read, through its file
-//   descriptor; the main thread only waits.
+//   tests and editors, read on the thread the program runs on: the main
+//   thread with JSPI, else the worker thread ocaml-emcc starts for its
+//   large stack, the main thread then only waiting.
 (function () {
   var queue = [];
   var interruptFlag = null;
@@ -79,13 +79,18 @@
   if (isNode) {
     var fs = require("fs");
     var threads = require("worker_threads");
-    var runsHere = !threads.isMainThread || process.env.OCAML_EMCC_STACK_MB === "0";
+    // The program runs on this thread, unless ocaml-emcc's node_stack.js
+    // started a worker thread for it (ocamlEmccWorker): not on a node with
+    // JSPI, where main runs on a stack of its own
+    var runsHere = function () {
+      return !threads.isMainThread || typeof ocamlEmccWorker == "undefined";
+    };
     post = function (s) {
       var body = Buffer.from(s, "utf8");
       fs.writeSync(1, "Content-Length: " + body.length + "\r\n\r\n");
       fs.writeSync(1, body);
     };
-    if (runsHere) {
+    {
       var pending = Buffer.alloc(0);
       var parse = function () {
         for (;;) {
@@ -122,7 +127,9 @@
         pending = Buffer.concat([pending, chunk.subarray(0, n)]);
         parse();
       };
+      // (once every --pre-js ran)
       setTimeout(function () {
+        if (!runsHere()) return;
         if (suspends()) read();
         else channelWait = function (ms) {
           if (ms > 0) syncRead();
