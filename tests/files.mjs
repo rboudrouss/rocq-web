@@ -130,7 +130,9 @@ if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT
 
 // a link to B.v, opened in another browser
 await page.locator("header button", { hasText: "Share" }).click();
-const link = await page.locator(".shared input").inputValue();
+await page.waitForTimeout(500);
+const link = await page.locator('.share-dialog [aria-label="The link"]').inputValue();
+await page.keyboard.press("Escape");
 {
   const other = await (await browser.newContext()).newPage();
   await other.goto(link);

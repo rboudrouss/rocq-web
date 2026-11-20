@@ -2,7 +2,10 @@
 // tests/browser.mjs): a GitHub repository added from the URL (through
 // jsDelivr: the network), listed in the Packages panel, the URL cleaned,
 // not added again; a file requiring it shared with it in its link; the
-// link opened embedded, in a fresh browser, the library added in memory.
+// link opened embedded, in a fresh browser, the library added in memory;
+// the Share dialog: the link copied at each change, the libraries checked,
+// all the files, a library pinned to its last commit, a long link warned;
+// all the files opened in another browser, a folder renamed.
 //   node tests/library_links.mjs [URL]
 import { launch } from "./launch.mjs";
 
@@ -30,6 +33,10 @@ const page = await fresh(([t]) => {
   sessionStorage.setItem("started", "1");
   localStorage.clear();
   localStorage.setItem("rocq-web:A.v", t);
+  localStorage.setItem("rocq-web:W/C.v", "Definition c := 1.\n");
+  localStorage.setItem("rocq-web:workspaces", JSON.stringify(["W"]));
+  // (random, a long link)
+  localStorage.setItem("rocq-web:Big.v", `(* ${Array.from({ length: 12000 }, () => Math.random().toString(36)[2]).join("")} *)\n`);
   localStorage.setItem("rocq-web:active", "A.v");
   localStorage.setItem("rocq-web:check", "all");
 }, [text]);
@@ -55,19 +62,82 @@ await page.goto(`${url}?lib=mathcomp`);
 await page.waitForFunction(() => document.querySelector(".log")?.textContent.includes("?lib=mathcomp"), null, { timeout: 30000 });
 check(true, "a spec that is not a library: logged");
 
-// the share link of A.v: with the library
-await page.locator('header [title="Copy a link to this file"]').first().click();
-await page.waitForSelector(".shared input");
-const shared = await page.locator(".shared input").inputValue();
-check(new URL(shared).searchParams.getAll("lib").join() === spec, `the share link has the library: ${shared.slice(0, 120)}`);
+// The Share dialog: its link, and the clipboard's
+const dialog = page.locator(".share-dialog");
+const link = async () => {
+  await page.waitForTimeout(500);
+  return dialog.locator('[aria-label="The link"]').inputValue();
+};
+const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+const box = (text) => dialog.locator("label", { hasText: text }).locator("input");
 
-// the library's own link, from the Packages panel
+// A.v's link: with the library it requires, copied
+await page.locator("header button", { hasText: "Share" }).click();
+await dialog.waitFor();
+const shared = await link();
+check(new URL(shared).searchParams.getAll("lib").join() === spec, `A.v's link has the library: ${shared.slice(0, 120)}`);
+check(new URL(shared).hash.startsWith("#share=A.v:"), "A.v in it");
+check((await clipboard()) === shared, "copied");
+
+// the library unchecked: made again and copied
+await box("coq-record-update").first().uncheck();
+const without = await link();
+check(!new URL(without).searchParams.has("lib") && (await clipboard()) === without, "the library left out, copied");
+await box("coq-record-update").first().check();
+
+// all the files: those of the library left out, the workspace W kept
+check((await dialog.locator("label", { hasText: "All the files" }).textContent()).includes("3 files"), "all the files: 3");
+await box("All the files").check();
+const all = await link();
+check(new URL(all).hash.startsWith("#files="), `all the files: #files= (${all.length} characters)`);
+check(await box("The current file").isDisabled(), "the current file then implied");
+check(await dialog.locator(".share-warning").count() === 1, `a long link warned: ${await dialog.locator(".share-warning").allTextContents()}`);
+
+// a library added for the link only: at its last commit
+await dialog.locator('[aria-label="A library for the link"]').fill("tchajed/coq-record-update");
+await dialog.locator(".share-add button").click();
+await page.waitForFunction(() => /coq-record-update%40[0-9a-f]{40}/.test(document.querySelector('.share-dialog [aria-label="The link"]').value), null, { timeout: 30000 });
+const pinned = new URL(await link()).searchParams.getAll("lib");
+check(pinned.length === 2 && /^tchajed\/coq-record-update@[0-9a-f]{40}$/.test(pinned[1]), `pinned to a commit: ${pinned}`);
+await box("for the link only").uncheck();
+const allLink = await link();
+check(new URL(allLink).searchParams.getAll("lib").join() === spec, "the extra library unchecked");
+await page.keyboard.press("Escape");
+check(await dialog.count() === 0, "closed by Escape");
+
+// a library's Share, from the Packages panel: the library alone
 await page.locator(".library-entry summary").click();
-await page.locator(".library-entry button", { hasText: "Copy a link" }).click();
-await page.waitForTimeout(300);
-const own = await page.locator(".shared input").inputValue();
+await page.locator(".library-entry button", { hasText: "Share" }).click();
+const own = await link();
 check(new URL(own).searchParams.get("lib") === spec && !new URL(own).hash, `the library's link: ${own}`);
 await page.context().close();
+
+// all the files' link in another browser, whose W/C.v differs: W_2/
+{
+  const other = await fresh(() => {
+    if (sessionStorage.getItem("started")) return;
+    sessionStorage.setItem("started", "1");
+    localStorage.setItem("rocq-web:W/C.v", "(* mine *)\n");
+    localStorage.setItem("rocq-web:workspaces", JSON.stringify(["W"]));
+  });
+  await other.goto(allLink);
+  await other.waitForSelector(".cm-content");
+  const got = await other.evaluate(() => ({
+    A: localStorage.getItem("rocq-web:A.v"),
+    C: localStorage.getItem("rocq-web:W/C.v"),
+    C2: localStorage.getItem("rocq-web:W_2/C.v"),
+    big: (localStorage.getItem("rocq-web:Big.v") ?? "").length,
+    ws: JSON.parse(localStorage.getItem("rocq-web:workspaces")),
+    active: localStorage.getItem("rocq-web:active"),
+  }));
+  check(got.A === text && got.active === "A.v", `A.v there and active (${got.active})`);
+  check(got.C === "(* mine *)\n" && got.C2 === "Definition c := 1.\n", `W/C.v kept, the link's in W_2/C.v`);
+  check(got.ws.includes("W") && got.ws.includes("W_2"), `W_2 a workspace: ${got.ws}`);
+  check(got.big > 10000, "Big.v there");
+  await other.waitForSelector(".library-entry", { timeout: 120000 });
+  check(true, "the library added");
+  await other.context().close();
+}
 
 // the share link embedded, in a fresh browser: the library in memory
 const embed = await fresh();
