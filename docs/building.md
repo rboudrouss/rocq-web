@@ -103,4 +103,5 @@ default). Install it there with `npm i playwright`, then
 `npx playwright install chromium`. `BROWSER=firefox` or `BROWSER=webkit`
 changes the browser, `ROCQ_WEB_BUILD=compat` makes the page pick compat, and
 `SCREENSHOT=FILE.png` saves a screenshot for the tests that take one.
-`tests/libraries.mjs` needs the network to fetch a library from GitHub.
+`tests/libraries.mjs` and `tests/library_links.mjs` need the network to fetch
+a library from GitHub.

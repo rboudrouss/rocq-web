@@ -29,7 +29,12 @@ compiled `.vo` are kept in the browser between page loads.
 
 **Libraries.** Libraries of Rocq files can be added from GitHub (through
 jsDelivr), from archives (zip, tar.gz) or from folders. Each becomes a
-workspace and is listed with its modules in the Packages panel. The package
+workspace and is listed with its modules in the Packages panel. A link
+adds libraries with `?lib=SPEC`, repeated for several (a repository,
+`owner/repo@ref`, or an archive's URL): those not added already, then the
+parameter removed from the URL. A file's share link carries the libraries
+it requires that came from such a source, and each of these has a link of
+its own in the panel. The package
 browser lists the opam packages with their modules, and clicking one
 inserts its `Require`. The declarations of the libraries' sources can be
 searched.
@@ -70,7 +75,7 @@ interrupts. A worker that stopped is shown as such.
 Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
-only. In an iframe without cross-origin isolation, edits do not interrupt
+only, its libraries too (`?embed&lib=...`: fetched at each load). In an iframe without cross-origin isolation, edits do not interrupt
 Rocq.
 
 **Phones.** Below 760 pixels wide, the editor sits above the goals and a
