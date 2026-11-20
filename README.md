@@ -24,8 +24,9 @@ among them the standard library, Mathematical Components, Iris, Equations,
 MetaRocq and Flocq. Other libraries can be added from a GitHub repository,
 an archive or a folder.
 
-A link can share the current file or all of them, with libraries, and the
-page can be embedded in another one with `?embed`. A link with
+The Share button makes a link to the current file or all of them, with
+libraries, or the HTML that embeds the page in another one (`?embed`). A
+link with
 `?lib=owner/repo@tag` (or an archive's URL, `lib` repeated for several) adds
 those libraries when it opens.
 

@@ -35,14 +35,15 @@ repository added without a ref is fetched at its default branch's last
 commit, which links then name. A link adds libraries with `?lib=SPEC`,
 repeated for several (a repository, `owner/repo@ref`, or an archive's URL):
 those not added already, then the parameter removed from the URL. The
-Share dialog makes the link again and copies it at each change: the
-current file or all of them (those of the libraries it links left out),
+Share dialog makes the link, or the HTML of an iframe that embeds the page,
+again and copies it at each change: the current file or all of them (those of the libraries it links left out),
 the libraries added from GitHub or a URL (those the file requires checked
 at first), others for the link only, a repository pinned to its last
 commit by default. It warns of a link longer than 8 KB, which chats and
 mail may cut, and of one longer than 2 MB, which Chrome does not open.
 Files of the link whose path has another text in the user's are renamed
-(`N_1.v`, a folder `F_2/`). The package
+(`N_1.v`, a folder `F_2/`). Its (i) buttons tell more, the embed's
+requirements among them. The package
 browser lists the opam packages with their modules, and clicking one
 inserts its `Require`. The declarations of the libraries' sources can be
 searched.
@@ -83,8 +84,13 @@ interrupts. A worker that stopped is shown as such.
 Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
-only, its libraries too (`?embed&lib=...`: fetched at each load). In an
-iframe without cross-origin isolation, edits do not interrupt Rocq.
+only, its libraries too (`?embed&lib=...`: fetched at each load). In a page
+without cross-origin isolation the full build runs, but edits do not
+interrupt Rocq, and the compat build does not start. In a page served with
+COOP `same-origin` and COEP `require-corp` or `credentialless`, the iframe
+(`allow="cross-origin-isolated"`, which the Share dialog's HTML has) is
+isolated too: the site sends CORP `cross-origin` for that, without which
+such a page does not load it at all (Chromium, `tests/library_links.mjs`).
 
 **Phones.** Below 760 pixels wide, the editor sits above the goals and a
 drag shares the height between them. Touching a line number checks up to
