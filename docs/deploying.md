@@ -92,10 +92,10 @@ the commits of ocaml-emcc and c_of_ocaml and the recipes. `full` and
 `compat` are then built in parallel, and kept 90 days as artifacts.
 
 A push that changes, since the last full build, only the app, the docs, the
-tests or the site's scripts (`dist.mjs`, `cloudflare.mjs`, `serve.mjs`) runs
-only `make dist cloudflare pages`, with that build's artifacts. Any other
-change rebuilds everything, the plugins too, since they are linked against
-the programs.
+tests, the workflow, `LICENSE` or the site's scripts (`dist.mjs`,
+`cloudflare.mjs`, `serve.mjs`) runs only `make dist cloudflare pages`, with
+that build's artifacts. Any other change rebuilds everything, the plugins
+too, since they are linked against the programs.
 
 The workflow needs the repository secrets `CLOUDFLARE_API_TOKEN` (with R2
 and Pages edit permissions) and `CLOUDFLARE_ACCOUNT_ID`.

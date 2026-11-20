@@ -2,8 +2,9 @@ name: Deploy
 
 # Builds and deploys the site (docs/deploying.md) on GitHub's runners, for
 # each push to main, and every Monday when coq-lsp's v9.2 branch has a new
-# commit. A push changing only the app, the docs or the tests since the last
-# full build redeploys the site only, with that build's artifacts.
+# commit. A push changing only the app, the docs, the tests or this file
+# since the last full build redeploys the site only, with that build's
+# artifacts.
 #
 #   plan      what to redo: all, site or nothing
 #   switch    the opam switch, from the cache unless .github/opam/ changed
@@ -50,7 +51,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
         run: |
-          site_only='^(app/|docs/|tests/|README\.md$|scripts/(dist|cloudflare|serve)\.mjs$)'
+          site_only='^(app/|docs/|tests/|\.github/workflows/|README\.md$|LICENSE$|scripts/(dist|cloudflare|serve)\.mjs$)'
           built_run=$(gh api "repos/$REPO/actions/artifacts?name=built&per_page=10" \
             --jq '[.artifacts[] | select(.expired | not)][0].workflow_run.id // empty')
           built=
