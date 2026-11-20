@@ -13,13 +13,16 @@ import { isLibraryName, moduleName, root } from "../lib/workspaces";
 import type { Workspace } from "./useWorkspace";
 import { usePersistentState } from "./usePersistentState";
 
-// (folder: its workspace; source: a repository, a URL or a file's name)
-type Added = { folder: string; source: string };
+// (folder: its workspace; source: a repository, a URL or a file's name;
+// pinned: a repository's at the commit fetched, when it had no ref)
+type Added = { folder: string; source: string; pinned?: string };
 export type AddedLibrary = Added & { modules: string[] };
 
 // Whether a library can be added again from its source (a link to it): a
 // GitHub repository or a URL, not a file on disk
 export const fetchable = (source: string) => gitHubRepository(source) !== null || /^https?:\/\//i.test(source);
+// The source of a library in a link: the commit fetched if known
+export const linkSource = (l: Added) => l.pinned ?? l.source;
 
 export function useLibraries(ws: Workspace, log: (m: string) => void) {
   // (embedded: in memory, as its files are)
@@ -48,7 +51,10 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
           { select: false },
         );
         if (!written.length) return false;
-        setAdded([...latest.current.filter((l) => l.folder !== lib.name), { folder: lib.name, source }]);
+        setAdded([
+          ...latest.current.filter((l) => l.folder !== lib.name),
+          { folder: lib.name, source, ...(lib.pinned && { pinned: lib.pinned }) },
+        ]);
         const hidden = lib.names.filter(isLibraryName);
         if (hidden.length)
           log(`${lib.name} has modules ${hidden.join(", ")} as a library of the build does, Rocq may load either`);
@@ -111,7 +117,7 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
     (async () => {
       for (const spec of linkedLibraries) {
         const present = latest.current.some(
-          (l) => l.source === spec && ws.current.current.workspaces.includes(l.folder),
+          (l) => (l.source === spec || l.pinned === spec) && ws.current.current.workspaces.includes(l.folder),
         );
         if (present) continue;
         if (!fetchable(spec)) log(`?lib=${spec}: not a GitHub repository (owner/repo[@ref]) nor an archive's URL`);
@@ -134,7 +140,7 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
         seen.add(dep);
         todo.push([dep, ws.read(dep)]);
         const lib = latest.current.find((l) => dep.startsWith(`${l.folder}/`));
-        if (lib && fetchable(lib.source)) sources.add(lib.source);
+        if (lib && fetchable(lib.source)) sources.add(linkSource(lib));
       }
     return [...sources];
   };

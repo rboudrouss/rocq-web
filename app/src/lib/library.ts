@@ -10,8 +10,9 @@ import { readArchive } from "./archive";
 import type { DiskFile } from "./disk";
 
 // (names: the logical names of its project file; plugins: whether it
-// declares some)
-export type Library = { name: string; files: DiskFile[]; names: string[]; plugins: boolean };
+// declares some; pinned: a repository's at the commit fetched,
+// owner/repo@SHA, when no ref was given)
+export type Library = { name: string; files: DiskFile[]; names: string[]; plugins: boolean; pinned?: string };
 
 const text = new TextDecoder();
 
@@ -95,18 +96,32 @@ async function json<T>(url: string, missing: string): Promise<T> {
   return r.json();
 }
 
+// A commit's SHA: one of a repository's at a ref (a branch, a tag; HEAD:
+// its default branch's last commit)
+export const isCommit = (ref: string) => /^[0-9a-f]{40}$/i.test(ref);
+export async function latestCommit(owner: string, repo: string, ref = "HEAD"): Promise<string> {
+  if (isCommit(ref)) return ref;
+  const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, {
+    headers: { Accept: "application/vnd.github.sha" },
+  });
+  if (r.status === 404 || r.status === 422)
+    throw new Error(ref === "HEAD" ? `${owner}/${repo} is not a public GitHub repository` : `${owner}/${repo}@${ref} not found`);
+  if (r.status === 403 || r.status === 429)
+    throw new Error(`GitHub: HTTP ${r.status}, too many requests for now (give a tag or a commit: owner/repo@ref)`);
+  if (!r.ok) throw new Error(`GitHub: HTTP ${r.status}`);
+  const sha = (await r.text()).trim();
+  if (!isCommit(sha)) throw new Error(`GitHub gave no commit for ${owner}/${repo}@${ref}`);
+  return sha;
+}
+
 // A GitHub repository's library, its files fetched from jsDelivr (its
-// default branch unless a ref is given)
+// default branch's last commit unless a ref is given)
 export async function gitHubLibrary(
   { owner, repo, ref }: { owner: string; repo: string; ref: string | null },
   progress: (done: number, total: number) => void,
 ): Promise<Library> {
-  ref ??= (
-    await json<{ default_branch: string }>(
-      `https://api.github.com/repos/${owner}/${repo}`,
-      `${owner}/${repo} is not a public GitHub repository`,
-    )
-  ).default_branch;
+  const pinned = ref === null;
+  ref ??= await latestCommit(owner, repo);
   const at = `${owner}/${repo}@${ref}`;
   const listing = await json<{ files: { name: string }[] }>(
     `https://data.jsdelivr.com/v1/packages/gh/${at}?structure=flat`,
@@ -131,7 +146,7 @@ export async function gitHubLibrary(
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));
-  return libraryFiles(folderName(repo), files);
+  return { ...libraryFiles(folderName(repo), files), ...(pinned && { pinned: at }) };
 }
 
 // A library from a GitHub repository or the URL of an archive
