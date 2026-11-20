@@ -81,7 +81,9 @@ export function useDocument({
     const step = stepRef.current;
     const to = checkedTo.current;
     if (step && to === 0) return setGoals(null);
-    const at = step ? positionAt(text, to) : cursor.current;
+    // (step by step, on the last checked sentence's final dot: just after
+    // it, coq-lsp answers for what follows, without its messages)
+    const at = step ? positionAt(text, to - 1) : cursor.current;
     // (the answer for the point where it still is)
     const current = () =>
       v === version.current &&
