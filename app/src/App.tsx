@@ -36,7 +36,7 @@ import { pickBuild } from "./lib/detect";
 import { saveBlob } from "./lib/download";
 import { navLabel } from "./lib/keys";
 import { type Example, exampleFiles } from "./lib/examples";
-import { shareUrl } from "./lib/share";
+import { libraryUrl, linkedLibraries, shareUrl } from "./lib/share";
 import { embedded } from "./lib/storage";
 import { root } from "./lib/workspaces";
 
@@ -55,6 +55,10 @@ export function App() {
   const libs = useLibraries(ws, log);
 
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
+  // (libraries in the URL: the Packages panel shows them being added)
+  useEffect(() => {
+    if (linkedLibraries.length && !embedded) setPanel("packages");
+  }, [setPanel]);
   const mobile = useMobile();
   const keyboard = useKeyboard(mobile);
   // (a phone) the panels shown, over the page; the editor's part of the height
@@ -91,17 +95,25 @@ export function App() {
   const active = ws.active;
   useEffect(() => setDrawer(false), [active, nav.readOnly]);
 
+  // (with the libraries it requires)
   const share = async () => {
-    const url = await shareUrl(active, ws.read(active));
+    const text = ws.read(active);
+    const url = await shareUrl(active, text, libs.requiredBy(active, text));
     await navigator.clipboard?.writeText(url).catch(() => {});
     log(`link to ${active} copied (${url.length} characters)`);
     setShared(url);
   };
+  const shareLibrary = async (source: string) => {
+    const url = libraryUrl(source);
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    log(`link adding ${source} copied`);
+    setShared(url);
+  };
   // The page with this file, not embedded
   const openFull = async () => {
-    const url = new URL(await shareUrl(active, ws.read(active)));
-    url.search = "";
-    window.open(url.href, "_blank", "noopener");
+    const text = ws.read(active);
+    const page = new URL(location.pathname, location.href).href;
+    window.open(await shareUrl(active, text, libs.requiredBy(active, text), page), "_blank", "noopener");
   };
   const openExample = async (e: Example) => {
     try {
@@ -165,6 +177,9 @@ export function App() {
           {compatWarning}
         </Banner>
       )}
+      {embedded && (libs.progress || libs.error) && (
+        <Banner kind={libs.error ? "warning" : undefined}>{libs.error ?? `${libs.progress}…`}</Banner>
+      )}
       {shared && (
         <Banner close={() => setShared(null)}>
           Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
@@ -207,6 +222,7 @@ export function App() {
               libs={libs}
               insert={closing(insertLine)}
               showFolder={showFolder}
+              shareLibrary={shareLibrary}
               focusAdd={focusAdd}
             />
           </div>

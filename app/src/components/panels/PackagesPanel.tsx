@@ -1,9 +1,9 @@
 // Packages: the libraries the user added (hooks/useLibraries.ts: from
 // GitHub, an archive or a folder, each a workspace of its own), a form to add one,
 // and the build's packages (scripts/assets.mjs's packages.json)
-import { FolderInput, FolderOpen, PackagePlus, Trash2, Upload } from "lucide-react";
+import { FolderInput, FolderOpen, Link, PackagePlus, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Libraries } from "../../hooks/useLibraries";
+import { fetchable, type Libraries } from "../../hooks/useLibraries";
 
 export type Package = {
   name: string;
@@ -25,6 +25,8 @@ type Props = {
   insert: (line: string) => void;
   // (the folder of a library shown in the Files panel)
   showFolder: (folder: string) => void;
+  // (a link to the page that adds a library, copied)
+  shareLibrary: (source: string) => void;
   // (changes when the form should take the focus: the Files panel's button)
   focusAdd: number;
 };
@@ -56,7 +58,7 @@ function Modules({ modules, insert }: { modules: string[]; insert: (line: string
   );
 }
 
-export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: Props) {
+export function PackagesPanel({ packages, libs, insert, showFolder, shareLibrary, focusAdd }: Props) {
   const [filter, setFilter] = useState("");
   const [spec, setSpec] = useState("");
   const specInput = useRef<HTMLInputElement>(null);
@@ -148,6 +150,15 @@ export function PackagesPanel({ packages, libs, insert, showFolder, focusAdd }: 
                 <button className="link" onClick={() => showFolder(l.folder)} title={`Show ${l.folder}/ in the files`}>
                   <FolderOpen size={12} /> Show its files
                 </button>
+                {fetchable(l.source) && (
+                  <button
+                    className="link"
+                    onClick={() => shareLibrary(l.source)}
+                    title="Copy a link to the page that adds this library"
+                  >
+                    <Link size={12} /> Copy a link
+                  </button>
+                )}
                 <button className="link danger" onClick={() => libs.remove(l.folder)} title={`Delete ${l.folder}/`}>
                   <Trash2 size={12} /> Remove
                 </button>

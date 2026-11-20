@@ -14,9 +14,12 @@ async function pipe(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | 
   return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 }
 
-export async function shareUrl(name: string, text: string) {
+// (libraries: those to add with it, ?lib=SPEC each)
+export async function shareUrl(name: string, text: string, libraries: string[] = [], base = location.href) {
   const deflated = await pipe(new TextEncoder().encode(text), new CompressionStream("deflate-raw"));
-  const url = new URL(location.href);
+  const url = new URL(base);
+  url.searchParams.delete("lib");
+  for (const l of libraries) url.searchParams.append("lib", l);
   url.hash = `share=${encodeURIComponent(name)}:${toBase64Url(deflated)}`;
   return url.href;
 }
@@ -46,4 +49,28 @@ export async function openShared(
   files.write(name, f.text);
   files.activate(name);
   if (!embedded) history.replaceState(null, "", location.pathname + location.search);
+}
+
+// The libraries of the page's URL (?lib=SPEC, repeated: a GitHub
+// repository, owner/repo[@ref] or its URL, or an archive's URL), added to
+// the user's (hooks/useLibraries.ts), read when the page loads
+export const linkedLibraries = [
+  ...new Set(new URLSearchParams(location.search).getAll("lib").map((s) => s.trim()).filter(Boolean)),
+];
+
+// The URL without its libraries, once they are added (embedded: kept, its
+// files are in memory only)
+export function forgetLinkedLibraries() {
+  if (embedded) return;
+  const params = new URLSearchParams(location.search);
+  if (!params.has("lib")) return;
+  params.delete("lib");
+  history.replaceState(null, "", location.pathname + (params.size ? `?${params}` : "") + location.hash);
+}
+
+// A link to the page that adds a library
+export function libraryUrl(source: string) {
+  const url = new URL(location.pathname, location.href);
+  url.searchParams.set("lib", source);
+  return url.href;
 }

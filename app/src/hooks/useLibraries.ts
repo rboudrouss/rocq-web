@@ -1,11 +1,14 @@
 // The libraries of Rocq files the user added (lib/library.ts), each a
 // workspace of its own: added from the Packages panel (a GitHub repository,
-// an archive's URL, an archive or a folder on disk) or from the Files panel (archives
-// imported), listed with their modules and where they came from.
-import { useCallback, useRef, useState } from "react";
+// an archive's URL, an archive or a folder on disk), from the Files panel (archives
+// imported) or from the page's URL (?lib=SPEC), listed with their modules and
+// where they came from.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { readInput } from "../lib/disk";
-import { archiveLibrary, fetchLibrary, folderLibrary, type Library } from "../lib/library";
-import { isRocq } from "../lib/storage";
+import { archiveLibrary, fetchLibrary, folderLibrary, gitHubRepository, type Library } from "../lib/library";
+import { requires } from "../lib/project";
+import { forgetLinkedLibraries, linkedLibraries } from "../lib/share";
+import { embedded, isRocq } from "../lib/storage";
 import { isLibraryName, moduleName, root } from "../lib/workspaces";
 import type { Workspace } from "./useWorkspace";
 import { usePersistentState } from "./usePersistentState";
@@ -14,8 +17,15 @@ import { usePersistentState } from "./usePersistentState";
 type Added = { folder: string; source: string };
 export type AddedLibrary = Added & { modules: string[] };
 
+// Whether a library can be added again from its source (a link to it): a
+// GitHub repository or a URL, not a file on disk
+export const fetchable = (source: string) => gitHubRepository(source) !== null || /^https?:\/\//i.test(source);
+
 export function useLibraries(ws: Workspace, log: (m: string) => void) {
-  const [added, setAdded] = usePersistentState<Added[]>("libraries", []);
+  // (embedded: in memory, as its files are)
+  const persisted = usePersistentState<Added[]>("libraries", []);
+  const inMemory = useState<Added[]>([]);
+  const [added, setAdded] = embedded ? inMemory : persisted;
   // (the latest list, for adds that end after another)
   const latest = useRef(added);
   latest.current = added;
@@ -93,13 +103,49 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
         .sort(),
     }));
 
+  // The libraries of the page's URL, in turn, those not added already
+  const linked = useRef(false);
+  useEffect(() => {
+    if (linked.current) return;
+    linked.current = true;
+    (async () => {
+      for (const spec of linkedLibraries) {
+        const present = latest.current.some(
+          (l) => l.source === spec && ws.current.current.workspaces.includes(l.folder),
+        );
+        if (present) continue;
+        if (!fetchable(spec)) log(`?lib=${spec}: not a GitHub repository (owner/repo[@ref]) nor an archive's URL`);
+        else await fromSpec(spec);
+      }
+      forgetLinkedLibraries();
+    })();
+  }, [fromSpec, log, ws]);
+
+  // The sources of the libraries a file requires (those it requires in
+  // turn too), those that can be added again: the libraries of its link
+  const requiredBy = (file: string, text: string): string[] => {
+    const { files, workspaces } = ws.current.current;
+    const seen = new Set([file]);
+    const todo = [[file, text] as const];
+    const sources = new Set<string>();
+    for (let next; (next = todo.pop()); )
+      for (const dep of requires(next[0], next[1], files, workspaces, ws.read)) {
+        if (seen.has(dep)) continue;
+        seen.add(dep);
+        todo.push([dep, ws.read(dep)]);
+        const lib = latest.current.find((l) => dep.startsWith(`${l.folder}/`));
+        if (lib && fetchable(lib.source)) sources.add(lib.source);
+      }
+    return [...sources];
+  };
+
   const remove = (folder: string) => {
     if (!confirm(`Delete the library ${folder} and its files?`)) return;
     ws.remove(folder);
     setAdded(latest.current.filter((l) => l.folder !== folder));
   };
 
-  return { libraries, progress, error, fromSpec, fromArchive, fromFolder, remove };
+  return { libraries, progress, error, fromSpec, fromArchive, fromFolder, remove, requiredBy };
 }
 
 export type Libraries = ReturnType<typeof useLibraries>;
