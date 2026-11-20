@@ -142,7 +142,6 @@ button.info:hover, button.info[aria-expanded="true"] { color: #3b6fd8; }
 .segmented button + button { border-left: 1px solid #ccc; }
 .segmented button[aria-pressed="true"] { background: #3b6fd8; color: #fff; }
 .share-link .button, .share-add .button { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
-.share-status { margin: 0.3rem 0 0; font-size: 0.8rem; }
 .share-warning { margin: 0.4rem 0 0; padding: 0.35rem 0.5rem; border-radius: 4px; background: #fdf3d7; }
 .fetching { font-size: 0.8rem; color: #555; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status[data-status="crashed"] { background: #fbd5d5; }

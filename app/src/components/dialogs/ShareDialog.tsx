@@ -62,9 +62,8 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
   const [pin, setPin] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // the link, and what is copied (the link, or the HTML of the embed)
+  // the link (what is copied: it, or the HTML of the embed)
   const [link, setLink] = useState("");
-  const [copied, setCopied] = useState(false);
   const field = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
 
   const mine = libs.libraries.filter((l) => fetchable(l.source));
@@ -88,7 +87,6 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
       () => true,
       () => false,
     );
-    setCopied(!!ok);
     return ok;
   };
 
@@ -153,7 +151,6 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     }
   };
 
-  const files = all ? allFiles.length : file ? 1 : 0;
   const length = embed ? embedUrl(link).length : link.length;
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
@@ -216,11 +213,6 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
             <Copy size={14} /> Copy
           </button>
         </div>
-        <p className="muted share-status">
-          {embed ? "Its link: " : ""}
-          {length.toLocaleString()} characters{copied ? ", copied" : ""}
-          {!files && !sources.length ? ", the page alone" : ""}
-        </p>
         {length > maxUrl ? (
           <p className="share-warning error">
             Too long: Chrome and Edge do not open links over 2 MB. Share fewer files, or send them as an archive.
@@ -260,17 +252,11 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
 
         <More
           more={
-            <>
-              <p>
-                The link adds these libraries when it opens (<code>?lib=</code>, one per library): a GitHub
-                repository, fetched through jsDelivr, or the URL of a .zip or .tar.gz archive. Those added from
-                disk can only go as files, with All files.
-              </p>
-              <p>
-                A repository pinned to a commit gives everyone the same version, and saves a request to GitHub's
-                API, which allows 60 an hour per IP address: a classroom behind one address can use them up.
-              </p>
-            </>
+            <p>
+              The link adds these libraries when it opens (<code>?lib=</code>, one per library): a GitHub
+              repository, fetched through jsDelivr, or the URL of a .zip or .tar.gz archive. Those added from disk
+              can only go as files, with All files.
+            </p>
           }
         >
           <h3>Libraries</h3>
@@ -316,10 +302,29 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
             <PackagePlus size={14} /> {adding ? "…" : "Add"}
           </button>
         </form>
-        <label className="muted">
-          <input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} />
-          <span>Pin GitHub repositories to their latest commit</span>
-        </label>
+        <More
+          more={
+            <>
+              <p>
+                A repository given without a version (<code>owner/repo</code>) makes each visitor's browser ask
+                GitHub's API for its latest commit (once per visitor, or at each load of an embed). GitHub allows
+                60 such requests an hour per IP address, and a classroom or a campus often reaches the internet
+                through a single address (NAT): after 60 in an hour, the library no longer loads for anyone
+                there. With a version in the link, the API is not asked: the files come from jsDelivr alone.
+              </p>
+              <p>
+                A commit is also the only version that never changes. A branch moves (and jsDelivr keeps a
+                branch's files cached for hours, so visitors can get different ones), a tag can be moved. Pinned,
+                everyone following a course gets exactly the code it was written for.
+              </p>
+            </>
+          }
+        >
+          <label className="muted">
+            <input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} />
+            <span>Pin GitHub repositories to their latest commit</span>
+          </label>
+        </More>
         {error && <p className="error">{error}</p>}
       </div>
     </div>
