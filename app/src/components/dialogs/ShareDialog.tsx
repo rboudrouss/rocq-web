@@ -132,7 +132,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     if (!s || adding) return;
     setError(null);
     const gh = gitHubRepository(s);
-    if (!gh && !fetchable(s)) return setError(`${s}: neither a GitHub repository (owner/repo) nor an archive's URL`);
+    if (!gh && !fetchable(s)) return setError(`${s} is neither a GitHub repository (owner/repo) nor an archive's URL`);
     setAdding(true);
     try {
       const source =
@@ -166,19 +166,23 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           more={
             <>
               <p>
-                <b>Link</b>: the page with what is checked below. The files' text is in the link itself, after
-                its <code>#</code>: nothing is uploaded anywhere.
+                <b>Link</b> opens rocq-web with what is checked below. The files travel inside the link, after its{" "}
+                <code>#</code>, and are never uploaded.
               </p>
               <p>
-                <b>Embed</b>: an <code>&lt;iframe&gt;</code> for another site (a course, a blog). It shows the
-                editor and the goals, and keeps its files in memory: nothing is saved in the visitor's browser.
-                In Chrome and Edge 137+ and Firefox 153+ it works in any page, but editing then does not stop a
-                long computation (Restart does). Other browsers (Safari, older versions) run the compatibility
-                build, which only starts if the page around it is cross-origin isolated: serve that
-                page with <code>Cross-Origin-Opener-Policy: same-origin</code> and{" "}
-                <code>Cross-Origin-Embedder-Policy: require-corp</code> (or <code>credentialless</code>, which
-                asks less of its other resources). The iframe's <code>allow="cross-origin-isolated"</code>,
-                in the HTML given here, does the rest.
+                <b>Embed</b> gives an <code>&lt;iframe&gt;</code> to paste in another site, such as a course or a
+                blog. It keeps its files in memory and saves nothing in the visitor's browser.
+              </p>
+              <p>
+                It works in any page in Chrome and Edge 137+ and in Firefox 153+. Editing there does not stop a long
+                computation, but Restart does.
+              </p>
+              <p>
+                Safari and older browsers need the page around it to be cross-origin isolated. Serve that page with{" "}
+                <code>Cross-Origin-Opener-Policy: same-origin</code> and{" "}
+                <code>Cross-Origin-Embedder-Policy: require-corp</code>, or <code>credentialless</code>, which is
+                less strict with the page's other resources. This HTML already has the{" "}
+                <code>allow="cross-origin-isolated"</code> attribute that the iframe also needs.
               </p>
             </>
           }
@@ -215,13 +219,13 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
         </div>
         {length > maxUrl ? (
           <p className="share-warning error">
-            Too long: Chrome and Edge do not open links over 2 MB. Share fewer files, or send them as an archive.
+            Chrome and Edge cannot open links over 2 MB. Share fewer files, or send them as an archive.
           </p>
         ) : (
           length > longUrl && (
             <p className="share-warning">
-              A long link (over 8 KB): chat apps, mail and some sites may cut it. Share fewer files, or send them
-              as an archive.
+              Chat apps, mail and some sites may cut links over 8 KB. Share fewer files, or send them as an
+              archive.
             </p>
           )
         )}
@@ -229,9 +233,9 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
         <More
           more={
             <p>
-              Whoever opens the link gets a copy of the files in their browser. A file whose path they already
-              use with another text is renamed (<code>A_1.v</code>, a folder <code>W_2/</code>). All files leaves
-              out the libraries the link adds by their source.
+              Opening the link copies the files into the visitor's browser. A file whose path they already use
+              with another text is renamed, as <code>A_1.v</code> or a folder <code>W_2/</code>. All files leaves
+              out the libraries that the link adds by itself.
             </p>
           }
         >
@@ -253,9 +257,9 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
         <More
           more={
             <p>
-              The link adds these libraries when it opens (<code>?lib=</code>, one per library): a GitHub
-              repository, fetched through jsDelivr, or the URL of a .zip or .tar.gz archive. Those added from disk
-              can only go as files, with All files.
+              The link adds the checked libraries when it opens, with one <code>?lib=</code> each. A library comes
+              from a GitHub repository, through jsDelivr, or from the URL of a .zip or .tar.gz archive. Libraries
+              added from disk can only travel as files, with All files.
             </p>
           }
         >
@@ -281,7 +285,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           <label key={l.folder} className="muted">
             <input type="checkbox" checked={all} disabled />
             <span>
-              {l.folder} <span>from disk, in All files</span>
+              {l.folder} <span>from disk, shared with All files</span>
             </span>
           </label>
         ))}
@@ -293,7 +297,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           }}
         >
           <input
-            placeholder="Add one: owner/repo, owner/repo@tag, an archive's URL"
+            placeholder="owner/repo, owner/repo@tag or an archive's URL"
             aria-label="A library for the link"
             value={spec}
             onChange={(e) => setSpec(e.target.value)}
@@ -306,16 +310,14 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           more={
             <>
               <p>
-                A repository given without a version (<code>owner/repo</code>) makes each visitor's browser ask
-                GitHub's API for its latest commit (once per visitor, or at each load of an embed). GitHub allows
-                60 such requests an hour per IP address, and a classroom or a campus often reaches the internet
-                through a single address (NAT): after 60 in an hour, the library no longer loads for anyone
-                there. With a version in the link, the API is not asked: the files come from jsDelivr alone.
+                GitHub allows 60 requests per hour per IP address, and a repository without a version costs one
+                per visitor, or one per load for an embed. A classroom or a campus behind a single address (NAT)
+                can run out, and the library then stops loading for everyone there. With a version in the link,
+                only jsDelivr is asked.
               </p>
               <p>
-                A commit is also the only version that never changes. A branch moves (and jsDelivr keeps a
-                branch's files cached for hours, so visitors can get different ones), a tag can be moved. Pinned,
-                everyone following a course gets exactly the code it was written for.
+                Pinning also gives everyone exactly the same code, which matters for a course. A commit never
+                changes, whereas a branch moves and jsDelivr caches it for hours, and a tag can be moved.
               </p>
             </>
           }

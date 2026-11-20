@@ -117,7 +117,7 @@ check(new URL(src).search.startsWith("?embed&lib=") && new URL(src).hash.startsW
 await page.locator(".share-dialog button.info").first().click();
 check((await dialog.locator(".info-text").textContent()).includes("Cross-Origin-Embedder-Policy"), "the (i) tells of cross-origin isolation");
 await page.locator(".share-dialog button.info").last().click();
-check((await dialog.locator(".info-text").last().textContent()).includes("60 such requests an hour"), "the pin's (i) tells of GitHub's limit");
+check((await dialog.locator(".info-text").last().textContent()).includes("60 requests per hour"), "the pin's (i) tells of GitHub's limit");
 await page.keyboard.press("Escape");
 check(await dialog.count() === 0, "closed by Escape");
 

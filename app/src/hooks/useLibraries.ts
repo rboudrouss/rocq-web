@@ -120,7 +120,7 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
           (l) => (l.source === spec || l.pinned === spec) && ws.current.current.workspaces.includes(l.folder),
         );
         if (present) continue;
-        if (!fetchable(spec)) log(`?lib=${spec}: not a GitHub repository (owner/repo[@ref]) nor an archive's URL`);
+        if (!fetchable(spec)) log(`?lib=${spec} is neither a GitHub repository (owner/repo[@ref]) nor an archive's URL`);
         else await fromSpec(spec);
       }
       forgetLinkedLibraries();

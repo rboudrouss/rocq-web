@@ -107,8 +107,8 @@ export async function latestCommit(owner: string, repo: string, ref = "HEAD"): P
   if (r.status === 404 || r.status === 422)
     throw new Error(ref === "HEAD" ? `${owner}/${repo} is not a public GitHub repository` : `${owner}/${repo}@${ref} not found`);
   if (r.status === 403 || r.status === 429)
-    throw new Error(`GitHub: HTTP ${r.status}, too many requests for now (give a tag or a commit: owner/repo@ref)`);
-  if (!r.ok) throw new Error(`GitHub: HTTP ${r.status}`);
+    throw new Error(`GitHub refuses more requests for now (HTTP ${r.status}). Give a tag or a commit, as owner/repo@ref`);
+  if (!r.ok) throw new Error(`GitHub answered HTTP ${r.status}`);
   const sha = (await r.text()).trim();
   if (!isCommit(sha)) throw new Error(`GitHub gave no commit for ${owner}/${repo}@${ref}`);
   return sha;
