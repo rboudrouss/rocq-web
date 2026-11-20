@@ -84,7 +84,8 @@ export function FilesPanel({ ws, produced, viewProduced, downloadProduced, log, 
       if (ws.files.includes(to) || ws.folders.includes(to)) return `${to} already exists`;
       ws.move(from, to);
     } else if (kind === "file") {
-      const name = isProject(typed) || typed.endsWith(".v") ? typed : `${typed}.v`;
+      // (a name without an extension: a Rocq file)
+      const name = isProject(typed) || typed.includes(".") ? typed : `${typed}.v`;
       const path = parent ? `${parent}/${name}` : name;
       if (!validName(path)) return nameError(false);
       if (ws.files.includes(path)) return `${path} already exists`;

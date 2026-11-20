@@ -33,6 +33,8 @@ type Props = {
   // the range selected and shown when the editor is created
   at?: Range;
   readOnly?: boolean;
+  // (a file that is not Rocq's: no Rocq highlighting)
+  plain?: boolean;
   onChange?: (text: string) => void;
   onCursor?: (p: Position) => void;
   hover?: (p: Position) => Promise<Hover | null>;
@@ -178,7 +180,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(props, ref
           }),
           EditorState.readOnly.of(!!callbacks.current.readOnly),
           dark() ? oneDark : syntaxHighlighting(defaultHighlightStyle),
-          rocq,
+          callbacks.current.plain ? [] : rocq,
           lintGutter(),
           // (the part being checked shown over the part checked: inside it)
           checked,

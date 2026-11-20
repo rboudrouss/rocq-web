@@ -49,13 +49,16 @@ From Ltac2 Require Import Ltac2.
 Ltac2 Eval List.length [1; 2; 3].
 `;
 
-// Names: a folder's (letters, digits, _ ' - .), a Rocq file's (a module
-// name and .v), or a project file (_RocqProject, _CoqProject: Rocq's
-// options for its folder)
+// Names: a folder's and any other file's (letters, digits, _ ' - .), a
+// Rocq file's (a module name and .v), or a project file (_RocqProject,
+// _CoqProject: Rocq's options for its folder). Not those of the files Rocq
+// writes (.vo, .glob...).
 export const projectFile = "_RocqProject";
 const folderPart = "[A-Za-z0-9_][A-Za-z0-9_'.-]*";
 const moduleName = "[A-Za-z_][A-Za-z0-9_']*";
-const fileRe = new RegExp(`^(${folderPart}/)*(${moduleName}\\.v|_RocqProject|_CoqProject)$`);
+const fileRe = new RegExp(
+  `^(${folderPart}/)*(${moduleName}\\.v|_RocqProject|_CoqProject|(?!.*\\.(v|vo|vos|vok|glob|aux)$)${folderPart})$`,
+);
 const folderRe = new RegExp(`^${folderPart}(/${folderPart})*$`);
 export const validName = (name: string) => fileRe.test(name);
 export const validFolder = (path: string) => folderRe.test(path);

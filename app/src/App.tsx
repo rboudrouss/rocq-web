@@ -39,7 +39,7 @@ import { saveBlob } from "./lib/download";
 import { navLabel } from "./lib/keys";
 import { type Example, exampleFiles } from "./lib/examples";
 import { linkedLibraries, shareUrl, workspacesOf } from "./lib/share";
-import { embedded } from "./lib/storage";
+import { embedded, isRocq } from "./lib/storage";
 import { root } from "./lib/workspaces";
 
 const compatWarning =
@@ -230,6 +230,7 @@ export function App() {
               key={active}
               ref={editor}
               initial={ws.read(active)}
+              plain={!isRocq(active)}
               at={nav.pendingGoTo.current ?? undefined}
               onChange={doc.onChange}
               onCursor={doc.onCursor}

@@ -4,8 +4,10 @@
 // and closed, its own dependencies first; then coq/workspace_update makes
 // coq-lsp check the documents again with them. The .vo are kept in the
 // browser (lib/voCache.ts) by a key of what they were compiled from: the
-// libraries' version, the file's module, project and text, the .vo of its
-// dependencies; the next page load writes them instead of compiling.
+// libraries' version, the file's module, project and text, the files it
+// reads (Extra Dependency), the .vo of its dependencies; the next page load
+// writes them instead of compiling.
+import { extraDependencies, named } from "./extra";
 import type { LspClient } from "./lsp";
 import { digest, getVo, putVo } from "./voCache";
 import { filesOf, moduleName, root, visibleWorkspaces, workerUri, workspaceOf } from "./workspaces";
@@ -63,8 +65,9 @@ export function requires(
   return [...deps];
 }
 
-// (digest: the .vo's, for the keys of the files requiring it)
-type Built = { text: string; key: string; digest: string; at: number };
+// (read: the files it reads, path and text; digest: the .vo's, for the keys
+// of the files requiring it)
+type Built = { text: string; read: string; key: string; digest: string; at: number };
 
 export class Project {
   private built = new Map<string, Built>();
@@ -84,6 +87,17 @@ export class Project {
 
   private requires(file: string) {
     return requires(file, this.read(file), this.files(), this.workspaces(), this.read);
+  }
+
+  // The files of the workspaces that [text] reads with Extra Dependency,
+  // their paths and texts
+  private reads(text: string) {
+    const names = extraDependencies(text);
+    if (names.length === 0) return "";
+    return this.files()
+      .filter((f) => named(f, names))
+      .map((f) => `${f}\0${this.read(f)}`)
+      .join("\0");
   }
 
   // What was compiled, to compile again (a workspace's project changed)
@@ -111,7 +125,10 @@ export class Project {
 
   // Whether [name]'s dependencies were all compiled from their current text
   upToDate(name: string) {
-    return this.requires(name).every((d) => this.built.get(d)?.text === this.read(d));
+    return this.requires(name).every((d) => {
+      const b = this.built.get(d);
+      return b?.text === this.read(d) && b.read === this.reads(b.text);
+    });
   }
 
   // The libraries' version, "" from a worker that does not tell it (no
@@ -121,11 +138,11 @@ export class Project {
 
   // What [name]'s .vo is compiled from (its module: its path and its
   // workspace's project file, as coq-lsp has it)
-  private async key(name: string, text: string, deps: string[], project: string) {
+  private async key(name: string, text: string, read: string, deps: string[], project: string) {
     this.libraries ??= Promise.race([this.client.version, new Promise<string>((ok) => setTimeout(() => ok(""), 2000))]);
     const version = await this.libraries;
     this.keep = version !== "";
-    return digest(version, name, project, text, ...deps.map((d) => this.built.get(d)?.digest ?? ""));
+    return digest(version, name, project, text, read, ...deps.map((d) => this.built.get(d)?.digest ?? ""));
   }
 
   // The time [name] was compiled at (or its .vo written), after its
@@ -139,7 +156,8 @@ export class Project {
     visiting.delete(name);
     const dir = workspaceOf(name, this.workspaces());
     const project = this.registered(dir) ?? "";
-    const key = await this.key(name, text, deps, project);
+    const read = this.reads(text);
+    const key = await this.key(name, text, read, deps, project);
     const b = this.built.get(name);
     if (b && b.key === key) return b.at;
     const vo = `/workspace/${name.replace(/\.v$/, ".vo")}`;
@@ -147,7 +165,7 @@ export class Project {
     if (kept) {
       await this.client.writeFile(vo, kept);
       this.log(`${name} not compiled again, its .vo kept`);
-      return this.done(name, text, key, kept);
+      return this.done(name, text, read, key, kept);
     }
     const uri = workerUri(name);
     const version = this.version++;
@@ -170,12 +188,12 @@ export class Project {
     // (not when the workspaces were read again meanwhile: compiled with
     // which project is not sure)
     if (this.keep && this.registered(dir) === project) await putVo(key, data);
-    return this.done(name, text, key, data);
+    return this.done(name, text, read, key, data);
   }
 
-  private async done(name: string, text: string, key: string, vo: Uint8Array) {
+  private async done(name: string, text: string, read: string, key: string, vo: Uint8Array) {
     const at = ++this.clock;
-    this.built.set(name, { text, key, digest: await digest(vo), at });
+    this.built.set(name, { text, read, key, digest: await digest(vo), at });
     return at;
   }
 }

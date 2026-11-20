@@ -17,7 +17,10 @@ queries like `Search` or `About` work as in a desktop IDE.
 
 A project can have several files and folders and a `_RocqProject`. Files
 that require one another are compiled in the browser. Projects can be opened
-from a folder on disk or a zip archive.
+from a folder on disk or a zip archive. A project can also hold other text
+files, and the files that Rocq files read with `Extra Dependency` (such as
+rocq-elpi's `.elpi` programs) are kept when a project or a library is
+imported.
 
 57 packages are available and downloaded only when a file requires them,
 among them the standard library, Mathematical Components, Iris, Equations,

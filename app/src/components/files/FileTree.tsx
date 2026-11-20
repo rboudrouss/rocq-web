@@ -2,10 +2,10 @@
 // marked), files (opened by a click), each dragged onto a folder to move
 // it, with a menu on a right click; and the row where a name is typed (a
 // new file or folder, a rename)
-import { ChevronDown, ChevronRight, FileCode2, FileCog, Folder, FolderOpen, Layers } from "lucide-react";
+import { ChevronDown, ChevronRight, FileCode2, FileCog, FileText, Folder, FolderOpen, Layers } from "lucide-react";
 import { type DragEvent, type FormEvent, type MouseEvent, useState } from "react";
 import { isOnDisk } from "../../lib/disk";
-import { isProject } from "../../lib/storage";
+import { isProject, isRocq } from "../../lib/storage";
 import type { TreeNode } from "./tree";
 
 export type Editing = { kind: "file" | "folder"; parent: string; from?: string } | null;
@@ -88,7 +88,13 @@ export function FileTree(props: TreeProps & { depth?: number; parent?: string })
               onContextMenu={(e) => props.menu(e, n)}
             >
               <button className="name" title={n.path} style={pad(depth)} onClick={() => props.open(n.path)}>
-                <span className="row-icon">{isProject(n.path) ? <FileCog size={14} /> : <FileCode2 size={14} />}</span>
+                <span className="row-icon">{isProject(n.path) ? (
+                    <FileCog size={14} />
+                  ) : isRocq(n.path) ? (
+                    <FileCode2 size={14} />
+                  ) : (
+                    <FileText size={14} />
+                  )}</span>
                 {n.name}
                 {isOnDisk(n.path) && (
                   <span className="disk" title="saved to its folder on disk">

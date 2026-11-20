@@ -2,12 +2,14 @@
 // others require its modules by their qualified names): from a GitHub
 // repository, through jsDelivr (which serves a repository's files to other
 // sites, CORS, where GitHub's archives do not), from the URL of an archive,
-// or from an archive or a folder on disk. Its files: its project file and
-// the .v of the directories it names. Its OCaml plugins (Declare ML Module)
+// or from an archive or a folder on disk. Its files: its project file, the
+// .v of the directories it names and the files they read (Extra Dependency,
+// see extra.ts). Its OCaml plugins (Declare ML Module)
 // cannot be built in the browser yet: only those of the build's packages
 // load.
 import { readArchive } from "./archive";
 import type { DiskFile } from "./disk";
+import { extraDependencies, isText, keptFiles, named } from "./extra";
 
 // (names: the logical names of its project file; plugins: whether it
 // declares some; pinned: a repository's at the commit fetched,
@@ -33,15 +35,17 @@ const projectDirs = (project: string) => projectPaths(project).map(([d]) => d);
 
 // The files of a library (paths relative to its top): its project file
 // (_RocqProject, else _CoqProject), the .v under the directories it names
-// (all of them without one)
+// (all of them without one) and the text files those .v read
 export function libraryFiles(name: string, files: DiskFile[]): Library {
   const project = files.find((f) => f.path === "_RocqProject") ?? files.find((f) => f.path === "_CoqProject");
   const dirs = project ? projectDirs(project.text) : [""];
   const under = (p: string) => dirs.some((d) => d === "" || p.startsWith(`${d}/`));
   const sources = files.filter((f) => f.path.endsWith(".v") && under(f.path));
+  const names = new Set(sources.flatMap((f) => extraDependencies(f.text)));
+  const read = files.filter((f) => !f.path.endsWith(".v") && f !== project && named(f.path, names) && isText(f.text));
   return {
     name,
-    files: project ? [project, ...sources] : sources,
+    files: [...(project ? [project] : []), ...sources, ...read],
     names: project ? projectPaths(project.text).map(([, n]) => n) : [],
     plugins: sources.some((f) => /\bDeclare\s+ML\s+Module\b/.test(f.text)),
   };
@@ -56,9 +60,10 @@ export async function archiveLibrary(fileName: string, data: Uint8Array): Promis
   const entries = (await readArchive(fileName, data)).map((e) => ({ path: e.name.replace(/^\.\//, ""), data: e.data }));
   const tops = new Set(entries.map((e) => (e.path.includes("/") ? e.path.split("/")[0] : "")));
   const top = tops.size === 1 && !tops.has("") ? [...tops][0] : null;
-  const files = entries
-    .filter((e) => e.path.endsWith(".v") || /(^|\/)_(Rocq|Coq)Project$/.test(e.path))
-    .map((e) => ({ path: top ? e.path.slice(top.length + 1) : e.path, text: text.decode(e.data) }));
+  const files = (await keptFiles(entries, async (e) => text.decode(e.data))).map(({ file, text }) => ({
+    path: top ? file.path.slice(top.length + 1) : file.path,
+    text,
+  }));
   const base = (top ?? fileName.split("/").pop()!).replace(/\.(zip|tar|tar\.gz|tgz)$/i, "");
   return libraryFiles(folderName(base), files);
 }
@@ -146,6 +151,9 @@ export async function gitHubLibrary(
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));
+  // the files they read
+  const names = new Set(files.filter((f) => f.path.endsWith(".v")).flatMap((f) => extraDependencies(f.text)));
+  for (const p of paths) if (!p.endsWith(".v") && p !== project && named(p, names)) files.push(await get(p));
   return { ...libraryFiles(folderName(repo), files), ...(pinned && { pinned: at }) };
 }
 

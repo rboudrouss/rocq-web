@@ -1,6 +1,7 @@
 import { canBeWorkspace } from "./workspaces";
 import {
   embedded,
+  isProject,
   isRocq,
   listFiles,
   listWorkspaces,
@@ -94,12 +95,12 @@ export async function openShared() {
     const t = top(p);
     if (t !== null) return (folders.get(t) ?? t) + p.slice(t.length);
     let name = p;
-    if (text !== undefined) for (let i = 1; differs(name, text); i++) name = p.replace(/\.v$/, `_${i}.v`);
+    if (text !== undefined) for (let i = 1; differs(name, text); i++) name = p.replace(/(\.[^./]*)?$/, `_${i}$1`);
     return name;
   };
   const written = new Map<string, string>();
   for (const [p, text] of shared.files) {
-    if (top(p) === null && !isRocq(p) && differs(p, text)) continue;
+    if (top(p) === null && isProject(p) && differs(p, text)) continue;
     const to = rename(p, text);
     writeFile(to, text);
     written.set(p, to);

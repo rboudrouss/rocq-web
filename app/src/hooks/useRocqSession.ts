@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LspClient } from "../lib/lsp";
 import { Project } from "../lib/project";
-import { isProject } from "../lib/storage";
+import { isProject, isRocq } from "../lib/storage";
 import { customProject, generatedProject, projectOf, root, workerDir, workspaceOf } from "../lib/workspaces";
 import type { Package } from "../components/panels/PackagesPanel";
 import type { Workspace } from "./useWorkspace";
@@ -130,6 +130,9 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
       const done = text !== null ? c.writeFile(`/workspace/${path}`, text) : c.removeFile(`/workspace/${path}`);
       done.catch((e: Error) => log(`${path}: ${e.message}`));
       if (isProject(path)) syncWorkspaces();
+      // a file Rocq reads (Extra Dependency): the documents checked again
+      // with it
+      else if (!isRocq(path)) done.then(() => c.workspaceUpdate(), () => {});
     },
     [log, syncWorkspaces],
   );

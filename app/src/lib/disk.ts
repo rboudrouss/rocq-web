@@ -1,8 +1,10 @@
 // Files from the user's disk: a folder picked (an <input webkitdirectory>,
 // or Chrome's File System Access API, whose files are then written back
-// when they change), or files and folders dropped on the page. Only the
-// Rocq files and project files are read, not those of hidden folders,
-// _build or node_modules.
+// when they change), or files and folders dropped on the page. Kept: the
+// Rocq files and project files, the files they read (Extra Dependency, see
+// extra.ts) and the text files dropped on their own, not those of hidden
+// folders, _build or node_modules.
+import { keptFiles } from "./extra";
 import { validName } from "./storage";
 
 // A file read: its path from the folder picked or dropped, its name first
@@ -28,15 +30,23 @@ export function placed(path: string, into: string) {
   return into ? `${into}/${name}` : name;
 }
 
+// A file found, read only if kept
+type Found = { path: string; file: () => Promise<File> };
+async function kept<F extends Found>(found: F[]) {
+  return keptFiles(
+    found,
+    async (f) => (await f.file()).text(),
+    (f) => !f.path.includes("/"),
+  );
+}
+
 // The files of an <input type="file" webkitdirectory> (their
 // webkitRelativePath: the folder's name first)
 export async function readInput(list: FileList): Promise<DiskFile[]> {
-  const out: DiskFile[] = [];
-  for (const f of Array.from(list)) {
-    const path = f.webkitRelativePath || f.name;
-    if (wanted(path)) out.push({ path, text: await f.text() });
-  }
-  return out;
+  const found = Array.from(list)
+    .map((f) => ({ path: f.webkitRelativePath || f.name, file: async () => f }))
+    .filter((f) => wanted(f.path));
+  return (await kept(found)).map(({ file, text }) => ({ path: file.path, text }));
 }
 
 // The files and folders dropped (DataTransfer items, read as entries)
@@ -52,7 +62,7 @@ export async function readDropped(items: DataTransferItemList): Promise<DiskFile
   const entries = Array.from(items)
     .map((i) => (i as unknown as { webkitGetAsEntry?: () => Entry | null }).webkitGetAsEntry?.() ?? null)
     .filter((e): e is Entry => e !== null);
-  const out: DiskFile[] = [];
+  const found: Found[] = [];
   const walk = async (e: Entry, at: string): Promise<void> => {
     const path = at + e.name;
     if (e.isDirectory) {
@@ -64,13 +74,10 @@ export async function readDropped(items: DataTransferItemList): Promise<DiskFile
         if (batch.length === 0) break;
         for (const c of batch) await walk(c, path + "/");
       }
-    } else if (wanted(path)) {
-      const f = await new Promise<File>((ok, fail) => e.file!(ok, fail));
-      out.push({ path, text: await f.text() });
-    }
+    } else if (wanted(path)) found.push({ path, file: () => new Promise<File>((ok, fail) => e.file!(ok, fail)) });
   };
   for (const e of entries) await walk(e, "");
-  return out;
+  return (await kept(found)).map(({ file, text }) => ({ path: file.path, text }));
 }
 
 // Chrome's File System Access API: a folder whose files are written back
@@ -92,20 +99,20 @@ export const isOnDisk = (path: string) => onDisk.has(path);
 export async function openFolder(into: string): Promise<DiskFile[]> {
   const pick = (window as unknown as { showDirectoryPicker: (o: object) => Promise<DirectoryHandle> }).showDirectoryPicker;
   const dir = await pick({ mode: "readwrite" });
-  const out: DiskFile[] = [];
+  const found: (Found & { handle: FileHandle })[] = [];
   const walk = async (d: DirectoryHandle, at: string) => {
     for await (const h of d.values()) {
       const path = at + h.name;
       if (h.kind === "directory") {
         if (!skipped(h.name)) await walk(h, path + "/");
-      } else if (wanted(path)) {
-        out.push({ path, text: await (await h.getFile()).text() });
-        onDisk.set(placed(path, into), h);
-      }
+      } else if (wanted(path)) found.push({ path, file: () => h.getFile(), handle: h });
     }
   };
   await walk(dir, dir.name + "/");
-  return out;
+  return (await kept(found)).map(({ file, text }) => {
+    onDisk.set(placed(file.path, into), file.handle);
+    return { path: file.path, text };
+  });
 }
 
 // A file moved in the workspace: its file on disk follows it
