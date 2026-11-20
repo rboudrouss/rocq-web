@@ -19,8 +19,8 @@ written back). Each imported folder is a workspace with a generated or
 hand-written project file, read again when it changes, and the root can have
 a `_RocqProject` too. Files and folders export as zip archives. `Load`
 works, and files Rocq writes (`Extraction`) are shown and downloadable. A
-link shares the current file or all of them, their text in the URL (see
-Libraries for its libraries).
+link shares the current file or all files, their text in the URL, with
+their libraries (see Libraries).
 
 **Dependencies.** A file that requires another (`Require Import A.`) is
 checked once that file is compiled with `coq/saveVo`, and again when it
@@ -31,22 +31,23 @@ compiled `.vo` are kept in the browser between page loads.
 **Libraries.** Libraries of Rocq files can be added from GitHub (through
 jsDelivr), from archives (zip, tar.gz) or from folders. Each becomes a
 workspace and is listed with its modules in the Packages panel. A
-repository added without a ref is fetched at its default branch's last
-commit, which links then name. A link adds libraries with `?lib=SPEC`,
-repeated for several (a repository, `owner/repo@ref`, or an archive's URL):
-those not added already, then the parameter removed from the URL. The
-Share dialog makes the link, or the HTML of an iframe that embeds the page,
-again and copies it at each change: the current file or all of them (those of the libraries it links left out),
-the libraries added from GitHub or a URL (those the file requires checked
-at first), others for the link only, a repository pinned to its last
-commit by default. It warns of a link longer than 8 KB, which chats and
-mail may cut, and of one longer than 2 MB, which Chrome does not open.
-Files of the link whose path has another text in the user's are renamed
-(`N_1.v`, a folder `F_2/`). Its (i) buttons tell more, the embed's
-requirements among them. The package
-browser lists the opam packages with their modules, and clicking one
-inserts its `Require`. The declarations of the libraries' sources can be
-searched.
+repository added without a ref is fetched at the last commit of its default
+branch, and links name that commit. `?lib=SPEC` in a link adds a library, a
+repository (`owner/repo@ref`) or an archive's URL, and can be repeated.
+Libraries already there are not fetched again, and the parameter is then
+removed from the URL. The package browser lists the opam packages with
+their modules, and clicking one inserts its `Require`. The declarations of
+the libraries' sources can be searched.
+
+**Sharing.** The Share dialog rebuilds the link, or the HTML of an iframe
+embedding the page, and copies it at each change. It shares the current file or all
+files, leaving out those of the libraries the link adds. It lists the
+libraries added from GitHub or a URL, those the file requires checked
+first, and takes others for the link only, a repository pinned to its last
+commit by default. It warns of links over 8 KB, which chats and mail may
+cut, and over 2 MB, which Chrome does not open. A shared file whose path
+already holds another text is renamed (`N_1.v`, or a folder `F_2/`). Its
+(i) buttons explain each part, including what an embed needs.
 
 **Checking.** By default the file is checked step by step as in RocqIDE.
 The checked part is green, checking stops before an error, and the goals
@@ -84,13 +85,14 @@ interrupts. A worker that stopped is shown as such.
 Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
-only, its libraries too (`?embed&lib=...`: fetched at each load). In a page
-without cross-origin isolation the full build runs, but edits do not
-interrupt Rocq, and the compat build does not start. In a page served with
-COOP `same-origin` and COEP `require-corp` or `credentialless`, the iframe
-(`allow="cross-origin-isolated"`, which the Share dialog's HTML has) is
-isolated too: the site sends CORP `cross-origin` for that, without which
-such a page does not load it at all (Chromium, `tests/library_links.mjs`).
+only, like its libraries, which are fetched again at each load
+(`?embed&lib=...`). In a page without cross-origin isolation the full build
+runs, but edits do not interrupt Rocq and the compat build does not start.
+A page served with COOP `same-origin` and COEP `require-corp` or
+`credentialless` makes the iframe isolated too, given
+`allow="cross-origin-isolated"`, which the Share dialog's HTML has. The site
+sends CORP `cross-origin` for that, without which such a page does not load
+it at all (tested in Chromium by `tests/library_links.mjs`).
 
 **Phones.** Below 760 pixels wide, the editor sits above the goals and a
 drag shares the height between them. Touching a line number checks up to

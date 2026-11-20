@@ -6,12 +6,12 @@ made ([building.md](building.md)). Any host works if it does the following.
 - **Cross-origin isolation.** Send `Cross-Origin-Opener-Policy: same-origin`
   and `Cross-Origin-Embedder-Policy: require-corp`. The page shares memory
   with Rocq's worker to interrupt it, and the compat build cannot receive
-  messages without it. Send `Cross-Origin-Resource-Policy: cross-origin` too,
-  or a cross-origin isolated page cannot embed the site in an iframe.
-  `dist/_headers` sets them on Netlify and Cloudflare Pages. On hosts
+  messages without it. Also send `Cross-Origin-Resource-Policy:
+  cross-origin`, without which a cross-origin isolated page cannot embed the
+  site. `dist/_headers` sets them on Netlify and Cloudflare Pages. On hosts
   without custom headers (GitHub Pages), a service worker (`coi.js`) adds
-  them from the second load on, though not in an iframe: there, only the
-  page around it can make it isolated.
+  them from the second load on. It does nothing in an iframe, which only the
+  page around it can isolate.
 - **Brotli.** Serve `FILE.br` with `Content-Encoding: br` when it exists, or
   compress on the fly. The full build's libraries are 816 MB, 290 MB
   compressed, fetched file by file when a document needs them.
