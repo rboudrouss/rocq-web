@@ -1,0 +1,56 @@
+name: Deploy
+
+# Builds and deploys the site (docs/deploying.md) on the server's
+# self-hosted runner, the only one with the rocq-web label. It runs for each
+# push to main, and once a week when coq-lsp's v9.2 branch has a new commit.
+# The runner's job-started hook refuses any other job (pull requests, manual
+# runs, other workflows or branches) before its first step.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * 1'
+
+# To push the updated recipe, which starts no other run since it is pushed
+# with GITHUB_TOKEN
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, rocq-web]
+    timeout-minutes: 1440
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER: npx --yes wrangler@4.165.0
+    steps:
+      # out/, _build/ and _src/ stay from one run to the next, so that a
+      # build redoes only what changed
+      - uses: actions/checkout@v7
+        with:
+          clean: false
+      - name: coq-lsp's latest commit
+        id: coq-lsp
+        if: github.event_name == 'schedule'
+        run: scripts/update-coq-lsp.sh >> "$GITHUB_OUTPUT"
+      - name: Build
+        if: github.event_name == 'push' || steps.coq-lsp.outputs.changed == 'true'
+        run: make full compat
+      - name: Deploy
+        if: github.event_name == 'push' || steps.coq-lsp.outputs.changed == 'true'
+        run: make deploy
+      - name: Commit the recipe
+        if: steps.coq-lsp.outputs.changed == 'true'
+        env:
+          COMMIT: ${{ steps.coq-lsp.outputs.commit }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qm "build(coq-lsp): ${COMMIT:0:8} of the v9.2 branch" emcc-recipes/coq-lsp/recipe.sh
+          git pull -q --rebase
+          git push

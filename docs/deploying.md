@@ -71,3 +71,20 @@ bucket until deleted by hand.
 production branch (Settings > Builds & deployments), this is a production
 deployment whatever branch is checked out. Any other branch name gives a
 preview deployment.
+
+## Continuous deployment
+
+`.github/workflows/deploy.yml` runs `make full compat` and `make deploy` on
+a self-hosted runner with the label `rocq-web`, which has the toolchain of
+[building.md](building.md). It runs for each push to `main`, and every
+Monday when the `v9.2` branch of
+[rocq-lsp](https://github.com/rocq-community/rocq-lsp) has a new commit.
+`scripts/update-coq-lsp.sh` then points the recipe at that commit, and the
+job pushes the recipe once the site is deployed. The job needs the
+repository secrets `CLOUDFLARE_API_TOKEN` (with R2 and Pages edit
+permissions) and `CLOUDFLARE_ACCOUNT_ID`.
+
+The runner keeps `out/`, `_build/` and `_src/` from one run to the next. Its
+job-started hook (`ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`)
+refuses any job but this workflow's on `main` for a push or the cron, so
+that a pull request cannot run code on the machine.
