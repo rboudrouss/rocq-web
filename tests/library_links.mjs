@@ -5,8 +5,10 @@
 // link opened embedded, in a fresh browser, the library added in memory;
 // the Share dialog: the link copied at each change, the libraries checked,
 // all the files, a library pinned to its last commit, a long link warned;
-// all the files opened in another browser, a folder renamed.
+// all the files opened in another browser, a folder renamed; the HTML of
+// the embed, in a cross-origin isolated page of another site.
 //   node tests/library_links.mjs [URL]
+import { createServer } from "node:http";
 import { launch } from "./launch.mjs";
 
 const url = process.argv[2] ?? process.env.ROCQ_WEB_URL ?? "http://localhost:5173/";
@@ -86,11 +88,11 @@ check(!new URL(without).searchParams.has("lib") && (await clipboard()) === witho
 await box("coq-record-update").first().check();
 
 // all the files: those of the library left out, the workspace W kept
-check((await dialog.locator("label", { hasText: "All the files" }).textContent()).includes("3 files"), "all the files: 3");
-await box("All the files").check();
+check((await dialog.locator("label", { hasText: "All files" }).textContent()).includes("3 files"), "all the files: 3");
+await box("All files").check();
 const all = await link();
 check(new URL(all).hash.startsWith("#files="), `all the files: #files= (${all.length} characters)`);
-check(await box("The current file").isDisabled(), "the current file then implied");
+check(await box("This file").isDisabled(), "the current file then implied");
 check(await dialog.locator(".share-warning").count() === 1, `a long link warned: ${await dialog.locator(".share-warning").allTextContents()}`);
 
 // a library added for the link only: at its last commit
@@ -99,9 +101,21 @@ await dialog.locator(".share-add button").click();
 await page.waitForFunction(() => /coq-record-update%40[0-9a-f]{40}/.test(document.querySelector('.share-dialog [aria-label="The link"]').value), null, { timeout: 30000 });
 const pinned = new URL(await link()).searchParams.getAll("lib");
 check(pinned.length === 2 && /^tchajed\/coq-record-update@[0-9a-f]{40}$/.test(pinned[1]), `pinned to a commit: ${pinned}`);
-await box("for the link only").uncheck();
+await box("link only").uncheck();
 const allLink = await link();
 check(new URL(allLink).searchParams.getAll("lib").join() === spec, "the extra library unchecked");
+
+// the HTML that embeds it: an iframe of the embedded page, copied
+await box("All files").uncheck();
+await dialog.locator(".segmented button", { hasText: "Embed" }).click();
+await page.waitForTimeout(500);
+const html = await dialog.locator('[aria-label="The HTML"]').inputValue();
+check((await clipboard()) === html, "the HTML copied");
+const src = /src="([^"]+)"/.exec(html)?.[1].replace(/&amp;/g, "&");
+check(/^<iframe /.test(html) && html.includes('allow="cross-origin-isolated"'), `an iframe: ${html.slice(0, 80)}`);
+check(new URL(src).search.startsWith("?embed&lib=") && new URL(src).hash.startsWith("#share=A.v:"), `the embedded page, A.v and its library: ${src.slice(0, 100)}`);
+await page.locator(".share-dialog button.info").first().click();
+check((await dialog.locator(".info-text").textContent()).includes("Cross-Origin-Embedder-Policy"), "the (i) tells of cross-origin isolation");
 await page.keyboard.press("Escape");
 check(await dialog.count() === 0, "closed by Escape");
 
@@ -137,6 +151,32 @@ await page.context().close();
   await other.waitForSelector(".library-entry", { timeout: 120000 });
   check(true, "the library added");
   await other.context().close();
+}
+
+// the HTML in a cross-origin isolated page of another site: isolated too,
+// A.v checks with the library
+{
+  const server = createServer((_, res) =>
+    res
+      .writeHead(200, {
+        "Content-Type": "text/html",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+      })
+      .end(`<!doctype html><h1>A course</h1>${html}`),
+  );
+  await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
+  const host = await fresh();
+  await host.goto(`http://127.0.0.1:${server.address().port}/`);
+  check(await host.evaluate(() => crossOriginIsolated), "the page around it isolated");
+  let frame;
+  for (let i = 0; i < 100 && !(frame = host.frames().find((f) => f.url().includes("embed"))); i++) await host.waitForTimeout(200);
+  await frame.waitForFunction(() => document.querySelector(".log")?.textContent.includes("added the library"), null, { timeout: 120000 });
+  check(await frame.evaluate(() => crossOriginIsolated), "the iframe cross-origin isolated");
+  await frame.waitForSelector('.status[data-status="Idle"]', { timeout: 180000 });
+  check((await frame.locator(".cm-content").textContent()).includes("RecordSet"), "A.v in it");
+  await host.context().close();
+  server.close();
 }
 
 // the share link embedded, in a fresh browser: the library in memory
