@@ -30,27 +30,59 @@ jobs:
       WRANGLER: npx --yes wrangler@4.165.0
     steps:
       # out/, _build/ and _src/ stay from one run to the next, so that a
-      # build redoes only what changed
+      # build redoes only what changed. The whole history is fetched to
+      # compare with the last commit built.
       - uses: actions/checkout@v7
         with:
           clean: false
-      - name: coq-lsp's latest commit
-        id: coq-lsp
-        if: github.event_name == 'schedule'
-        run: scripts/update-coq-lsp.sh >> "$GITHUB_OUTPUT"
-      - name: Build
-        if: github.event_name == 'push' || steps.coq-lsp.outputs.changed == 'true'
-        run: make full compat
-      - name: Deploy
-        if: github.event_name == 'push' || steps.coq-lsp.outputs.changed == 'true'
-        run: make deploy
-      - name: Commit the recipe
-        if: steps.coq-lsp.outputs.changed == 'true'
+          fetch-depth: 0
+      # What to redo: all (the programs, the plugins and the site), site
+      # (the app only, with the last build's out/), or nothing. A push
+      # changing only the paths below since the commit of the last build
+      # (out/.built-commit) redeploys the site only.
+      - name: What to redo
+        id: plan
         env:
-          COMMIT: ${{ steps.coq-lsp.outputs.commit }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          site_only='^(app/|docs/|tests/|\.github/|README\.md$|scripts/(dist|cloudflare|serve)\.mjs$|scripts/update-coq-lsp\.sh$)'
+          if [ "$EVENT" = schedule ]; then
+            coq_lsp=$(scripts/update-coq-lsp.sh)
+            echo "$coq_lsp" >> "$GITHUB_OUTPUT"
+            case $coq_lsp in *changed=true*) redo=all ;; *) redo=nothing ;; esac
+          else
+            built=$(cat out/.built-commit 2>/dev/null || true)
+            if [ -n "$built" ] && git cat-file -e "$built^{commit}" 2>/dev/null &&
+              ! git diff --name-only "$built" HEAD | grep -qvE "$site_only"; then
+              redo=site
+            else
+              redo=all
+            fi
+          fi
+          echo "redo=$redo" | tee -a "$GITHUB_OUTPUT"
+      - name: Build
+        if: steps.plan.outputs.redo == 'all'
+        run: |
+          rm -f out/.built-commit
+          make full compat
+          git rev-parse HEAD > out/.built-commit
+      - name: Deploy
+        if: steps.plan.outputs.redo == 'all'
+        run: make deploy
+      # The files on R2 come from the programs, unchanged
+      - name: Deploy the site only
+        if: steps.plan.outputs.redo == 'site'
+        run: make dist cloudflare pages
+      # The commit built is the recipe's, also after a rebase on newer
+      # commits, which their own runs build
+      - name: Commit the recipe
+        if: steps.plan.outputs.redo == 'all' && github.event_name == 'schedule'
+        env:
+          COMMIT: ${{ steps.plan.outputs.commit }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -qm "build(coq-lsp): ${COMMIT:0:8} of the v9.2 branch" emcc-recipes/coq-lsp/recipe.sh
+          git rev-parse HEAD > out/.built-commit
           git pull -q --rebase
           git push

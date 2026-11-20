@@ -87,7 +87,16 @@ job pushes the recipe once the site is deployed. The job needs the
 repository secrets `CLOUDFLARE_API_TOKEN` (with R2 and Pages edit
 permissions) and `CLOUDFLARE_ACCOUNT_ID`.
 
-The runner keeps `out/`, `_build/` and `_src/` from one run to the next. Its
+The runner keeps `out/`, `_build/` and `_src/` from one run to the next,
+and `out/.built-commit` names the commit of the last full build. A push that
+changes, since that commit, only the app, the docs, the tests or the site's
+scripts (`dist.mjs`, `cloudflare.mjs`, `serve.mjs`) runs only
+`make dist cloudflare pages`, with the programs and plugins of that build.
+Any other change rebuilds everything, the plugins too, since they are linked
+against the programs.
+
+The runner's service runs it on two cores (`taskset -c 2,3` and
+`CPUQuota=200%`), at the lowest CPU and I/O priority. Its
 job-started hook (`ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`)
 refuses any job but this workflow's on `main` for a push or the cron, so
 that a pull request cannot run code on the machine.
