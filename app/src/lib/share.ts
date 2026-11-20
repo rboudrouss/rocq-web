@@ -116,6 +116,22 @@ export async function openShared() {
   if (!embedded) history.replaceState(null, "", location.pathname + location.search);
 }
 
+// A link made the page's embedded version (?embed, first)
+export function embedUrl(link: string) {
+  if (!link) return "";
+  const url = new URL(link);
+  const rest = url.searchParams.toString();
+  url.search = `?embed${rest ? `&${rest}` : ""}`;
+  return url.href;
+}
+
+// The HTML that embeds it in another page (allow: the iframe cross-origin
+// isolated when that page is)
+const attribute = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+export const embedCode = (src: string) =>
+  `<iframe src="${attribute(src)}" title="Rocq" width="100%" height="500" ` +
+  `style="border: 1px solid #ccc; border-radius: 6px" allow="cross-origin-isolated" loading="lazy"></iframe>`;
+
 // The workspaces among [workspaces] that hold one of [paths]
 export const workspacesOf = (paths: string[], workspaces: string[]) =>
   workspaces.filter((w) => paths.some((p) => within(p, w)));

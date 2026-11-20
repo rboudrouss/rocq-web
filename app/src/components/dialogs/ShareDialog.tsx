@@ -1,14 +1,15 @@
-// The Share button's dialog: the link, made again and copied at each
-// change of what it shares: the current file or all of them, the user's
-// libraries that can be fetched again (?lib=SPEC), others added for the
-// link only (a GitHub repository pinned to its last commit by default). A
-// warning when the link is too long.
-import { Copy, PackagePlus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+// The Share button's dialog: a link, or the HTML that embeds the page in
+// another one, made again and copied at each change of what it shares: the
+// current file or all of them, the user's libraries that can be fetched
+// again (?lib=SPEC), others for the link only (a GitHub repository pinned
+// to its last commit by default). A warning when the link is too long, and
+// (i) buttons that tell more.
+import { Code, Copy, Info, Link, PackagePlus, X } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { fetchable, type Libraries, linkSource } from "../../hooks/useLibraries";
 import type { Workspace } from "../../hooks/useWorkspace";
 import { gitHubRepository, isCommit, latestCommit } from "../../lib/library";
-import { longUrl, maxUrl, type Shared, shareUrl, workspacesOf } from "../../lib/share";
+import { embedCode, embedUrl, longUrl, maxUrl, type Shared, shareUrl, workspacesOf } from "../../lib/share";
 
 // What the dialog shares when it opens (file: the current one; libraries:
 // their sources, checked)
@@ -24,7 +25,31 @@ type Props = {
 
 const plural = (n: number, what: string) => `${n} ${what}${n === 1 ? "" : "s"}`;
 
+// A heading or a line with an (i) that shows, under it, more about it
+function More({ children, more }: { children: ReactNode; more: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="with-info">
+        {children}
+        <button
+          type="button"
+          className="info"
+          aria-expanded={open}
+          aria-label="More about this"
+          title="More about this"
+          onClick={() => setOpen(!open)}
+        >
+          <Info size={14} />
+        </button>
+      </div>
+      {open && <div className="info-text">{more}</div>}
+    </>
+  );
+}
+
 export function ShareDialog({ start, ws, libs, log, close }: Props) {
+  const [embed, setEmbed] = useState(false);
   const [file, setFile] = useState(start.file);
   const [all, setAll] = useState(false);
   const [checked, setChecked] = useState(() => new Set(start.libraries));
@@ -37,15 +62,17 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
   const [pin, setPin] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [url, setUrl] = useState("");
+  // the link, and what is copied (the link, or the HTML of the embed)
+  const [link, setLink] = useState("");
   const [copied, setCopied] = useState(false);
-  const field = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
 
   const mine = libs.libraries.filter((l) => fetchable(l.source));
   const fromDisk = libs.libraries.filter((l) => !fetchable(l.source));
   // (all the files: those of the libraries that a link can fetch left out)
   const allFiles = ws.files.filter((f) => !mine.some((l) => f.startsWith(`${l.folder}/`)));
   const sources = [...mine.map(linkSource), ...extra].filter((s) => checked.has(s));
+  const text = embed ? embedCode(embedUrl(link)) : link;
 
   const shared = (): Shared => {
     const paths = all ? allFiles : file ? [ws.active] : [];
@@ -56,21 +83,29 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     };
   };
 
-  // The link made again and copied
-  const key = JSON.stringify([file, all, sources]);
+  const copy = async (t: string) => {
+    const ok = await navigator.clipboard?.writeText(t).then(
+      () => true,
+      () => false,
+    );
+    setCopied(!!ok);
+    return ok;
+  };
+
+  // The link made again, and copied
+  const key = JSON.stringify([file, all, sources, embed]);
   useEffect(() => {
     let current = true;
     const s = shared();
-    shareUrl(s, sources).then(async (u) => {
+    shareUrl(s, sources, new URL(location.pathname, location.href).href).then(async (u) => {
       if (!current) return;
-      setUrl(u);
-      const ok = await navigator.clipboard?.writeText(u).then(
-        () => true,
-        () => false,
+      setLink(u);
+      const ok = await copy(embed ? embedCode(embedUrl(u)) : u);
+      if (!current) return;
+      const what = [s.files.length && plural(s.files.length, "file"), sources.length && plural(sources.length, "library")];
+      log(
+        `${embed ? "embed" : "link"}${what.some(Boolean) ? ` with ${what.filter(Boolean).join(" and ")}` : ""} ${ok ? "copied" : "made"} (${u.length} characters)`,
       );
-      if (!current) return;
-      setCopied(!!ok);
-      log(`link${s.files.length ? ` to ${plural(s.files.length, "file")}` : ""}${sources.length ? ` with ${plural(sources.length, "library")}` : ""} ${ok ? "copied" : "made"} (${u.length} characters)`);
     });
     return () => {
       current = false;
@@ -99,7 +134,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     if (!s || adding) return;
     setError(null);
     const gh = gitHubRepository(s);
-    if (!gh && !fetchable(s)) return setError(`${s}: not a GitHub repository (owner/repo[@ref]) nor an archive's URL`);
+    if (!gh && !fetchable(s)) return setError(`${s}: neither a GitHub repository (owner/repo) nor an archive's URL`);
     setAdding(true);
     try {
       const source =
@@ -118,78 +153,152 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     }
   };
 
-  const copy = async () => {
-    const ok = await navigator.clipboard?.writeText(url).then(
-      () => true,
-      () => false,
-    );
-    setCopied(!!ok);
-    if (!ok) field.current?.select();
-  };
-
   const files = all ? allFiles.length : file ? 1 : 0;
+  const length = embed ? embedUrl(link).length : link.length;
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="dialog share-dialog" role="dialog" aria-label="Share a link">
+      <div className="dialog share-dialog" role="dialog" aria-label="Share">
         <div className="dialog-title">
-          <h2>Share a link</h2>
+          <h2>Share</h2>
           <button className="icon" onClick={close} aria-label="Close" title="Close">
             <X size={16} />
           </button>
         </div>
+
+        <More
+          more={
+            <>
+              <p>
+                <b>Link</b>: the page with what is checked below. The files' text is in the link itself, after
+                its <code>#</code>: nothing is uploaded anywhere.
+              </p>
+              <p>
+                <b>Embed</b>: an <code>&lt;iframe&gt;</code> for another site (a course, a blog). It shows the
+                editor and the goals, and keeps its files in memory: nothing is saved in the visitor's browser.
+                In Chrome and Edge 137+ and Firefox 153+ it works in any page, but editing then does not stop a
+                long computation (Restart does). Other browsers (Safari, older versions) run the compatibility
+                build, which only starts if the page around it is cross-origin isolated: serve that
+                page with <code>Cross-Origin-Opener-Policy: same-origin</code> and{" "}
+                <code>Cross-Origin-Embedder-Policy: require-corp</code> (or <code>credentialless</code>, which
+                asks less of its other resources). The iframe's <code>allow="cross-origin-isolated"</code>,
+                in the HTML given here, does the rest.
+              </p>
+            </>
+          }
+        >
+          <div className="segmented" role="group" aria-label="What to share">
+            <button aria-pressed={!embed} onClick={() => setEmbed(false)}>
+              <Link size={14} /> Link
+            </button>
+            <button aria-pressed={embed} onClick={() => setEmbed(true)}>
+              <Code size={14} /> Embed
+            </button>
+          </div>
+        </More>
         <div className="share-link">
-          <input ref={field} readOnly value={url} aria-label="The link" onFocus={(e) => e.target.select()} />
-          <button className="button" onClick={copy} title="Copy the link">
+          {embed ? (
+            <textarea
+              ref={field}
+              readOnly
+              rows={4}
+              value={text}
+              aria-label="The HTML"
+              onFocus={(e) => e.target.select()}
+            />
+          ) : (
+            <input ref={field} readOnly value={text} aria-label="The link" onFocus={(e) => e.target.select()} />
+          )}
+          <button
+            className="button"
+            onClick={async () => (await copy(text)) || field.current?.select()}
+            title={embed ? "Copy the HTML" : "Copy the link"}
+          >
             <Copy size={14} /> Copy
           </button>
         </div>
         <p className="muted share-status">
-          {url.length.toLocaleString()} characters
-          {copied ? ", copied to the clipboard" : ""}
-          {!files && !sources.length ? ": the page alone" : ""}
+          {embed ? "Its link: " : ""}
+          {length.toLocaleString()} characters{copied ? ", copied" : ""}
+          {!files && !sources.length ? ", the page alone" : ""}
         </p>
-        {url.length > maxUrl ? (
+        {length > maxUrl ? (
           <p className="share-warning error">
-            Too long: Chrome and Edge do not open links of more than 2 MB. Share fewer files.
+            Too long: Chrome and Edge do not open links over 2 MB. Share fewer files, or send them as an archive.
           </p>
         ) : (
-          url.length > longUrl && (
+          length > longUrl && (
             <p className="share-warning">
-              A long link: chats, mail and some sites may cut it. Share fewer files, or the files as an archive.
+              A long link (over 8 KB): chat apps, mail and some sites may cut it. Share fewer files, or send them
+              as an archive.
             </p>
           )
         )}
 
-        <h3>Files</h3>
+        <More
+          more={
+            <p>
+              Whoever opens the link gets a copy of the files in their browser. A file whose path they already
+              use with another text is renamed (<code>A_1.v</code>, a folder <code>W_2/</code>). All files leaves
+              out the libraries the link adds by their source.
+            </p>
+          }
+        >
+          <h3>Files</h3>
+        </More>
         <label>
           <input type="checkbox" checked={file || all} disabled={all} onChange={(e) => setFile(e.target.checked)} />
-          The current file <span className="muted">{ws.active}</span>
+          <span>
+            This file <span className="muted">{ws.active}</span>
+          </span>
         </label>
         <label>
           <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
-          All the files <span className="muted">{plural(allFiles.length, "file")}</span>
+          <span>
+            All files <span className="muted">{plural(allFiles.length, "file")}</span>
+          </span>
         </label>
 
-        <h3>Libraries</h3>
+        <More
+          more={
+            <>
+              <p>
+                The link adds these libraries when it opens (<code>?lib=</code>, one per library): a GitHub
+                repository, fetched through jsDelivr, or the URL of a .zip or .tar.gz archive. Those added from
+                disk can only go as files, with All files.
+              </p>
+              <p>
+                A repository pinned to a commit gives everyone the same version, and saves a request to GitHub's
+                API, which allows 60 an hour per IP address: a classroom behind one address can use them up.
+              </p>
+            </>
+          }
+        >
+          <h3>Libraries</h3>
+        </More>
         {mine.map((l) => (
           <label key={l.folder}>
             <input type="checkbox" checked={checked.has(linkSource(l))} onChange={() => toggle(linkSource(l))} />
-            {l.folder} <span className="muted">{linkSource(l)}</span>
+            <span>
+              {l.folder} <span className="muted">{linkSource(l)}</span>
+            </span>
           </label>
         ))}
         {extra.map((s) => (
           <label key={s}>
             <input type="checkbox" checked={checked.has(s)} onChange={() => toggle(s)} />
-            {s} <span className="muted">for the link only</span>
+            <span>
+              {s} <span className="muted">link only</span>
+            </span>
           </label>
         ))}
         {fromDisk.map((l) => (
-          <label key={l.folder} className="muted" title="Added from disk: its files are in the link with all the files">
+          <label key={l.folder} className="muted">
             <input type="checkbox" checked={all} disabled />
-            {l.folder} <span>from disk, with all the files</span>
+            <span>
+              {l.folder} <span>from disk, in All files</span>
+            </span>
           </label>
         ))}
-        {!mine.length && !extra.length && !fromDisk.length && <p className="muted">No libraries added.</p>}
         <form
           className="share-add"
           onSubmit={(e) => {
@@ -198,7 +307,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           }}
         >
           <input
-            placeholder="owner/repo, owner/repo@tag, or an archive's URL"
+            placeholder="Add one: owner/repo, owner/repo@tag, an archive's URL"
             aria-label="A library for the link"
             value={spec}
             onChange={(e) => setSpec(e.target.value)}
@@ -209,7 +318,7 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
         </form>
         <label className="muted">
           <input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} />
-          GitHub repositories at their last commit
+          <span>Pin GitHub repositories to their latest commit</span>
         </label>
         {error && <p className="error">{error}</p>}
       </div>
