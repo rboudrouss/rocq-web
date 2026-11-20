@@ -77,26 +77,25 @@ preview deployment.
 
 ## Continuous deployment
 
-`.github/workflows/deploy.yml` runs `make full compat` and `make deploy` on
-a self-hosted runner with the label `rocq-web`, which has the toolchain of
-[building.md](building.md). It runs for each push to `main`, and every
-Monday when the `v9.2` branch of
+`.github/workflows/deploy.yml` builds and deploys the site on GitHub's
+runners, for each push to `main` and every Monday when the `v9.2` branch of
 [rocq-lsp](https://github.com/rocq-community/rocq-lsp) has a new commit.
 `scripts/update-coq-lsp.sh` then points the recipe at that commit, and the
-job pushes the recipe once the site is deployed. The job needs the
-repository secrets `CLOUDFLARE_API_TOKEN` (with R2 and Pages edit
-permissions) and `CLOUDFLARE_ACCOUNT_ID`.
+workflow pushes the recipe once the site is deployed. Running the workflow
+by hand makes a full build.
 
-The runner keeps `out/`, `_build/` and `_src/` from one run to the next,
-and `out/.built-commit` names the commit of the last full build. A push that
-changes, since that commit, only the app, the docs, the tests or the site's
-scripts (`dist.mjs`, `cloudflare.mjs`, `serve.mjs`) runs only
-`make dist cloudflare pages`, with the programs and plugins of that build.
-Any other change rebuilds everything, the plugins too, since they are linked
-against the programs.
+The opam switch (`.github/opam/`) is installed once and kept in GitHub's
+cache, again when `.github/opam/` changes. Its install takes hours, so a run
+stopped by the 6 hour limit saves what it installed and the next run goes on
+from there. ocaml-emcc's libraries for wasm64 are cached the same way, by
+the commits of ocaml-emcc and c_of_ocaml and the recipes. `full` and
+`compat` are then built in parallel, and kept 90 days as artifacts.
 
-The runner's service runs it on two cores (`taskset -c 2,3` and
-`CPUQuota=200%`), at the lowest CPU and I/O priority. Its
-job-started hook (`ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`)
-refuses any job but this workflow's on `main` for a push or the cron, so
-that a pull request cannot run code on the machine.
+A push that changes, since the last full build, only the app, the docs, the
+tests or the site's scripts (`dist.mjs`, `cloudflare.mjs`, `serve.mjs`) runs
+only `make dist cloudflare pages`, with that build's artifacts. Any other
+change rebuilds everything, the plugins too, since they are linked against
+the programs.
+
+The workflow needs the repository secrets `CLOUDFLARE_API_TOKEN` (with R2
+and Pages edit permissions) and `CLOUDFLARE_ACCOUNT_ID`.

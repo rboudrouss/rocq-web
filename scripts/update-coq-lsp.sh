@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Points coq-lsp's recipe (emcc-recipes/coq-lsp/recipe.sh) at the latest
-# commit of its v9.2 branch, with that archive's SHA256. Prints changed=true
-# and commit=SHA when it moved, changed=false otherwise (for $GITHUB_OUTPUT).
+# Points coq-lsp's recipe (emcc-recipes/coq-lsp/recipe.sh) at COMMIT, or by
+# default at the latest commit of its v9.2 branch, with that archive's
+# SHA256. Prints changed=true and commit=SHA when it moved, changed=false
+# otherwise (for $GITHUB_OUTPUT).
+#   scripts/update-coq-lsp.sh [COMMIT]
 set -euo pipefail
 repo=https://github.com/rocq-community/rocq-lsp
 branch=v9.2
 recipe=$(dirname "$0")/../emcc-recipes/coq-lsp/recipe.sh
 
 current=$(sed -n 's|^SOURCE=url:.*/archive/\([0-9a-f]*\)\.tar\.gz$|\1|p' "$recipe")
-latest=$(git ls-remote "$repo.git" "refs/heads/$branch" | cut -f1)
+latest=${1:-$(git ls-remote "$repo.git" "refs/heads/$branch" | cut -f1)}
 [ -n "$current" ] && [ -n "$latest" ]
 if [ "$current" = "$latest" ]; then
   echo changed=false

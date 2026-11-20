@@ -1,0 +1,31 @@
+name: Toolchain
+description: The switch from the cache, ocaml-emcc and c_of_ocaml at the given commits
+inputs:
+  ocaml-emcc:
+    description: ocaml-emcc's commit
+    required: true
+  c-of-ocaml:
+    description: c_of_ocaml's commit
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~/.opam
+          !~/.opam/rocq-web/emcc-sysroot
+        key: switch-${{ hashFiles('.github/opam/*') }}
+        fail-on-cache-miss: true
+    - name: ocaml-emcc
+      shell: bash
+      run: |
+        opam pin add --switch=rocq-web -y ocaml-emcc "git+https://github.com/rboudrouss/ocaml-emcc.git#${{ inputs.ocaml-emcc }}"
+    # Where the Makefile looks for it
+    - name: c_of_ocaml
+      shell: bash
+      run: |
+        git clone -q https://github.com/rboudrouss/C_of_ocaml.git ~/C_of_ocaml
+        cd ~/C_of_ocaml
+        git checkout -q "${{ inputs.c-of-ocaml }}"
+        opam exec --switch=rocq-web -- dune build --root . --profile release compiler/bin-c_of_ocaml/c_of_ocaml.exe
