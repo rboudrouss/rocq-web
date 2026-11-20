@@ -19,7 +19,8 @@ written back). Each imported folder is a workspace with a generated or
 hand-written project file, read again when it changes, and the root can have
 a `_RocqProject` too. Files and folders export as zip archives. `Load`
 works, and files Rocq writes (`Extraction`) are shown and downloadable. A
-file can be shared as a link with its text in the URL.
+link shares the current file or all of them, their text in the URL (see
+Libraries for its libraries).
 
 **Dependencies.** A file that requires another (`Require Import A.`) is
 checked once that file is compiled with `coq/saveVo`, and again when it
@@ -29,12 +30,19 @@ compiled `.vo` are kept in the browser between page loads.
 
 **Libraries.** Libraries of Rocq files can be added from GitHub (through
 jsDelivr), from archives (zip, tar.gz) or from folders. Each becomes a
-workspace and is listed with its modules in the Packages panel. A link
-adds libraries with `?lib=SPEC`, repeated for several (a repository,
-`owner/repo@ref`, or an archive's URL): those not added already, then the
-parameter removed from the URL. A file's share link carries the libraries
-it requires that came from such a source, and each of these has a link of
-its own in the panel. The package
+workspace and is listed with its modules in the Packages panel. A
+repository added without a ref is fetched at its default branch's last
+commit, which links then name. A link adds libraries with `?lib=SPEC`,
+repeated for several (a repository, `owner/repo@ref`, or an archive's URL):
+those not added already, then the parameter removed from the URL. The
+Share dialog makes the link again and copies it at each change: the
+current file or all of them (those of the libraries it links left out),
+the libraries added from GitHub or a URL (those the file requires checked
+at first), others for the link only, a repository pinned to its last
+commit by default. It warns of a link longer than 8 KB, which chats and
+mail may cut, and of one longer than 2 MB, which Chrome does not open.
+Files of the link whose path has another text in the user's are renamed
+(`N_1.v`, a folder `F_2/`). The package
 browser lists the opam packages with their modules, and clicking one
 inserts its `Require`. The declarations of the libraries' sources can be
 searched.
@@ -75,8 +83,8 @@ interrupts. A worker that stopped is shown as such.
 Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
-only, its libraries too (`?embed&lib=...`: fetched at each load). In an iframe without cross-origin isolation, edits do not interrupt
-Rocq.
+only, its libraries too (`?embed&lib=...`: fetched at each load). In an
+iframe without cross-origin isolation, edits do not interrupt Rocq.
 
 **Phones.** Below 760 pixels wide, the editor sits above the goals and a
 drag shares the height between them. Touching a line number checks up to
