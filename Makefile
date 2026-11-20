@@ -195,6 +195,12 @@ prebuild.rocq-relation-algebra = ./configure --enable-ssr --enable-aac && make
 _build/byte-plugins/%.cma:
 	echo "$(@F) from $(PACKAGE)"
 	src=$(CURDIR)/_src/byte/$(PACKAGE)
+	# The plugins of a package share its sources and its prebuild, so they
+	# are built one at a time (with make -j, two of them would generate the
+	# same files at once)
+	mkdir -p "$${src%/*}"
+	exec 9> "$$src.lock"
+	flock 9
 	[ -d "$$src" ] || opam source $(VERSION) --dir "$$src" > /dev/null
 	cd "$$src"
 	built() { find . -name $(@F) | head -1; }
