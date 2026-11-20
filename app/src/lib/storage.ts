@@ -1,8 +1,11 @@
 // The user's files, in the browser's local storage: "rocq-web:PATH" for
-// each file (NAME.v, DIR/NAME.v, a project file), and the lists of the
-// folders (those without files too) and of the workspaces, and the file
-// open in the editor.
+// each Rocq file (NAME.v, DIR/NAME.v) and project file, "rocq-web:+PATH"
+// for the others (+ is in no path, so that they are not taken for the
+// page's settings, "rocq-web:KEY"), and the lists of the folders (those
+// without files too) and of the workspaces, and the file open in the
+// editor.
 const prefix = "rocq-web:";
+const otherPrefix = "rocq-web:+";
 const activeKey = "rocq-web:active";
 const foldersKey = "rocq-web:folders";
 const workspacesKey = "rocq-web:workspaces";
@@ -75,7 +78,9 @@ export function listFiles(): string[] {
   const names: string[] = [];
   for (let i = 0; i < storage.length; i++) {
     const k = storage.key(i)!;
-    if (k.startsWith(prefix) && validName(k.slice(prefix.length))) names.push(k.slice(prefix.length));
+    const other = k.startsWith(otherPrefix);
+    const name = k.slice((other ? otherPrefix : prefix).length);
+    if (k.startsWith(prefix) && validName(name) && other !== (isRocq(name) || isProject(name))) names.push(name);
   }
   if (!names.some(isRocq)) {
     writeFile("scratch.v", example);
@@ -84,9 +89,10 @@ export function listFiles(): string[] {
   return names.sort();
 }
 
-export const readFile = (name: string) => storage.getItem(prefix + name) ?? "";
-export const writeFile = (name: string, text: string) => storage.setItem(prefix + name, text);
-export const removeFile = (name: string) => storage.removeItem(prefix + name);
+const fileKey = (name: string) => (isRocq(name) || isProject(name) ? prefix : otherPrefix) + name;
+export const readFile = (name: string) => storage.getItem(fileKey(name)) ?? "";
+export const writeFile = (name: string, text: string) => storage.setItem(fileKey(name), text);
+export const removeFile = (name: string) => storage.removeItem(fileKey(name));
 
 export function activeFile(files: string[]) {
   const a = storage.getItem(activeKey);
