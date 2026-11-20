@@ -74,3 +74,11 @@ More in [docs/design.md](docs/design.md).
 | `emcc-recipes/` | coq-lsp's sources and the patches applied to it, an ocaml-emcc recipe |
 | `tests/` | comparisons with native Rocq, LSP tests, browser tests |
 | `docs/` | the documentation above |
+
+## License
+
+rocq-web is under the [MIT License](LICENSE), except for
+`emcc-recipes/coq-lsp/patches/` and `worker/lsp_worker.ml`, adapted from
+[coq-lsp](https://github.com/rocq-community/rocq-lsp), which keep its
+license, the LGPL 2.1. Rocq, coq-lsp, the Rocq packages the site serves
+and the tools that build it have their own licenses.
