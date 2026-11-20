@@ -51,14 +51,15 @@ const rewrites = [];
 writeFileSync(join(dir, "_redirects"), rewrites.map((r) => r + "\n").join(""));
 
 // _headers, for Netlify and Cloudflare Pages (scripts/serve.mjs sets the
-// same headers itself). It sets COOP and COEP, and caches for good vite's
+// same headers itself). It sets COOP and COEP, CORP (cross-origin: the page
+// embedded in a cross-origin isolated one), and caches for good vite's
 // files, named by their hash, and Rocq's, fetched with theirs (?v=,
 // web/rocq-web-fs.js). Without it every file would be revalidated on each
 // visit, one request each.
 const forGood = "  Cache-Control: public, max-age=31536000, immutable\n";
 writeFileSync(
   join(dir, "_headers"),
-  "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n" +
+  "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: cross-origin\n" +
     ["/assets/*", "/rocq/:build/coqlib/*", "/rocq/:build/plugins/*", "/rocq/:build/boot.bin"]
       .map((p) => p + "\n" + forGood)
       .join(""),

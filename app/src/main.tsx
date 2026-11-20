@@ -9,8 +9,9 @@ import { setLibraries } from "./lib/workspaces";
 import "./styles.css";
 
 // Not cross-origin isolated (a host without COOP and COEP headers): the
-// service worker public/coi.js adds them, from the next load of the page
-if (import.meta.env.PROD && !crossOriginIsolated && "serviceWorker" in navigator) {
+// service worker public/coi.js adds them, from the next load of the page.
+// Not in an iframe, which only the page around it can make isolated
+if (import.meta.env.PROD && !crossOriginIsolated && "serviceWorker" in navigator && window === window.top) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}coi.js`);
   navigator.serviceWorker.ready.then(() => {
     if (!navigator.serviceWorker.controller && !sessionStorage.getItem("rocq-web:coi")) {

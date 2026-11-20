@@ -56,7 +56,8 @@ createServer((req, res) => {
     "Content-Type": types[extname(file)] ?? "application/octet-stream",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Embedder-Policy": "require-corp",
-    "Cross-Origin-Resource-Policy": "same-origin",
+    // (cross-origin: the page embedded in a cross-origin isolated one)
+    "Cross-Origin-Resource-Policy": "cross-origin",
     // vite's files are named by their hash, Rocq's fetched with theirs (?v=)
     "Cache-Control":
       path.startsWith("/assets/") || url.searchParams.has("v") ? "public, max-age=31536000, immutable" : "no-cache",

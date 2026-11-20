@@ -5,8 +5,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
 // Cross-origin isolation, for the SharedArrayBuffer through which the page
-// interrupts Rocq (src/lsp.ts)
-const headers = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
+// interrupts Rocq (src/lsp.ts); CORP, for the page embedded in a cross-origin
+// isolated one
+const headers = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "require-corp",
+  "Cross-Origin-Resource-Policy": "cross-origin",
+};
 
 // In development, rocq/BUILD/ is the build of make full or compat,
 // out/BUILD/web (scripts/dist.mjs copies it into the site), or
