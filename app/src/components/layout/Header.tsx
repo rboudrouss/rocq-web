@@ -56,7 +56,7 @@ export function Header(p: Props) {
       <button onClick={p.restart} title="Start Rocq again (a computation that does not stop)">
         Restart
       </button>
-      <button onClick={p.share} title="Copy a link to this file">
+      <button onClick={p.share} title="A link to this file, its libraries">
         Share
       </button>
     </>

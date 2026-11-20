@@ -3,7 +3,7 @@
 // and the build's packages (scripts/assets.mjs's packages.json)
 import { FolderInput, FolderOpen, Link, PackagePlus, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchable, type Libraries } from "../../hooks/useLibraries";
+import { fetchable, type Libraries, linkSource } from "../../hooks/useLibraries";
 
 export type Package = {
   name: string;
@@ -25,7 +25,7 @@ type Props = {
   insert: (line: string) => void;
   // (the folder of a library shown in the Files panel)
   showFolder: (folder: string) => void;
-  // (a link to the page that adds a library, copied)
+  // (the Share dialog, with a library and no file)
   shareLibrary: (source: string) => void;
   // (changes when the form should take the focus: the Files panel's button)
   focusAdd: number;
@@ -153,10 +153,10 @@ export function PackagesPanel({ packages, libs, insert, showFolder, shareLibrary
                 {fetchable(l.source) && (
                   <button
                     className="link"
-                    onClick={() => shareLibrary(l.source)}
-                    title="Copy a link to the page that adds this library"
+                    onClick={() => shareLibrary(linkSource(l))}
+                    title="A link to the page that adds this library"
                   >
-                    <Link size={12} /> Copy a link
+                    <Link size={12} /> Share
                   </button>
                 )}
                 <button className="link danger" onClick={() => libs.remove(l.folder)} title={`Delete ${l.folder}/`}>

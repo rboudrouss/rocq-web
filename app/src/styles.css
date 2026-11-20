@@ -116,6 +116,21 @@ pre.message, pre.error { font-size: 12px; }
 .shared input { flex: 1; font-family: ui-monospace, monospace; font-size: 0.75rem; }
 .shared button { border: 0; background: none; }
 .shared.warning { background: #fdf3d7; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.35); display: flex; align-items: flex-start; justify-content: center; padding: 4rem 16px 16px; overflow: auto; }
+.dialog { background: #fff; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); padding: 0.75rem 1rem 1rem; width: 100%; max-width: 36rem; font-size: 0.85rem; }
+.dialog-title { display: flex; align-items: center; justify-content: space-between; }
+.dialog-title h2 { margin: 0; font-size: 1rem; }
+.dialog-title button { border: 0; background: none; display: inline-flex; padding: 0.2rem; cursor: pointer; color: inherit; }
+.dialog h3 { margin: 0.9rem 0 0.3rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #666; }
+.dialog label { display: flex; align-items: baseline; gap: 0.4rem; padding: 0.15rem 0; overflow-wrap: anywhere; }
+.dialog label .muted { font-size: 0.8rem; }
+.dialog label input[type="checkbox"] { flex: none; width: auto; margin: 0; align-self: center; }
+.share-link, .share-add { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+.share-link input, .share-add input { flex: 1; min-width: 0; }
+.share-link input { font-family: ui-monospace, monospace; font-size: 0.75rem; }
+.share-link .button, .share-add .button { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; }
+.share-status { margin: 0.3rem 0 0; font-size: 0.8rem; }
+.share-warning { margin: 0.4rem 0 0; padding: 0.35rem 0.5rem; border-radius: 4px; background: #fdf3d7; }
 .fetching { font-size: 0.8rem; color: #555; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status[data-status="crashed"] { background: #fbd5d5; }
 
@@ -147,6 +162,9 @@ pre.message, pre.error { font-size: 12px; }
   .editor .cm-processing { background: #1e3350; }
   .shared { background: #1f3326; }
   .shared.warning { background: #3a321c; }
+  .dialog { background: #262b36; }
+  .dialog h3 { color: #9198a5; }
+  .share-warning { background: #3a321c; }
   .kind { color: #c19ae6; }
   .diff-added { background: #24502b; }
   .hyp.diff-new { background: #1e3a24; }

@@ -6,6 +6,7 @@
 // (components/).
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { HelpPopover } from "./components/dialogs/HelpPopover";
+import { type ShareStart, ShareDialog } from "./components/dialogs/ShareDialog";
 import { Editor, type EditorHandle } from "./components/editor/Editor";
 import { ReadOnlyView } from "./components/editor/ReadOnlyView";
 import { FilesPanel } from "./components/files/FilesPanel";
@@ -36,7 +37,7 @@ import { pickBuild } from "./lib/detect";
 import { saveBlob } from "./lib/download";
 import { navLabel } from "./lib/keys";
 import { type Example, exampleFiles } from "./lib/examples";
-import { libraryUrl, linkedLibraries, shareUrl } from "./lib/share";
+import { linkedLibraries, shareUrl, workspacesOf } from "./lib/share";
 import { embedded } from "./lib/storage";
 import { root } from "./lib/workspaces";
 
@@ -86,7 +87,8 @@ export function App() {
     const first = ws.files.find((f) => f.startsWith(`${folder}/`) && f.endsWith(".v"));
     if (first) ws.select(first);
   };
-  const [shared, setShared] = useState<string | null>(null);
+  // (the Share dialog, open)
+  const [sharing, setSharing] = useState<ShareStart | null>(null);
   // (the compatibility build: told once, in the log too)
   const [compatSeen, setCompatSeen] = usePersistentState("compat-warning", false);
   useEffect(() => {
@@ -95,25 +97,16 @@ export function App() {
   const active = ws.active;
   useEffect(() => setDrawer(false), [active, nav.readOnly]);
 
-  // (with the libraries it requires)
-  const share = async () => {
-    const text = ws.read(active);
-    const url = await shareUrl(active, text, libs.requiredBy(active, text));
-    await navigator.clipboard?.writeText(url).catch(() => {});
-    log(`link to ${active} copied (${url.length} characters)`);
-    setShared(url);
-  };
-  const shareLibrary = async (source: string) => {
-    const url = libraryUrl(source);
-    await navigator.clipboard?.writeText(url).catch(() => {});
-    log(`link adding ${source} copied`);
-    setShared(url);
-  };
+  // (the current file, with the libraries it requires; a library alone)
+  const share = () => setSharing({ file: true, libraries: libs.requiredBy(active, ws.read(active)) });
+  const shareLibrary = (source: string) => setSharing({ file: false, libraries: [source] });
+  const closeShare = useCallback(() => setSharing(null), []);
   // The page with this file, not embedded
   const openFull = async () => {
     const text = ws.read(active);
     const page = new URL(location.pathname, location.href).href;
-    window.open(await shareUrl(active, text, libs.requiredBy(active, text), page), "_blank", "noopener");
+    const shared = { active, files: [[active, text]] as [string, string][], workspaces: workspacesOf([active], ws.workspaces) };
+    window.open(await shareUrl(shared, libs.requiredBy(active, text), page), "_blank", "noopener");
   };
   const openExample = async (e: Example) => {
     try {
@@ -180,11 +173,7 @@ export function App() {
       {embedded && (libs.progress || libs.error) && (
         <Banner kind={libs.error ? "warning" : undefined}>{libs.error ?? `${libs.progress}…`}</Banner>
       )}
-      {shared && (
-        <Banner close={() => setShared(null)}>
-          Link copied to the clipboard <input readOnly value={shared} onFocus={(e) => e.target.select()} />
-        </Banner>
-      )}
+      {sharing && <ShareDialog start={sharing} ws={ws} libs={libs} log={log} close={closeShare} />}
       <main
         ref={main}
         className={panel && !embedded && !mobile ? "with-sidebar" : ""}

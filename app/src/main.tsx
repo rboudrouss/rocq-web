@@ -4,7 +4,7 @@ import { App } from "./App";
 import { examples, loadExample } from "./lib/examples";
 import { openShared } from "./lib/share";
 import { pickBuild } from "./lib/detect";
-import { embedded, listFiles, readFile, setActiveFile, writeFile } from "./lib/storage";
+import { embedded, setActiveFile } from "./lib/storage";
 import { setLibraries } from "./lib/workspaces";
 import "./styles.css";
 
@@ -52,11 +52,11 @@ async function libraries() {
   setLibraries(packages.flatMap((p) => p.modules.map((m) => m.split(".")[0])));
 }
 
-// a file shared by a link (#share=...) first
+// the files shared by a link (#share=..., #files=...) first
 Promise.all([
   libraries().catch(() => {}),
   openExample().catch(() => {}),
-  openShared({ list: listFiles, read: readFile, write: writeFile, activate: setActiveFile }),
+  openShared(),
 ]).finally(() =>
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
