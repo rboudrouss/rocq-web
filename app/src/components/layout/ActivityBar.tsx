@@ -1,10 +1,10 @@
 // The icons on the left: which panel the sidebar shows, a click on the
 // one shown closing it
-import { BookOpen, Files, ListTree, Package, Search } from "lucide-react";
+import { BookOpen, Files, Info, ListTree, Package, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import "./layout.css";
 
-export type PanelId = "files" | "outline" | "search" | "packages" | "examples";
+export type PanelId = "files" | "outline" | "search" | "packages" | "examples" | "about";
 
 export const panels: { id: PanelId; title: string; icon: ReactNode }[] = [
   { id: "files", title: "Files", icon: <Files size={20} /> },
@@ -12,6 +12,7 @@ export const panels: { id: PanelId; title: string; icon: ReactNode }[] = [
   { id: "search", title: "Search", icon: <Search size={20} /> },
   { id: "packages", title: "Packages and libraries", icon: <Package size={20} /> },
   { id: "examples", title: "Examples", icon: <BookOpen size={20} /> },
+  { id: "about", title: "About rocq-web", icon: <Info size={20} /> },
 ];
 
 export function ActivityBar({

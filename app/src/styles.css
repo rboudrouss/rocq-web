@@ -288,3 +288,19 @@ header.mobile .menu button, header.mobile .menu select { font-size: 0.95rem; pad
   .peek .turnstile { color: #98c379; }
   .peek .line.error { color: #ff7b7b; }
 }
+
+/* About */
+.about { font-size: 0.85rem; line-height: 1.4; }
+.about p { margin: 0.4rem 0; }
+.about a { color: #3b6fd8; }
+.about a svg { vertical-align: -2px; }
+.about h3 { font-size: 0.75rem; text-transform: uppercase; color: #777; margin: 0.9rem 0 0.3rem; }
+.about dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; margin: 0; }
+.about dt { color: #777; }
+.about dd { margin: 0; }
+.about ul { margin: 0.3rem 0; padding-left: 1.1rem; }
+.about li { margin: 0.2rem 0; }
+@media (prefers-color-scheme: dark) {
+  .about a { color: #7aa5ff; }
+  .about h3, .about dt { color: #9198a5; }
+}

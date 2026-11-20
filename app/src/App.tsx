@@ -16,6 +16,7 @@ import { Banner } from "./components/layout/Banner";
 import { Header } from "./components/layout/Header";
 import { KeyboardBar } from "./components/layout/KeyboardBar";
 import { StepBar } from "./components/layout/StepBar";
+import { AboutPanel } from "./components/panels/AboutPanel";
 import { ExamplesPanel } from "./components/panels/ExamplesPanel";
 import { LibrarySearchPanel } from "./components/panels/LibrarySearchPanel";
 import { LogPanel } from "./components/panels/LogPanel";
@@ -217,6 +218,9 @@ export function App() {
           </div>
           <div className="sidebar" hidden={shown !== "examples"}>
             <ExamplesPanel open={closing(openExample)} log={log} />
+          </div>
+          <div className="sidebar" hidden={shown !== "about"}>
+            <AboutPanel packages={session.packages} build={build} />
           </div>
         </aside>
         {mobile && drawer && <div className="scrim" onClick={() => setDrawer(false)} />}

@@ -1,4 +1,5 @@
-import { createReadStream, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { createReadStream, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -46,9 +47,43 @@ function rocqBuilds(): Plugin {
   };
 }
 
+// What the About panel shows of the build: rocq-web's commit, the commit of
+// the last full build of the programs (out/.built-commit, written by the
+// deploy workflow), coq-lsp's commit and the patches applied to it
+function buildInfo() {
+  const git = (...args: string[]) => {
+    try {
+      return execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  const read = (path: string) => {
+    try {
+      return readFileSync(join(root, path), "utf8").trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  const recipe = read("emcc-recipes/coq-lsp/recipe.sh") ?? "";
+  const source = /^SOURCE=url:(https:\/\/github\.com\/[^/]+\/[^/]+)\/archive\/([0-9a-f]+)\.tar\.gz$/m.exec(recipe);
+  let patches: string[] = [];
+  try {
+    patches = readdirSync(join(root, "emcc-recipes/coq-lsp/patches")).filter((f) => f.endsWith(".patch")).sort();
+  } catch {}
+  return {
+    commit: git("rev-parse", "HEAD"),
+    date: git("log", "-1", "--format=%cI"),
+    built: read("out/.built-commit"),
+    coqLsp: source ? { repository: source[1], commit: source[2] } : null,
+    patches,
+  };
+}
+
 export default defineConfig({
   // relative URLs: the site works from any directory of a server
   base: "./",
+  define: { __ROCQ_WEB_BUILD__: JSON.stringify(buildInfo()) },
   plugins: [react(), rocqBuilds()],
   server: { headers },
   preview: { headers },
