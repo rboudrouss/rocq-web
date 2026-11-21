@@ -6,7 +6,10 @@
 // files checked, one requiring another, the same link opened again in the
 // same folder; a user's folder of the same name left as it is, the link's
 // files (or a library of ?lib) in name_2, told; embedded, in memory and
-// the URL kept; a spec that is not one, told.
+// the URL kept; a spec that is not one, told; the Share dialog: a folder
+// opened without a version pinned to its commit, put in the link with
+// ?open= and ?file= instead of its files, another added pinned, the link
+// opened in another browser.
 //   node tests/open_links.mjs [URL]
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -151,6 +154,44 @@ page = await fresh();
 await page.goto(`${url}?open=mathcomp`);
 await page.waitForSelector(".shared.warning", { timeout: 30000 });
 check((await page.locator(".shared.warning").textContent()).includes("?open=mathcomp"), "a spec that is not one: told");
+await page.close();
+
+// The Share dialog
+page = await fresh();
+await page.goto(`${url}?open=${encodeURIComponent("tchajed/coq-record-update:src")}&file=RecordSet.v`);
+await opened(page, "src/RecordSet.v");
+await page.waitForTimeout(500);
+await page.locator("header button", { hasText: "Share" }).click();
+const dialog = page.locator(".share-dialog");
+await dialog.waitFor();
+const link = async () => { await page.waitForTimeout(800); return new URL(await dialog.locator('[aria-label="The link"]').inputValue()); };
+const entry = dialog.locator("label", { hasText: "coq-record-update@" }).first();
+const pinned = await entry.locator(".muted").textContent();
+check(/^tchajed\/coq-record-update@[0-9a-f]{40}:src$/.test(pinned), `the folder opened, pinned: ${pinned}`);
+let u = await link();
+check(!u.searchParams.has("open") && /^#(share|files)=/.test(u.hash), "unchecked: the file in the link");
+await entry.locator("input").click();
+u = await link();
+check(u.searchParams.get("open") === pinned && u.searchParams.get("file") === "RecordSet.v" && u.hash === "", `checked: ?open and ?file, no files: ${u.search}${u.hash}`);
+await dialog.locator("label", { hasText: "All files" }).locator("input").click();
+u = await link();
+check(u.hash.startsWith("#share=") || u.hash.startsWith("#files="), "all files: the others in the link");
+check(!(await page.evaluate(async (h) => h, u.hash)).includes("RecordSet"), "not those of the folder");
+await dialog.locator('[aria-label="A folder for the link to open"]').fill("tchajed/coq-record-update@v0.3.7:tests");
+await dialog.locator('[aria-label="A folder for the link to open"]').press("Enter");
+await dialog.locator("label", { hasText: ":tests" }).waitFor();
+u = await link();
+const opens = u.searchParams.getAll("open");
+check(opens.length === 2 && /^tchajed\/coq-record-update@[0-9a-f]{40}:tests$/.test(opens[1]), `another, pinned: ${opens}`);
+await dialog.locator("label", { hasText: "All files" }).locator("input").click();
+const shared = (await link()).href;
+await page.close();
+
+page = await fresh();
+await page.goto(shared);
+await opened(page, "src/RecordSet.v");
+await page.waitForFunction(() => localStorage.getItem("rocq-web:tests/Large.v") !== null, null, { timeout: 120000 });
+check(true, "the link opens both folders, RecordSet.v shown");
 await page.close();
 
 await browser.close();

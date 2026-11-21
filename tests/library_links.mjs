@@ -97,7 +97,7 @@ check(await dialog.locator(".share-warning").count() === 1, `a long link warned:
 
 // a library added for the link only: at its last commit
 await dialog.locator('[aria-label="A library for the link"]').fill("tchajed/coq-record-update");
-await dialog.locator(".share-add button").click();
+await dialog.locator(".share-add", { has: page.locator('[aria-label="A library for the link"]') }).locator("button").click();
 await page.waitForFunction(() => /coq-record-update%40[0-9a-f]{40}/.test(document.querySelector('.share-dialog [aria-label="The link"]').value), null, { timeout: 30000 });
 const pinned = new URL(await link()).searchParams.getAll("lib");
 check(pinned.length === 2 && /^tchajed\/coq-record-update@[0-9a-f]{40}$/.test(pinned[1]), `pinned to a commit: ${pinned}`);
