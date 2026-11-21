@@ -36,7 +36,7 @@ branch, and links name that commit. `?lib=SPEC` in a link adds a library, a
 repository (`owner/repo@ref`) or an archive's URL, and can be repeated.
 Libraries already there are not fetched again, and the parameter is then
 removed from the URL. `?open=SPEC` opens files as a project, in a
-workspace named after the repository or the archive: those of a GitHub
+workspace named after the folder, the repository or the archive: those of a GitHub
 repository (`owner/repo[@ref]`), of one of its folders
 (`owner/repo@ref:folder`, or `https://github.com/owner/repo/tree/REF/FOLDER`),
 or of an archive's URL. It keeps the files an import keeps, and opens the

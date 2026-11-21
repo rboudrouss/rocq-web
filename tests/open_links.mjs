@@ -57,13 +57,13 @@ const idle = async (page) => { await page.waitForTimeout(800); await page.waitFo
 // a folder of a repository
 let page = await fresh();
 await page.goto(`${url}?open=${encodeURIComponent(`${repo}:src`)}`);
-await opened(page, "coq-record-update/Lens.v");
+await opened(page, "src/Lens.v");
 check(
   JSON.stringify(await files(page)) ===
-    JSON.stringify(["coq-record-update/Lens.v", "coq-record-update/RecordEta.v", "coq-record-update/RecordSet.v", "coq-record-update/RecordUpdate.v"]),
+    JSON.stringify(["src/Lens.v", "src/RecordEta.v", "src/RecordSet.v", "src/RecordUpdate.v"]),
   `the folder's files: ${await files(page)}`,
 );
-check((await workspaces(page)).includes("coq-record-update"), "a workspace");
+check((await workspaces(page)).includes("src"), "a workspace, named as the folder");
 check(!new URL(page.url()).searchParams.has("open"), `the URL cleaned: ${page.url()}`);
 check((await page.locator(".sidebar:not([hidden]) .files").count()) === 1, "the Files panel shown");
 await page.close();
@@ -71,7 +71,7 @@ await page.close();
 // ?file=NAME opened
 page = await fresh();
 await page.goto(`${url}?open=${encodeURIComponent(`${repo}:src`)}&file=RecordSet.v`);
-await opened(page, "coq-record-update/RecordSet.v");
+await opened(page, "src/RecordSet.v");
 check(true, "?file=RecordSet.v opened");
 check(!new URL(page.url()).searchParams.has("file"), "?file cleaned too");
 await page.close();
@@ -88,7 +88,7 @@ await page.close();
 // a GitHub URL of a folder
 page = await fresh();
 await page.goto(`${url}?open=${encodeURIComponent("https://github.com/tchajed/coq-record-update/tree/v0.3.7/src")}`);
-await opened(page, "coq-record-update/Lens.v");
+await opened(page, "src/Lens.v");
 check((await files(page)).length === 4, "a GitHub URL: the folder's files");
 await page.close();
 

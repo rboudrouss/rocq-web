@@ -215,7 +215,8 @@ export const openable = (spec: string) => gitHubFolder(spec) !== null || /^https
 // relative to it) or of an archive, kept as an import keeps them
 // (extra.ts's keptFiles: the Rocq and project files, the files they read;
 // not those of hidden folders, _build, node_modules), and the folder they
-// go to (the repository's or the archive's name)
+// go to (named as the repository's folder, else the repository or the
+// archive: not as the library of the same repository, ?lib)
 export async function fetchProject(
   spec: string,
   progress: (done: number, total: number) => void,
@@ -248,7 +249,7 @@ export async function fetchProject(
       const f = relative(await jsDelivrFile(at, prefix + p));
       if (isText(f.text)) files.push(f);
     }
-  return { name: folderName(gh.repo), files: files.sort(byPath) };
+  return { name: folderName(folder.split("/").pop() || gh.repo), files: files.sort(byPath) };
 }
 
 const byPath = (a: DiskFile, b: DiskFile) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
