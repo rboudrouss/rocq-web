@@ -1,0 +1,69 @@
+// The files of the page's link (?open=SPEC, lib/library.ts's fetchProject):
+// a GitHub repository or one of its folders, or an archive's URL, its
+// files imported in a folder of their name (a workspace), the one of
+// ?file=NAME opened, else the first Rocq file; the URL then cleaned
+// (embedded: kept, its files are in memory only, fetched at each load)
+import { useEffect, useRef, useState } from "react";
+import { fetchProject, openable } from "../lib/library";
+import { embedded, isRocq } from "../lib/storage";
+import { root } from "../lib/workspaces";
+import type { Workspace } from "./useWorkspace";
+
+const params = new URLSearchParams(location.search);
+export const openedSpec = params.get("open")?.trim() || null;
+
+function forget() {
+  if (embedded) return;
+  const p = new URLSearchParams(location.search);
+  p.delete("open");
+  p.delete("file");
+  history.replaceState(null, "", location.pathname + (p.size ? `?${p}` : "") + location.hash);
+}
+
+export function useOpenLink(ws: Workspace, log: (m: string) => void) {
+  // what is being fetched, and the last error
+  const [progress, setProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !openedSpec) return;
+    started.current = true;
+    const spec = openedSpec;
+    if (!openable(spec)) {
+      const m = `?open=${spec} is neither a GitHub repository (owner/repo[@ref][:folder]) nor an archive's URL`;
+      setError(m);
+      return log(m);
+    }
+    (async () => {
+      setProgress(`fetching ${spec}`);
+      log(`fetching ${spec}`);
+      try {
+        const { name, files } = await fetchProject(spec, (done, total) =>
+          setProgress(`fetching ${spec}: ${done} of ${total} files`),
+        );
+        if (!files.some((f) => isRocq(f.path))) throw new Error(`${spec} has no Rocq files (.v)`);
+        const paths = ws.importFiles(
+          files.map((f) => ({ path: `${name}/${f.path}`, text: f.text })),
+          root,
+          { select: false },
+        );
+        const file = params.get("file");
+        const active =
+          (file && paths.find((p) => p === `${name}/${file}` || p.endsWith(`/${file}`))) ?? paths.find(isRocq);
+        if (active) ws.select(active);
+        forget();
+      } catch (e) {
+        const err = e as Error;
+        const m =
+          err.name === "QuotaExceededError"
+            ? `${spec} is too large for the browser's storage of the files (a few MB)`
+            : err.message;
+        setError(m);
+        log(m);
+      } finally {
+        setProgress(null);
+      }
+    })();
+  }, [log, ws]);
+  return { progress, error, dismiss: () => setError(null) };
+}

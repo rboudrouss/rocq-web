@@ -30,7 +30,10 @@ an archive or a folder.
 The Share button gives a link to the current file or to all files, with
 their libraries, or the HTML that embeds the page in another site
 (`?embed`). A link with `?lib=owner/repo@tag` adds that library when it
-opens. `lib` also takes an archive's URL and can be repeated.
+opens. `lib` also takes an archive's URL and can be repeated. A link with
+`?open=owner/repo@tag:folder` opens the Rocq files of a GitHub repository,
+or of one of its folders, as a project, and `open` also takes a GitHub URL
+or an archive's URL.
 
 ## Limitations
 

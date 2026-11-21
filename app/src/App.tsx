@@ -30,6 +30,7 @@ import { useLibraries } from "./hooks/useLibraries";
 import { useLog } from "./hooks/useLog";
 import { useKeyboard, useMobile } from "./hooks/useMobile";
 import { useNavigation } from "./hooks/useNavigation";
+import { openedSpec, useOpenLink } from "./hooks/useOpenLink";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useQueries } from "./hooks/useQueries";
 import { useRocqSession } from "./hooks/useRocqSession";
@@ -55,11 +56,15 @@ export function App() {
   const nav = useNavigation({ session, ws, doc, editor, packages: session.packages, log });
   const queries = useQueries({ session, ws, doc });
   const libs = useLibraries(ws, log);
+  const opened = useOpenLink(ws, log);
 
   const [panel, setPanel] = usePersistentState<PanelId | null>("panel", "files");
-  // (libraries in the URL: the Packages panel shows them being added)
+  // (files in the URL: the Files panel shows them; libraries: the Packages
+  // panel, being added)
   useEffect(() => {
-    if (linkedLibraries.length && !embedded) setPanel("packages");
+    if (embedded) return;
+    if (openedSpec) setPanel("files");
+    else if (linkedLibraries.length) setPanel("packages");
   }, [setPanel]);
   const mobile = useMobile();
   const keyboard = useKeyboard(mobile);
@@ -173,6 +178,11 @@ export function App() {
       )}
       {embedded && (libs.progress || libs.error) && (
         <Banner kind={libs.error ? "warning" : undefined}>{libs.error ?? `${libs.progress}…`}</Banner>
+      )}
+      {(opened.progress || opened.error) && (
+        <Banner kind={opened.error ? "warning" : undefined} close={opened.error ? opened.dismiss : undefined}>
+          {opened.error ?? `${opened.progress}…`}
+        </Banner>
       )}
       {sharing && <ShareDialog start={sharing} ws={ws} libs={libs} log={log} close={closeShare} />}
       <main

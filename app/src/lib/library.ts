@@ -54,9 +54,9 @@ export function libraryFiles(name: string, files: DiskFile[]): Library {
 // A folder's name from a repository's or an archive's
 const folderName = (n: string) => n.replace(/[^A-Za-z0-9_'.-]/g, "_").replace(/^[.'-]/, "_") || "library";
 
-// The entries of an archive, without the folder they are all in (a
-// GitHub archive's REPO-REF/), which names the library then
-export async function archiveLibrary(fileName: string, data: Uint8Array): Promise<Library> {
+// The files kept of an archive (extra.ts's keptFiles), without the folder
+// they are all in (a GitHub archive's REPO-REF/), which names them then
+async function archiveFiles(fileName: string, data: Uint8Array): Promise<{ name: string; files: DiskFile[] }> {
   const entries = (await readArchive(fileName, data)).map((e) => ({ path: e.name.replace(/^\.\//, ""), data: e.data }));
   const tops = new Set(entries.map((e) => (e.path.includes("/") ? e.path.split("/")[0] : "")));
   const top = tops.size === 1 && !tops.has("") ? [...tops][0] : null;
@@ -65,7 +65,12 @@ export async function archiveLibrary(fileName: string, data: Uint8Array): Promis
     text,
   }));
   const base = (top ?? fileName.split("/").pop()!).replace(/\.(zip|tar|tar\.gz|tgz)$/i, "");
-  return libraryFiles(folderName(base), files);
+  return { name: folderName(base), files };
+}
+
+export async function archiveLibrary(fileName: string, data: Uint8Array): Promise<Library> {
+  const { name, files } = await archiveFiles(fileName, data);
+  return libraryFiles(name, files);
 }
 
 // The files of a folder picked on disk (lib/disk.ts's readInput: their
@@ -134,33 +139,39 @@ export async function gitHubLibrary(
   );
   const paths = listing.files.map((f) => f.name.replace(/^\//, ""));
   const project = paths.find((p) => p === "_RocqProject") ?? paths.find((p) => p === "_CoqProject");
-  const get = async (p: string) => {
-    const r = await fetch(`https://cdn.jsdelivr.net/gh/${at}/${p}`);
-    if (!r.ok) throw new Error(`${at}/${p}: HTTP ${r.status}`);
-    return { path: p, text: await r.text() };
-  };
-  const projectFile = project ? await get(project) : null;
+  const projectFile = project ? await jsDelivrFile(at, project) : null;
   const dirs = projectFile ? projectDirs(projectFile.text) : [""];
   const wanted = paths.filter((p) => p.endsWith(".v") && dirs.some((d) => d === "" || p.startsWith(`${d}/`)));
-  const files: DiskFile[] = projectFile ? [projectFile] : [];
-  let next = 0;
-  const worker = async () => {
-    while (next < wanted.length) {
-      files.push(await get(wanted[next++]));
-      progress(files.length - (projectFile ? 1 : 0), wanted.length);
-    }
-  };
-  await Promise.all(Array.from({ length: 8 }, worker));
+  const files: DiskFile[] = [...(projectFile ? [projectFile] : []), ...(await jsDelivrFiles(at, wanted, progress))];
   // the files they read
   const names = new Set(files.filter((f) => f.path.endsWith(".v")).flatMap((f) => extraDependencies(f.text)));
-  for (const p of paths) if (!p.endsWith(".v") && p !== project && named(p, names)) files.push(await get(p));
+  for (const p of paths) if (!p.endsWith(".v") && p !== project && named(p, names)) files.push(await jsDelivrFile(at, p));
   return { ...libraryFiles(folderName(repo), files), ...(pinned && { pinned: at }) };
 }
 
-// A library from a GitHub repository or the URL of an archive
-export async function fetchLibrary(spec: string, progress: (done: number, total: number) => void): Promise<Library> {
-  const gh = gitHubRepository(spec);
-  if (gh) return gitHubLibrary(gh, progress);
+// A file of a repository at owner/repo@ref, from jsDelivr
+async function jsDelivrFile(at: string, path: string): Promise<DiskFile> {
+  const r = await fetch(`https://cdn.jsdelivr.net/gh/${at}/${path}`);
+  if (!r.ok) throw new Error(`${at}/${path}: HTTP ${r.status}`);
+  return { path, text: await r.text() };
+}
+
+// Files of a repository, 8 at a time
+async function jsDelivrFiles(at: string, paths: string[], progress: (done: number, total: number) => void) {
+  const files: DiskFile[] = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < paths.length) {
+      files.push(await jsDelivrFile(at, paths[next++]));
+      progress(files.length, paths.length);
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
+  return files;
+}
+
+// An archive's URL, downloaded: its path and bytes
+async function download(spec: string) {
   let r: Response;
   try {
     r = await fetch(spec.trim());
@@ -170,5 +181,78 @@ export async function fetchLibrary(spec: string, progress: (done: number, total:
     );
   }
   if (!r.ok) throw new Error(`${spec}: HTTP ${r.status}`);
-  return archiveLibrary(new URL(spec.trim()).pathname, new Uint8Array(await r.arrayBuffer()));
+  return [new URL(spec.trim()).pathname, new Uint8Array(await r.arrayBuffer())] as const;
 }
+
+// A library from a GitHub repository or the URL of an archive
+export async function fetchLibrary(spec: string, progress: (done: number, total: number) => void): Promise<Library> {
+  const gh = gitHubRepository(spec);
+  if (gh) return gitHubLibrary(gh, progress);
+  return archiveLibrary(...(await download(spec)));
+}
+
+// What a link opens as files (?open=SPEC): a GitHub repository, or one of
+// its folders, owner/repo[@ref][:folder] (git forbids ':' in a ref) or
+// https://github.com/owner/repo[/tree/REF[/FOLDER]] (REF without '/'
+// there); else the URL of an archive (zip, tar, tar.gz)
+export type Opened = { owner: string; repo: string; ref: string | null; folder: string };
+export function gitHubFolder(spec: string): Opened | null {
+  const s = spec.trim();
+  const url = /^https?:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/([^/?#]+)((?:\/[^?#]*)?))?\/?(?:[?#].*)?$/.exec(s);
+  if (url) return { owner: url[1], repo: url[2], ref: url[3] ?? null, folder: url[4] ?? "" };
+  // (one of its archives' URLs: the repository through jsDelivr)
+  if (/^https?:/.test(s)) {
+    const gh = gitHubRepository(s);
+    return gh && { ...gh, folder: "" };
+  }
+  const [repo, ...rest] = s.split(":");
+  const gh = gitHubRepository(repo);
+  return gh && { ...gh, folder: rest.join(":") };
+}
+export const openable = (spec: string) => gitHubFolder(spec) !== null || /^https?:\/\/\S+$/.test(spec.trim());
+
+// The files a link opens: those of a repository's folder (the paths
+// relative to it) or of an archive, kept as an import keeps them
+// (extra.ts's keptFiles: the Rocq and project files, the files they read;
+// not those of hidden folders, _build, node_modules), and the folder they
+// go to (the repository's or the archive's name)
+export async function fetchProject(
+  spec: string,
+  progress: (done: number, total: number) => void,
+): Promise<{ name: string; files: DiskFile[] }> {
+  const gh = gitHubFolder(spec);
+  if (!gh) {
+    const { name, files } = await archiveFiles(...(await download(spec)));
+    return { name, files: files.filter((f) => !skippedPath(f.path)).sort(byPath) };
+  }
+  const at = `${gh.owner}/${gh.repo}@${gh.ref ?? (await latestCommit(gh.owner, gh.repo))}`;
+  const folder = gh.folder.replace(/^\/+|\/+$/g, "");
+  const listing = await json<{ files: { name: string }[] }>(
+    `https://data.jsdelivr.com/v1/packages/gh/${at}?structure=flat`,
+    `${at} not found: no public repository with this branch, tag or commit`,
+  );
+  const prefix = folder ? `${folder}/` : "";
+  const paths = listing.files
+    .map((f) => f.name.replace(/^\//, ""))
+    .filter((p) => p.startsWith(prefix))
+    .map((p) => p.slice(prefix.length))
+    .filter((p) => !skippedPath(p));
+  if (folder && paths.length === 0) throw new Error(`${at} has no folder ${folder}`);
+  const rocq = (p: string) => p.endsWith(".v") || /(^|\/)_(Rocq|Coq)Project$/.test(p);
+  const relative = (f: DiskFile) => ({ path: f.path.slice(prefix.length), text: f.text });
+  const files = (await jsDelivrFiles(at, paths.filter(rocq).map((p) => prefix + p), progress)).map(relative);
+  // the files they read
+  const names = new Set(files.filter((f) => f.path.endsWith(".v")).flatMap((f) => extraDependencies(f.text)));
+  for (const p of paths)
+    if (!rocq(p) && named(p, names)) {
+      const f = relative(await jsDelivrFile(at, prefix + p));
+      if (isText(f.text)) files.push(f);
+    }
+  return { name: folderName(gh.repo), files: files.sort(byPath) };
+}
+
+const byPath = (a: DiskFile, b: DiskFile) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+
+// (a file of a hidden folder, _build or node_modules, as lib/disk.ts)
+const skippedPath = (path: string) =>
+  path.split("/").slice(0, -1).some((d) => d.startsWith(".") || d === "_build" || d === "node_modules");

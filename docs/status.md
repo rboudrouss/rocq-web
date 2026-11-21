@@ -35,7 +35,12 @@ repository added without a ref is fetched at the last commit of its default
 branch, and links name that commit. `?lib=SPEC` in a link adds a library, a
 repository (`owner/repo@ref`) or an archive's URL, and can be repeated.
 Libraries already there are not fetched again, and the parameter is then
-removed from the URL. The package browser lists the opam packages with
+removed from the URL. `?open=SPEC` opens files as a project, in a
+workspace named after the repository or the archive: those of a GitHub
+repository (`owner/repo[@ref]`), of one of its folders
+(`owner/repo@ref:folder`, or `https://github.com/owner/repo/tree/REF/FOLDER`),
+or of an archive's URL. It keeps the files an import keeps, and opens the
+one `?file=NAME` names, else the first Rocq file. The package browser lists the opam packages with
 their modules, and clicking one inserts its `Require`. The declarations of
 the libraries' sources can be searched.
 
@@ -85,8 +90,8 @@ interrupts. A worker that stopped is shown as such.
 Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
-only, like its libraries, which are fetched again at each load
-(`?embed&lib=...`). In a page without cross-origin isolation the full build
+only, like its libraries and the files it opens, which are fetched again
+at each load (`?embed&lib=...`, `?embed&open=...`). In a page without cross-origin isolation the full build
 runs, but edits do not interrupt Rocq and the compat build does not start.
 A page served with COOP `same-origin` and COEP `require-corp` or
 `credentialless` makes the iframe isolated too, given
