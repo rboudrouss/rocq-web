@@ -9,7 +9,7 @@
 // the URL kept; a spec that is not one, told; the Share dialog: a folder
 // opened without a version pinned to its commit, put in the link with
 // ?open= and ?file= instead of its files, another added pinned, the link
-// opened in another browser.
+// (a temporary session) opened in another browser.
 //   node tests/open_links.mjs [URL]
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -187,10 +187,14 @@ await dialog.locator("label", { hasText: "All files" }).locator("input").click()
 const shared = (await link()).href;
 await page.close();
 
+check(new URL(shared).search.startsWith("?temp&"), "folders opened: a temporary session by default");
 page = await fresh();
 await page.goto(shared);
-await opened(page, "src/RecordSet.v");
-await page.waitForFunction(() => localStorage.getItem("rocq-web:tests/Large.v") !== null, null, { timeout: 120000 });
+await page.waitForFunction(
+  () => document.querySelector(".files")?.textContent.includes("Large.v") && document.querySelector("header .file")?.textContent.includes("src/RecordSet.v"),
+  null,
+  { timeout: 120000 },
+);
 check(true, "the link opens both folders, RecordSet.v shown");
 await page.close();
 
