@@ -40,7 +40,9 @@ workspace named after the folder, the repository or the archive: those of a GitH
 repository (`owner/repo[@ref]`), of one of its folders
 (`owner/repo@ref:folder`, or `https://github.com/owner/repo/tree/REF/FOLDER`),
 or of an archive's URL. It keeps the files an import keeps, and opens the
-one `?file=NAME` names, else the first Rocq file. The package browser lists the opam packages with
+one `?file=NAME` names, else the first Rocq file. A folder of the user's
+with the same name and other files is left as it is: the link's files, or
+a library, go to `NAME_2/` instead, and the page says so. The package browser lists the opam packages with
 their modules, and clicking one inserts its `Require`. The declarations of
 the libraries' sources can be searched.
 

@@ -4,7 +4,7 @@
 // imported) or from the page's URL (?lib=SPEC), listed with their modules and
 // where they came from.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { readInput } from "../lib/disk";
+import { freeFolder, readInput } from "../lib/disk";
 import { archiveLibrary, fetchLibrary, folderLibrary, gitHubRepository, type Library } from "../lib/library";
 import { requires } from "../lib/project";
 import { forgetLinkedLibraries, linkedLibraries } from "../lib/share";
@@ -35,6 +35,9 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
   // what is being added, and the last error
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // (a library put in name_2...: the user's folder of its name holds other
+  // files)
+  const [notice, setNotice] = useState<string | null>(null);
 
   // (whether it was added)
   const add = useCallback(
@@ -45,22 +48,32 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
       try {
         const lib = await get();
         if (!lib.files.some((f) => isRocq(f.path))) throw new Error(`${source} has no Rocq files (.v)`);
+        // (a library's own folder: updated)
+        const { files, folders, workspaces } = ws.current.current;
+        const folder = latest.current.some((l) => l.folder === lib.name)
+          ? lib.name
+          : freeFolder(lib.name, lib.files, { files, folders: [...folders, ...workspaces] }, ws.read);
+        if (folder !== lib.name) {
+          const m = `The folder ${lib.name}/ already holds other files: the library ${source} is in ${folder}/, yours are unchanged`;
+          setNotice(m);
+          log(m);
+        }
         const written = ws.importFiles(
-          lib.files.map((f) => ({ path: `${lib.name}/${f.path}`, text: f.text })),
+          lib.files.map((f) => ({ path: `${folder}/${f.path}`, text: f.text })),
           root,
           { select: false },
         );
         if (!written.length) return false;
         setAdded([
-          ...latest.current.filter((l) => l.folder !== lib.name),
-          { folder: lib.name, source, ...(lib.pinned && { pinned: lib.pinned }) },
+          ...latest.current.filter((l) => l.folder !== folder),
+          { folder, source, ...(lib.pinned && { pinned: lib.pinned }) },
         ]);
         const hidden = lib.names.filter(isLibraryName);
         if (hidden.length)
           log(`${lib.name} has modules ${hidden.join(", ")} as a library of the build does, Rocq may load either`);
         if (lib.plugins)
           log(`${lib.name} declares OCaml plugins (Declare ML Module), which cannot be built in the browser yet: only the build's packages have theirs`);
-        log(`added the library ${lib.name}`);
+        log(`added the library ${folder}`);
         return true;
       } catch (e) {
         const err = e as Error;
@@ -151,7 +164,18 @@ export function useLibraries(ws: Workspace, log: (m: string) => void) {
     setAdded(latest.current.filter((l) => l.folder !== folder));
   };
 
-  return { libraries, progress, error, fromSpec, fromArchive, fromFolder, remove, requiredBy };
+  return {
+    libraries,
+    progress,
+    error,
+    notice,
+    dismissNotice: () => setNotice(null),
+    fromSpec,
+    fromArchive,
+    fromFolder,
+    remove,
+    requiredBy,
+  };
 }
 
 export type Libraries = ReturnType<typeof useLibraries>;

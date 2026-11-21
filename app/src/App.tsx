@@ -179,9 +179,14 @@ export function App() {
       {embedded && (libs.progress || libs.error) && (
         <Banner kind={libs.error ? "warning" : undefined}>{libs.error ?? `${libs.progress}…`}</Banner>
       )}
-      {(opened.progress || opened.error) && (
-        <Banner kind={opened.error ? "warning" : undefined} close={opened.error ? opened.dismiss : undefined}>
-          {opened.error ?? `${opened.progress}…`}
+      {(opened.progress || opened.error || opened.notice) && (
+        <Banner kind={opened.progress ? undefined : "warning"} close={opened.progress ? undefined : opened.dismiss}>
+          {opened.progress ? `${opened.progress}…` : (opened.error ?? opened.notice)}
+        </Banner>
+      )}
+      {libs.notice && (
+        <Banner kind="warning" close={libs.dismissNotice}>
+          {libs.notice}
         </Banner>
       )}
       {sharing && <ShareDialog start={sharing} ws={ws} libs={libs} log={log} close={closeShare} />}

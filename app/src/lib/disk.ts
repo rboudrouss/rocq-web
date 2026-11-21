@@ -30,6 +30,29 @@ export function placed(path: string, into: string) {
   return into ? `${into}/${name}` : name;
 }
 
+// The folder at the root that files from elsewhere (a link's, a library)
+// go to, so as not to mix them with the user's: [name] if nothing is
+// there or it holds exactly these files, else the first such of name_2,
+// name_3... ([existing]: the user's files and folders)
+export function freeFolder(
+  name: string,
+  files: DiskFile[],
+  existing: { files: string[]; folders: string[] },
+  read: (path: string) => string,
+) {
+  const fits = (to: string) => {
+    const mine = existing.files.filter((f) => f.startsWith(`${to}/`));
+    if (mine.length === 0) return !existing.folders.some((d) => d === to || d.startsWith(`${to}/`));
+    const theirs = new Map(
+      files.map(({ path, text }) => [placed(path, to), text] as const).filter(([p]) => validName(p)),
+    );
+    return mine.length === theirs.size && mine.every((f) => theirs.get(f) === read(f));
+  };
+  let to = name;
+  for (let i = 2; !fits(to); i++) to = `${name}_${i}`;
+  return to;
+}
+
 // A file found, read only if kept
 type Found = { path: string; file: () => Promise<File> };
 async function kept<F extends Found>(found: F[]) {
