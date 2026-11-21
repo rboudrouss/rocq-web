@@ -3,8 +3,10 @@
 // as a workspace, its first Rocq file opened, the URL cleaned; ?file=NAME
 // opened instead; the whole repository, without its hidden folders; a
 // GitHub URL of a folder; an archive served by another site (CORS), its
-// files checked, one requiring another; embedded, in memory and the URL
-// kept; a spec that is not one, told.
+// files checked, one requiring another, the same link opened again in the
+// same folder; a user's folder of the same name left as it is, the link's
+// files (or a library of ?lib) in name_2, told; embedded, in memory and
+// the URL kept; a spec that is not one, told.
 //   node tests/open_links.mjs [URL]
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -33,17 +35,19 @@ const server = createServer((_, res) => {
 }).listen(0);
 const archive = `http://localhost:${server.address().port}/course.zip`;
 
-async function fresh() {
+let dialogs = 0;
+async function fresh(seed = {}) {
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-  await page.addInitScript(() => {
+  await page.addInitScript((seed) => {
     if (sessionStorage.getItem("started")) return;
     sessionStorage.setItem("started", "1");
     localStorage.clear();
     localStorage.setItem("rocq-web:check", "all");
-  });
+    for (const [k, v] of Object.entries(seed)) localStorage.setItem(`rocq-web:${k}`, v);
+  }, seed);
   page.setDefaultNavigationTimeout(120000);
   page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
-  page.on("dialog", (d) => { console.log("[dialog]", d.message()); d.accept(); });
+  page.on("dialog", (d) => { console.log("[dialog]", d.message()); dialogs++; d.accept(); });
   return page;
 }
 const files = (page) =>
@@ -102,6 +106,35 @@ await idle(page);
 await page.waitForTimeout(3000);
 await idle(page);
 check((await page.locator(".problems li").count()) === 0, `B.v checks: ${await page.locator(".problems li").allTextContents()}`);
+// the same link again: the same folder, nothing asked
+dialogs = 0;
+await page.goto(`${url}?open=${encodeURIComponent(archive)}&file=A.v`);
+await opened(page, "course/A.v");
+check(JSON.stringify(await files(page)) === JSON.stringify(["course/A.v", "course/B.v"]) && dialogs === 0, `opened again in course/: ${await files(page)}`);
+await page.close();
+
+// a folder of the user's of the same name: left as it is, told
+const mine = { "course/Mine.v": "Definition mine := 0.\n", workspaces: JSON.stringify(["course"]) };
+page = await fresh(mine);
+dialogs = 0;
+await page.goto(`${url}?open=${encodeURIComponent(archive)}`);
+await opened(page, "course_2/A.v");
+check(JSON.stringify(await files(page)) === JSON.stringify(["course/Mine.v", "course_2/A.v", "course_2/B.v"]), `the link's files in course_2/: ${await files(page)}`);
+check(dialogs === 0, "nothing asked");
+const notice = await page.locator(".shared.warning").textContent();
+check(notice.includes("course/") && notice.includes("course_2/"), `told: ${notice}`);
+await page.close();
+
+// the same for a library
+page = await fresh({ "coq-record-update/Mine.v": "Definition mine := 0.\n", workspaces: JSON.stringify(["coq-record-update"]) });
+await page.goto(`${url}?lib=${encodeURIComponent(repo)}`);
+await page.waitForSelector(".library-entry", { timeout: 120000 });
+const libFiles = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("rocq-web:coq-record-update")).map((k) => k.slice(9)).sort());
+check(
+  libFiles.includes("coq-record-update/Mine.v") && libFiles.includes("coq-record-update_2/src/RecordSet.v") && !libFiles.includes("coq-record-update/src/RecordSet.v"),
+  `the library in coq-record-update_2/: ${libFiles.join(" ")}`,
+);
+check((await page.locator(".shared.warning").textContent()).includes("coq-record-update_2/"), "told");
 await page.close();
 
 // embedded: in memory, the URL kept
