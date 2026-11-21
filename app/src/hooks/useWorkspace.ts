@@ -47,6 +47,9 @@ export function useWorkspace(log: (message: string) => void) {
   const texts = useRef(new Map<string, string>());
   const mirror = useRef<Mirror | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
+  // (whether the user changed the files: a temporary session's, lost when
+  // the page closes)
+  const changed = useRef(false);
 
   const read = useCallback((name: string) => texts.current.get(name) ?? readFile(name), []);
 
@@ -64,6 +67,7 @@ export function useWorkspace(log: (message: string) => void) {
 
   const edit = useCallback(
     (name: string, text: string) => {
+      changed.current = true;
       texts.current.set(name, text);
       window.clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(flush, 500);
@@ -99,6 +103,7 @@ export function useWorkspace(log: (message: string) => void) {
 
   const createFile = useCallback(
     (path: string, text = "") => {
+      changed.current = true;
       write(path, text);
       refresh();
       select(path);
@@ -108,6 +113,7 @@ export function useWorkspace(log: (message: string) => void) {
 
   const createFolder = useCallback(
     (path: string) => {
+      changed.current = true;
       setFolders([...listFolders(), path]);
       refresh();
     },
@@ -117,6 +123,7 @@ export function useWorkspace(log: (message: string) => void) {
   // A file or a folder renamed or moved (a file of the same path replaced)
   const move = useCallback(
     (from: string, to: string) => {
+      changed.current = true;
       if (from === to || within(to, from)) return;
       flush();
       const ws = state.current.workspaces;
@@ -145,9 +152,10 @@ export function useWorkspace(log: (message: string) => void) {
     [flush, refresh, select],
   );
 
-  // A file, or a folder and what is in it
+  // A file, or a folder and what is in it (byUser: a change of the user's)
   const remove = useCallback(
-    (path: string) => {
+    (path: string, byUser = true) => {
+      if (byUser) changed.current = true;
       for (const f of listFiles())
         if (within(f, path)) {
           texts.current.delete(f);
@@ -173,6 +181,7 @@ export function useWorkspace(log: (message: string) => void) {
 
   const toggleWorkspace = useCallback(
     (folder: string) => {
+      changed.current = true;
       const ws = listWorkspaces();
       if (ws.includes(folder)) setWorkspaces(ws.filter((w) => w !== folder));
       else if (canBeWorkspace(folder, ws)) setWorkspaces([...ws, folder]);
@@ -220,6 +229,7 @@ export function useWorkspace(log: (message: string) => void) {
   // A workspace's project file, written from the generated one to change it
   const customizeProject = useCallback(
     (dir: string) => {
+      changed.current = true;
       const path = dir ? `${dir}/_RocqProject` : "_RocqProject";
       const files = listFiles();
       if (!files.includes(path)) write(path, generatedProject(dir, files, listWorkspaces(), read));
@@ -228,6 +238,8 @@ export function useWorkspace(log: (message: string) => void) {
     },
     [read, refresh, select],
   );
+
+  const edited = useCallback(() => changed.current, []);
 
   // All the folders: those of the files, and the empty ones
   const allFolders = useMemo(() => {
@@ -254,6 +266,7 @@ export function useWorkspace(log: (message: string) => void) {
     toggleWorkspace,
     importFiles,
     customizeProject,
+    edited,
     // (current, for callbacks outside of React's renders)
     current: state,
     setMirror: (m: Mirror | null) => (mirror.current = m),

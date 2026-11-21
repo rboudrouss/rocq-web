@@ -4,7 +4,7 @@ import { App } from "./App";
 import { examples, loadExample } from "./lib/examples";
 import { openShared } from "./lib/share";
 import { pickBuild } from "./lib/detect";
-import { embedded, setActiveFile } from "./lib/storage";
+import { setActiveFile, temporary } from "./lib/storage";
 import { setLibraries } from "./lib/workspaces";
 import "./styles.css";
 
@@ -39,7 +39,7 @@ async function openExample() {
   const paths = await loadExample(e);
   const file = params.get("file");
   setActiveFile(paths.find((p) => p.endsWith(`/${file}`)) ?? paths[0]);
-  if (!embedded) {
+  if (!temporary) {
     params.delete("example");
     params.delete("file");
     history.replaceState(null, "", location.pathname + (params.size ? `?${params}` : "") + location.hash);

@@ -10,9 +10,13 @@ const activeKey = "rocq-web:active";
 const foldersKey = "rocq-web:folders";
 const workspacesKey = "rocq-web:workspaces";
 
-// Embedded in another page (?embed): its files in memory only, for the
-// page's lifetime, not those of the user's workspace
-export const embedded = new URLSearchParams(location.search).has("embed");
+// Embedded in another page (?embed), or a temporary session (?temp: a
+// tutorial, a demo): its files in memory only, for the page's lifetime,
+// not those of the user's workspace, which it neither reads nor changes
+// (the page's settings, such as its panels, are still the user's)
+const params = new URLSearchParams(location.search);
+export const embedded = params.has("embed");
+export const temporary = embedded || params.has("temp");
 class Memory {
   private m = new Map<string, string>();
   get length() {
@@ -31,9 +35,12 @@ class Memory {
     this.m.delete(k);
   }
 }
-const storage: Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem"> = embedded
+let storage: Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem"> = temporary
   ? new Memory()
   : localStorage;
+// (a temporary session's files kept: what follows reads and writes the
+// user's workspace, the page then loaded again)
+export const toUserStorage = () => (storage = localStorage);
 
 export const example = `(* Rocq in the browser *)
 Theorem plus_comm : forall n m : nat, n + m = m + n.

@@ -304,3 +304,7 @@ header.mobile .menu button, header.mobile .menu select { font-size: 0.95rem; pad
   .about a { color: #7aa5ff; }
   .about h3, .about dt { color: #9198a5; }
 }
+.shared .button { border: 1px solid #ccc; background: #fff; white-space: nowrap; }
+@media (prefers-color-scheme: dark) {
+  .shared .button { background: #2b303b; border-color: #444b58; }
+}

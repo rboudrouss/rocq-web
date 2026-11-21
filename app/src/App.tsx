@@ -40,11 +40,16 @@ import { saveBlob } from "./lib/download";
 import { navLabel } from "./lib/keys";
 import { type Example, exampleFiles } from "./lib/examples";
 import { linkedLibraries, shareUrl, workspacesOf } from "./lib/share";
-import { embedded, isRocq } from "./lib/storage";
+import { keepTemporary, withoutLink } from "./lib/keep";
+import { embedded, isRocq, temporary } from "./lib/storage";
 import { root } from "./lib/workspaces";
 
 const compatWarning =
   "This browser runs the compatibility build of Rocq (no WebAssembly JSPI or memory64), slower and limited to 4 GB of memory. Chrome or Edge 137 and later run the full build.";
+
+// (a temporary session kept, what it told the page loaded again)
+const keptMessage = sessionStorage.getItem("rocq-web:kept");
+sessionStorage.removeItem("rocq-web:kept");
 
 export function App() {
   const [build] = useState(pickBuild);
@@ -102,6 +107,35 @@ export function App() {
   }, [build, log]);
   const active = ws.active;
   useEffect(() => setDrawer(false), [active, nav.readOnly]);
+
+  // A temporary session (?temp): told, its changes lost when the page
+  // closes unless kept (lib/keep.ts), the page then loaded again without
+  // the link, what was kept told there
+  const leaving = useRef(false);
+  const { edited } = ws;
+  useEffect(() => {
+    if (!temporary || embedded) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (edited() && !leaving.current) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [edited]);
+  const keep = () => {
+    ws.flush();
+    try {
+      const { kept, told } = keepTemporary(active, {
+        libraries: libs.libraries.map(({ folder, source, pinned }) => ({ folder, source, ...(pinned && { pinned }) })),
+        opened: opened.openedFolders,
+      });
+      sessionStorage.setItem("rocq-web:kept", [`Kept ${kept} files in this browser`, ...told].join(". "));
+    } catch (e) {
+      sessionStorage.setItem("rocq-web:kept", `Not all the files were kept (${(e as Error).message})`);
+    }
+    leaving.current = true;
+    location.replace(withoutLink());
+  };
+  const [kept, setKept] = useState(keptMessage);
 
   // (the current file, with the libraries it requires; a library alone)
   const share = () => setSharing({ file: true, libraries: libs.requiredBy(active, ws.read(active)) });
@@ -174,6 +208,19 @@ export function App() {
       {build === "compat" && !compatSeen && !embedded && (
         <Banner kind="warning" close={() => setCompatSeen(true)}>
           {compatWarning}
+        </Banner>
+      )}
+      {temporary && !embedded && (
+        <Banner kind="warning">
+          <span>Temporary session: nothing is saved in this browser, and closing the page loses the changes.</span>
+          <button className="button" onClick={keep} title="Copy these files into your workspace, and leave the session">
+            Keep these files
+          </button>
+        </Banner>
+      )}
+      {kept && (
+        <Banner close={() => setKept(null)}>
+          {kept}
         </Banner>
       )}
       {embedded && (libs.progress || libs.error) && (

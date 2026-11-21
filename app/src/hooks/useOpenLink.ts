@@ -3,13 +3,13 @@
 // URL, its files imported in a folder of their name (a workspace; name_2...
 // when the user's folder of that name holds other files, told), the one of
 // ?file=NAME opened, else the first Rocq file; the URL then cleaned
-// (embedded: kept, its files are in memory only, fetched at each load).
+// (temporary: kept, its files are in memory only, fetched at each load).
 // The folders opened so are kept with their source, which the Share dialog
 // puts in a link instead of their files.
 import { useEffect, useRef, useState } from "react";
 import { freeFolder } from "../lib/disk";
 import { fetchProject, openable } from "../lib/library";
-import { embedded, isRocq } from "../lib/storage";
+import { example, isRocq, temporary } from "../lib/storage";
 import { root } from "../lib/workspaces";
 import { usePersistentState } from "./usePersistentState";
 import type { Workspace } from "./useWorkspace";
@@ -24,7 +24,7 @@ export type Opened = { folder: string; source: string; pinned?: string };
 export const openSource = (o: Opened) => o.pinned ?? o.source;
 
 function forget() {
-  if (embedded) return;
+  if (temporary) return;
   const p = new URLSearchParams(location.search);
   p.delete("open");
   p.delete("file");
@@ -32,10 +32,10 @@ function forget() {
 }
 
 export function useOpenLink(ws: Workspace, log: (m: string) => void) {
-  // (embedded: in memory, as its files are)
+  // (temporary: in memory, as its files are)
   const persisted = usePersistentState<Opened[]>("opened", []);
   const inMemory = useState<Opened[]>([]);
-  const [recorded, setRecorded] = embedded ? inMemory : persisted;
+  const [recorded, setRecorded] = temporary ? inMemory : persisted;
   const latest = useRef(recorded);
   latest.current = recorded;
   // what is being fetched, the last error, the folder renamed
@@ -97,6 +97,9 @@ export function useOpenLink(ws: Workspace, log: (m: string) => void) {
         : undefined;
       const active = named ?? all.find(isRocq);
       if (active) ws.select(active);
+      // (a temporary session: the scratch file, untouched, not beside them)
+      if (temporary && active && ws.current.current.files.includes("scratch.v") && ws.read("scratch.v") === example)
+        ws.remove("scratch.v", false);
       if (opened.length) forget();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

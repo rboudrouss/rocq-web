@@ -1,6 +1,5 @@
 import { canBeWorkspace } from "./workspaces";
 import {
-  embedded,
   isProject,
   isRocq,
   listFiles,
@@ -8,6 +7,7 @@ import {
   readFile,
   setActiveFile,
   setWorkspaces,
+  temporary,
   validFolder,
   validName,
   within,
@@ -39,18 +39,22 @@ export type Shared = { active: string | null; files: [string, string][]; workspa
 
 // A link to the page with these files and libraries (?lib=SPEC each),
 // and the folders it opens from where they came from (?open=SPEC each,
-// ?file=NAME the one shown)
+// ?file=NAME the one shown); a temporary session's (?temp, first)
 export async function shareUrl(
   shared: Shared,
   libraries: string[] = [],
   base = location.href,
-  opens: { open: string[]; file?: string } = { open: [] },
+  opens: { open: string[]; file?: string; temp?: boolean } = { open: [] },
 ) {
   const url = new URL(base);
-  for (const p of ["lib", "open", "file"]) url.searchParams.delete(p);
+  for (const p of ["lib", "open", "file", "temp"]) url.searchParams.delete(p);
   for (const l of libraries) url.searchParams.append("lib", l);
   for (const o of opens.open) url.searchParams.append("open", o);
   if (opens.open.length && opens.file) url.searchParams.set("file", opens.file);
+  if (opens.temp) {
+    const rest = url.searchParams.toString();
+    url.search = `?temp${rest ? `&${rest}` : ""}`;
+  }
   const { files, workspaces } = shared;
   if (files.length === 0) url.hash = "";
   else if (files.length === 1 && workspaces.length === 0)
@@ -123,7 +127,7 @@ export async function openShared() {
   setWorkspaces(ws);
   const active = (shared.active && written.get(shared.active)) ?? [...written.values()].find(isRocq);
   if (active) setActiveFile(active);
-  if (!embedded) history.replaceState(null, "", location.pathname + location.search);
+  if (!temporary) history.replaceState(null, "", location.pathname + location.search);
 }
 
 // A link made the page's embedded version (?embed, first)
@@ -153,10 +157,10 @@ export const linkedLibraries = [
   ...new Set(new URLSearchParams(location.search).getAll("lib").map((s) => s.trim()).filter(Boolean)),
 ];
 
-// The URL without its libraries, once they are added (embedded: kept, its
+// The URL without its libraries, once they are added (temporary: kept, its
 // files are in memory only)
 export function forgetLinkedLibraries() {
-  if (embedded) return;
+  if (temporary) return;
   const params = new URLSearchParams(location.search);
   if (!params.has("lib")) return;
   params.delete("lib");

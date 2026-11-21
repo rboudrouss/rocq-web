@@ -8,7 +8,7 @@ import { freeFolder, readInput } from "../lib/disk";
 import { archiveLibrary, fetchLibrary, folderLibrary, gitHubRepository, type Library } from "../lib/library";
 import { requires } from "../lib/project";
 import { forgetLinkedLibraries, linkedLibraries } from "../lib/share";
-import { embedded, isRocq } from "../lib/storage";
+import { isRocq, temporary } from "../lib/storage";
 import { isLibraryName, moduleName, root } from "../lib/workspaces";
 import type { Workspace } from "./useWorkspace";
 import { usePersistentState } from "./usePersistentState";
@@ -25,10 +25,10 @@ export const fetchable = (source: string) => gitHubRepository(source) !== null |
 export const linkSource = (l: Added) => l.pinned ?? l.source;
 
 export function useLibraries(ws: Workspace, log: (m: string) => void) {
-  // (embedded: in memory, as its files are)
+  // (temporary: in memory, as its files are)
   const persisted = usePersistentState<Added[]>("libraries", []);
   const inMemory = useState<Added[]>([]);
-  const [added, setAdded] = embedded ? inMemory : persisted;
+  const [added, setAdded] = temporary ? inMemory : persisted;
   // (the latest list, for adds that end after another)
   const latest = useRef(added);
   latest.current = added;
