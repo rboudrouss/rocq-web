@@ -4,8 +4,9 @@
 // again (?lib=SPEC), the folders opened from a repository or an archive
 // (?open=SPEC: their files then left out, the current one ?file=NAME),
 // others for the link only (a GitHub repository pinned to its last commit
-// by default). A warning when the link is too long, and (i) buttons that
-// tell more.
+// by default), a temporary session (?temp: by default when it opens
+// folders; an embed always is one). A warning when the link is too long,
+// and (i) buttons that tell more.
 import { Code, Copy, FolderInput, Info, Link, PackagePlus, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { fetchable, type Libraries, linkSource } from "../../hooks/useLibraries";
@@ -65,6 +66,8 @@ async function pinnedSpec<T extends { owner: string; repo: string; ref: string |
 
 export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
   const [embed, setEmbed] = useState(false);
+  // (a temporary session, chosen: else when the link opens folders)
+  const [temp, setTemp] = useState<boolean | null>(null);
   const [file, setFile] = useState(start.file);
   const [all, setAll] = useState(false);
   const [checked, setChecked] = useState(() => new Set(start.libraries));
@@ -100,6 +103,7 @@ export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
   const sources = [...mine.map(linkSource), ...extra].filter((s) => checked.has(s));
   const opens = [...opened.map(openSource), ...openExtra].filter((s) => openChecked.has(s));
   const shownFile = activeFolder && (file || all) ? ws.active.slice(activeFolder.length + 1) : undefined;
+  const temporary = embed || (temp ?? opens.length > 0);
   const text = embed ? embedCode(embedUrl(link)) : link;
 
   const shared = (): Shared => {
@@ -120,11 +124,15 @@ export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
   };
 
   // The link made again, and copied
-  const key = JSON.stringify([file, all, sources, opens, shownFile, embed]);
+  const key = JSON.stringify([file, all, sources, opens, shownFile, embed, temporary]);
   useEffect(() => {
     let current = true;
     const s = shared();
-    shareUrl(s, sources, new URL(location.pathname, location.href).href, { open: opens, file: shownFile }).then(async (u) => {
+    shareUrl(s, sources, new URL(location.pathname, location.href).href, {
+      open: opens,
+      file: shownFile,
+      temp: temporary && !embed,
+    }).then(async (u) => {
       if (!current) return;
       setLink(u);
       const ok = await copy(embed ? embedCode(embedUrl(u)) : u);
@@ -135,7 +143,7 @@ export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
         sources.length && plural(sources.length, "library"),
       ];
       log(
-        `${embed ? "embed" : "link"}${what.some(Boolean) ? ` with ${what.filter(Boolean).join(" and ")}` : ""} ${ok ? "copied" : "made"} (${u.length} characters)`,
+        `${embed ? "embed" : temporary ? "temporary link" : "link"}${what.some(Boolean) ? ` with ${what.filter(Boolean).join(" and ")}` : ""} ${ok ? "copied" : "made"} (${u.length} characters)`,
       );
     });
     return () => {
@@ -284,8 +292,34 @@ export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
 
         <More
           more={
+            <>
+              <p>
+                A temporary session keeps its files in memory: it neither reads nor changes the visitor's own files,
+                and closing the page forgets it. It suits a tutorial or a demo that students open once, without
+                filling their workspace. A banner tells them, with a button to keep the files.
+              </p>
+              <p>An embed is always one.</p>
+            </>
+          }
+        >
+          <label>
+            <input
+              type="checkbox"
+              checked={temporary}
+              disabled={embed}
+              onChange={(e) => setTemp(e.target.checked)}
+            />
+            <span>
+              Temporary session{" "}
+              <span className="muted">{embed ? "always, for an embed" : "nothing saved in the visitor's browser"}</span>
+            </span>
+          </label>
+        </More>
+
+        <More
+          more={
             <p>
-              Opening the link copies the files into the visitor's browser. A file whose path they already use
+              Opening the link copies the files into the visitor's browser, unless the session is temporary. A file whose path they already use
               with another text is renamed, as <code>A_1.v</code> or a folder <code>W_2/</code>. All files leaves
               out the libraries that the link adds by itself.
             </p>
