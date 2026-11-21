@@ -184,6 +184,8 @@ export function useRocqSession({ build, ws, log }: { build: string; ws: Workspac
       // (busy once it checks a file)
       setStatus("Idle");
       setStarted((n) => n + 1);
+      // (the workspaces changed while it started: an import, a link's)
+      syncWorkspaces();
     });
     fetch(`${assets}packages.json`)
       .then((r) => r.json())
