@@ -33,7 +33,9 @@ their libraries, or the HTML that embeds the page in another site
 opens. `lib` also takes an archive's URL and can be repeated. A link with
 `?open=owner/repo@tag:folder` opens the Rocq files of a GitHub repository,
 or of one of its folders, as a project, and `open` also takes a GitHub URL
-or an archive's URL. The Share dialog can put both in a link.
+or an archive's URL. The Share dialog can put both in a link. With
+`?temp`, as in an embed, the files stay in memory and the visitor's own are
+left alone, for a tutorial or a demo; a button keeps them if wanted.
 
 ## Limitations
 

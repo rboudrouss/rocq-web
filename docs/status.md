@@ -55,7 +55,8 @@ commit by default. It lists too the folders opened by a link (`?open=`),
 pinned to the commit fetched when the link named no version: checked, the
 link opens them again from their source instead of carrying their files,
 and `?file=` names the current file if it is in one. Others can be added
-for the link, pinned the same way. It warns of links over 8 KB, which chats and mail may
+for the link, pinned the same way. A link can make a temporary session, checked by
+default when it opens folders and always for an embed. It warns of links over 8 KB, which chats and mail may
 cut, and over 2 MB, which Chrome does not open. A shared file whose path
 already holds another text is renamed (`N_1.v`, or a folder `F_2/`). Its
 (i) buttons explain each part, including what an embed needs.
@@ -97,7 +98,13 @@ Library downloads in progress are shown. The page follows the system's dark
 mode. Examples open from a panel or a link (`?example=Basics`). The page
 can be embedded in another with `?embed`, its files then kept in memory
 only, like its libraries and the files it opens, which are fetched again
-at each load (`?embed&lib=...`, `?embed&open=...`). In a page without cross-origin isolation the full build
+at each load (`?embed&lib=...`, `?embed&open=...`). `?temp` makes such a
+temporary session in the full page, for a tutorial or a demo: the user's
+files are neither shown nor changed, a banner says so, and leaving after a
+change asks first. Its button "Keep these files" copies them into the
+user's workspace, a folder whose name the user's holds other files going to
+`NAME_2/` as above, with its libraries and opened folders, and loads the
+page again without the link (tested by `tests/temp_session.mjs`). In a page without cross-origin isolation the full build
 runs, but edits do not interrupt Rocq and the compat build does not start.
 A page served with COOP `same-origin` and COEP `require-corp` or
 `credentialless` makes the iframe isolated too, given
