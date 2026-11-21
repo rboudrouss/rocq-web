@@ -209,6 +209,9 @@ export function gitHubFolder(spec: string): Opened | null {
   const gh = gitHubRepository(repo);
   return gh && { ...gh, folder: rest.join(":") };
 }
+// (its spec in a link: owner/repo[@ref][:folder])
+export const openSpec = ({ owner, repo, ref, folder }: Opened) =>
+  `${owner}/${repo}${ref ? `@${ref}` : ""}${folder.replace(/^\/+|\/+$/g, "") ? `:${folder.replace(/^\/+|\/+$/g, "")}` : ""}`;
 export const openable = (spec: string) => gitHubFolder(spec) !== null || /^https?:\/\/\S+$/.test(spec.trim());
 
 // The files a link opens: those of a repository's folder (the paths
@@ -216,11 +219,12 @@ export const openable = (spec: string) => gitHubFolder(spec) !== null || /^https
 // (extra.ts's keptFiles: the Rocq and project files, the files they read;
 // not those of hidden folders, _build, node_modules), and the folder they
 // go to (named as the repository's folder, else the repository or the
-// archive: not as the library of the same repository, ?lib)
+// archive: not as the library of the same repository, ?lib); pinned: the
+// spec at the commit fetched, when it named no ref
 export async function fetchProject(
   spec: string,
   progress: (done: number, total: number) => void,
-): Promise<{ name: string; files: DiskFile[] }> {
+): Promise<{ name: string; files: DiskFile[]; pinned?: string }> {
   const gh = gitHubFolder(spec);
   if (!gh) {
     const { name, files } = await archiveFiles(...(await download(spec)));
@@ -228,6 +232,7 @@ export async function fetchProject(
   }
   const at = `${gh.owner}/${gh.repo}@${gh.ref ?? (await latestCommit(gh.owner, gh.repo))}`;
   const folder = gh.folder.replace(/^\/+|\/+$/g, "");
+  const pinned = gh.ref === null ? openSpec({ ...gh, ref: at.slice(at.indexOf("@") + 1), folder }) : undefined;
   const listing = await json<{ files: { name: string }[] }>(
     `https://data.jsdelivr.com/v1/packages/gh/${at}?structure=flat`,
     `${at} not found: no public repository with this branch, tag or commit`,
@@ -249,7 +254,7 @@ export async function fetchProject(
       const f = relative(await jsDelivrFile(at, prefix + p));
       if (isText(f.text)) files.push(f);
     }
-  return { name: folderName(folder.split("/").pop() || gh.repo), files: files.sort(byPath) };
+  return { name: folderName(folder.split("/").pop() || gh.repo), files: files.sort(byPath), ...(pinned && { pinned }) };
 }
 
 const byPath = (a: DiskFile, b: DiskFile) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);

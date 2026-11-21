@@ -37,11 +37,20 @@ const inflate = async (s: string) =>
 // files' folders)
 export type Shared = { active: string | null; files: [string, string][]; workspaces: string[] };
 
-// A link to the page with these files and libraries (?lib=SPEC each)
-export async function shareUrl(shared: Shared, libraries: string[] = [], base = location.href) {
+// A link to the page with these files and libraries (?lib=SPEC each),
+// and the folders it opens from where they came from (?open=SPEC each,
+// ?file=NAME the one shown)
+export async function shareUrl(
+  shared: Shared,
+  libraries: string[] = [],
+  base = location.href,
+  opens: { open: string[]; file?: string } = { open: [] },
+) {
   const url = new URL(base);
-  url.searchParams.delete("lib");
+  for (const p of ["lib", "open", "file"]) url.searchParams.delete(p);
   for (const l of libraries) url.searchParams.append("lib", l);
+  for (const o of opens.open) url.searchParams.append("open", o);
+  if (opens.open.length && opens.file) url.searchParams.set("file", opens.file);
   const { files, workspaces } = shared;
   if (files.length === 0) url.hash = "";
   else if (files.length === 1 && workspaces.length === 0)

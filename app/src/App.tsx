@@ -30,7 +30,7 @@ import { useLibraries } from "./hooks/useLibraries";
 import { useLog } from "./hooks/useLog";
 import { useKeyboard, useMobile } from "./hooks/useMobile";
 import { useNavigation } from "./hooks/useNavigation";
-import { openedSpec, useOpenLink } from "./hooks/useOpenLink";
+import { openedSpecs, useOpenLink } from "./hooks/useOpenLink";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useQueries } from "./hooks/useQueries";
 import { useRocqSession } from "./hooks/useRocqSession";
@@ -63,7 +63,7 @@ export function App() {
   // panel, being added)
   useEffect(() => {
     if (embedded) return;
-    if (openedSpec) setPanel("files");
+    if (openedSpecs.length) setPanel("files");
     else if (linkedLibraries.length) setPanel("packages");
   }, [setPanel]);
   const mobile = useMobile();
@@ -189,7 +189,7 @@ export function App() {
           {libs.notice}
         </Banner>
       )}
-      {sharing && <ShareDialog start={sharing} ws={ws} libs={libs} log={log} close={closeShare} />}
+      {sharing && <ShareDialog start={sharing} ws={ws} libs={libs} opened={opened.openedFolders} log={log} close={closeShare} />}
       <main
         ref={main}
         className={panel && !embedded && !mobile ? "with-sidebar" : ""}

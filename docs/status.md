@@ -51,7 +51,11 @@ embedding the page, and copies it at each change. It shares the current file or 
 files, leaving out those of the libraries the link adds. It lists the
 libraries added from GitHub or a URL, those the file requires checked
 first, and takes others for the link only, a repository pinned to its last
-commit by default. It warns of links over 8 KB, which chats and mail may
+commit by default. It lists too the folders opened by a link (`?open=`),
+pinned to the commit fetched when the link named no version: checked, the
+link opens them again from their source instead of carrying their files,
+and `?file=` names the current file if it is in one. Others can be added
+for the link, pinned the same way. It warns of links over 8 KB, which chats and mail may
 cut, and over 2 MB, which Chrome does not open. A shared file whose path
 already holds another text is renamed (`N_1.v`, or a folder `F_2/`). Its
 (i) buttons explain each part, including what an embed needs.

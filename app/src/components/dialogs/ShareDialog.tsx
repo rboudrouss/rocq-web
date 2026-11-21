@@ -1,14 +1,17 @@
 // The Share button's dialog: a link, or the HTML that embeds the page in
 // another one, made again and copied at each change of what it shares: the
 // current file or all of them, the user's libraries that can be fetched
-// again (?lib=SPEC), others for the link only (a GitHub repository pinned
-// to its last commit by default). A warning when the link is too long, and
-// (i) buttons that tell more.
-import { Code, Copy, Info, Link, PackagePlus, X } from "lucide-react";
+// again (?lib=SPEC), the folders opened from a repository or an archive
+// (?open=SPEC: their files then left out, the current one ?file=NAME),
+// others for the link only (a GitHub repository pinned to its last commit
+// by default). A warning when the link is too long, and (i) buttons that
+// tell more.
+import { Code, Copy, FolderInput, Info, Link, PackagePlus, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { fetchable, type Libraries, linkSource } from "../../hooks/useLibraries";
+import { type Opened, openSource } from "../../hooks/useOpenLink";
 import type { Workspace } from "../../hooks/useWorkspace";
-import { gitHubRepository, isCommit, latestCommit } from "../../lib/library";
+import { gitHubFolder, gitHubRepository, isCommit, latestCommit, openable, openSpec } from "../../lib/library";
 import { embedCode, embedUrl, longUrl, maxUrl, type Shared, shareUrl, workspacesOf } from "../../lib/share";
 
 // What the dialog shares when it opens (file: the current one; libraries:
@@ -19,6 +22,8 @@ type Props = {
   start: ShareStart;
   ws: Workspace;
   libs: Libraries;
+  // (the folders opened by a link, ?open=SPEC)
+  opened: Opened[];
   log: (m: string) => void;
   close: () => void;
 };
@@ -48,7 +53,17 @@ function More({ children, more }: { children: ReactNode; more: ReactNode }) {
   );
 }
 
-export function ShareDialog({ start, ws, libs, log, close }: Props) {
+// A GitHub repository's spec pinned to the last commit of its ref (its
+// default branch), unless it names a commit
+async function pinnedSpec<T extends { owner: string; repo: string; ref: string | null }>(
+  gh: T,
+  spec: (gh: T) => string,
+): Promise<string> {
+  if (gh.ref && isCommit(gh.ref)) return spec(gh);
+  return spec({ ...gh, ref: await latestCommit(gh.owner, gh.repo, gh.ref ?? "HEAD") });
+}
+
+export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
   const [embed, setEmbed] = useState(false);
   const [file, setFile] = useState(start.file);
   const [all, setAll] = useState(false);
@@ -62,19 +77,33 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
   const [pin, setPin] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // (the folders the link opens from their source, checked; those added
+  // here; the form's)
+  const [openChecked, setOpenChecked] = useState(() => new Set<string>());
+  const [openExtra, setOpenExtra] = useState<string[]>([]);
+  const [openSpecText, setOpenSpecText] = useState("");
+  const [openError, setOpenError] = useState<string | null>(null);
   // the link (what is copied: it, or the HTML of the embed)
   const [link, setLink] = useState("");
   const field = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
 
   const mine = libs.libraries.filter((l) => fetchable(l.source));
   const fromDisk = libs.libraries.filter((l) => !fetchable(l.source));
-  // (all the files: those of the libraries that a link can fetch left out)
-  const allFiles = ws.files.filter((f) => !mine.some((l) => f.startsWith(`${l.folder}/`)));
+  // (the folders the link opens: their files left out, the current one
+  // named by ?file)
+  const reopened = opened.filter((o) => openChecked.has(openSource(o))).map((o) => o.folder);
+  const inReopened = (f: string) => reopened.some((d) => f.startsWith(`${d}/`));
+  const activeFolder = reopened.find((d) => ws.active.startsWith(`${d}/`));
+  // (all the files: those of the libraries that a link can fetch, and of
+  // the folders it opens, left out)
+  const allFiles = ws.files.filter((f) => !mine.some((l) => f.startsWith(`${l.folder}/`)) && !inReopened(f));
   const sources = [...mine.map(linkSource), ...extra].filter((s) => checked.has(s));
+  const opens = [...opened.map(openSource), ...openExtra].filter((s) => openChecked.has(s));
+  const shownFile = activeFolder && (file || all) ? ws.active.slice(activeFolder.length + 1) : undefined;
   const text = embed ? embedCode(embedUrl(link)) : link;
 
   const shared = (): Shared => {
-    const paths = all ? allFiles : file ? [ws.active] : [];
+    const paths = all ? allFiles : file && !activeFolder ? [ws.active] : [];
     return {
       active: paths.includes(ws.active) ? ws.active : null,
       files: paths.map((p) => [p, ws.read(p)]),
@@ -91,16 +120,20 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
   };
 
   // The link made again, and copied
-  const key = JSON.stringify([file, all, sources, embed]);
+  const key = JSON.stringify([file, all, sources, opens, shownFile, embed]);
   useEffect(() => {
     let current = true;
     const s = shared();
-    shareUrl(s, sources, new URL(location.pathname, location.href).href).then(async (u) => {
+    shareUrl(s, sources, new URL(location.pathname, location.href).href, { open: opens, file: shownFile }).then(async (u) => {
       if (!current) return;
       setLink(u);
       const ok = await copy(embed ? embedCode(embedUrl(u)) : u);
       if (!current) return;
-      const what = [s.files.length && plural(s.files.length, "file"), sources.length && plural(sources.length, "library")];
+      const what = [
+        s.files.length && plural(s.files.length, "file"),
+        opens.length && plural(opens.length, "opened folder"),
+        sources.length && plural(sources.length, "library"),
+      ];
       log(
         `${embed ? "embed" : "link"}${what.some(Boolean) ? ` with ${what.filter(Boolean).join(" and ")}` : ""} ${ok ? "copied" : "made"} (${u.length} characters)`,
       );
@@ -117,13 +150,14 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     return () => window.removeEventListener("keydown", esc);
   }, [close]);
 
-  const toggle = (source: string) =>
-    setChecked((c) => {
-      const n = new Set(c);
-      if (n.has(source)) n.delete(source);
-      else n.add(source);
-      return n;
-    });
+  const flip = (source: string) => (c: Set<string>) => {
+    const n = new Set(c);
+    if (n.has(source)) n.delete(source);
+    else n.add(source);
+    return n;
+  };
+  const toggle = (source: string) => setChecked(flip(source));
+  const toggleOpen = (source: string) => setOpenChecked(flip(source));
 
   // A library for the link: a GitHub repository pinned to the last commit
   // of its ref (its default branch) if asked, an archive's URL as it is
@@ -135,17 +169,35 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
     if (!gh && !fetchable(s)) return setError(`${s} is neither a GitHub repository (owner/repo) nor an archive's URL`);
     setAdding(true);
     try {
-      const source =
-        gh && pin && !(gh.ref && isCommit(gh.ref))
-          ? `${gh.owner}/${gh.repo}@${await latestCommit(gh.owner, gh.repo, gh.ref ?? "HEAD")}`
-          : gh
-            ? `${gh.owner}/${gh.repo}${gh.ref ? `@${gh.ref}` : ""}`
-            : s;
+      const repoSpec = (g: { owner: string; repo: string; ref: string | null }) =>
+        `${g.owner}/${g.repo}${g.ref ? `@${g.ref}` : ""}`;
+      const source = gh ? (pin ? await pinnedSpec(gh, repoSpec) : repoSpec(gh)) : s;
       if (!mine.some((l) => linkSource(l) === source)) setExtra((e) => (e.includes(source) ? e : [...e, source]));
       setChecked((c) => new Set(c).add(source));
       setSpec("");
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // A folder for the link to open: a GitHub repository's (pinned as a
+  // library is), an archive's URL as it is
+  const addOpen = async () => {
+    const s = openSpecText.trim();
+    if (!s || adding) return;
+    setOpenError(null);
+    if (!openable(s)) return setOpenError(`${s} is neither a GitHub repository (owner/repo[:folder]) nor an archive's URL`);
+    const gh = gitHubFolder(s);
+    setAdding(true);
+    try {
+      const source = gh ? (pin ? await pinnedSpec(gh, openSpec) : openSpec(gh)) : s;
+      if (!opened.some((o) => openSource(o) === source)) setOpenExtra((e) => (e.includes(source) ? e : [...e, source]));
+      setOpenChecked((c) => new Set(c).add(source));
+      setOpenSpecText("");
+    } catch (e) {
+      setOpenError((e as Error).message);
     } finally {
       setAdding(false);
     }
@@ -244,7 +296,11 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
         <label>
           <input type="checkbox" checked={file || all} disabled={all} onChange={(e) => setFile(e.target.checked)} />
           <span>
-            This file <span className="muted">{ws.active}</span>
+            This file{" "}
+            <span className="muted">
+              {ws.active}
+              {activeFolder && `, opened from ${activeFolder}/'s source`}
+            </span>
           </span>
         </label>
         <label>
@@ -253,6 +309,55 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
             All files <span className="muted">{plural(allFiles.length, "file")}</span>
           </span>
         </label>
+
+        <More
+          more={
+            <>
+              <p>
+                The link fetches the checked folders again from their GitHub repository or archive, with one{" "}
+                <code>?open=</code> each, instead of carrying their files: it stays short whatever their size. If
+                This file is in one of them, <code>&amp;file=</code> opens it.
+              </p>
+              <p>Changes made to these files since they were opened are not in the link.</p>
+            </>
+          }
+        >
+          <h3>Opened folders</h3>
+        </More>
+        {opened.map((o) => (
+          <label key={o.folder}>
+            <input type="checkbox" checked={openChecked.has(openSource(o))} onChange={() => toggleOpen(openSource(o))} />
+            <span>
+              {o.folder}/ <span className="muted">{openSource(o)}</span>
+            </span>
+          </label>
+        ))}
+        {openExtra.map((s) => (
+          <label key={s}>
+            <input type="checkbox" checked={openChecked.has(s)} onChange={() => toggleOpen(s)} />
+            <span>
+              {s} <span className="muted">link only</span>
+            </span>
+          </label>
+        ))}
+        <form
+          className="share-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addOpen();
+          }}
+        >
+          <input
+            placeholder="owner/repo@tag:folder, a GitHub folder's URL or an archive's URL"
+            aria-label="A folder for the link to open"
+            value={openSpecText}
+            onChange={(e) => setOpenSpecText(e.target.value)}
+          />
+          <button type="submit" className="button" disabled={!openSpecText.trim() || adding} title="Add it to the link">
+            <FolderInput size={14} /> {adding ? "…" : "Add"}
+          </button>
+        </form>
+        {openError && <p className="error">{openError}</p>}
 
         <More
           more={
@@ -310,8 +415,9 @@ export function ShareDialog({ start, ws, libs, log, close }: Props) {
           more={
             <>
               <p>
-                GitHub allows 60 requests per hour per IP address, and a repository without a version costs one
-                per visitor, or one per load for an embed. A classroom or a campus behind a single address (NAT)
+                This applies to the libraries and the folders added here. GitHub allows 60 requests per hour per
+                IP address, and a repository without a version costs one per visitor, or one per load for an
+                embed. A classroom or a campus behind a single address (NAT)
                 can run out, and the library then stops loading for everyone there. With a version in the link,
                 only jsDelivr is asked.
               </p>
