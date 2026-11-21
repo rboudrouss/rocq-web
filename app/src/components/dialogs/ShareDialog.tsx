@@ -292,14 +292,10 @@ export function ShareDialog({ start, ws, libs, opened, log, close }: Props) {
 
         <More
           more={
-            <>
-              <p>
-                A temporary session keeps its files in memory: it neither reads nor changes the visitor's own files,
-                and closing the page forgets it. It suits a tutorial or a demo that students open once, without
-                filling their workspace. A banner tells them, with a button to keep the files.
-              </p>
-              <p>An embed is always one.</p>
-            </>
+            <p>
+              The visitor's own files stay untouched, and closing the page forgets the session. A button lets them
+              keep its files. An embed is always temporary.
+            </p>
           }
         >
           <label>
